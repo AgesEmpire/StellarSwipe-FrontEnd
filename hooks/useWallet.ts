@@ -1,6 +1,10 @@
 "use client";
 
-import { getAddress, isConnected, requestAccess } from "@stellar/freighter-api";
+import {
+  isConnected,
+  getAddress,
+  requestAccess,
+} from "@stellar/freighter-api";
 import { useWalletStore } from "@/store/useWalletStore";
 import { toast } from "@/lib/toast";
 
@@ -15,20 +19,10 @@ export function useWallet() {
         toast.error("Freighter wallet not found. Please install it.");
         return;
       }
-
-      const accessResponse = await requestAccess();
-      if (!accessResponse?.address) {
-        toast.error("Unable to access Freighter wallet.");
-        return;
-      }
-
-      const addressResponse = await getAddress();
-      if (!addressResponse?.address) {
-        toast.error("Could not retrieve wallet address.");
-        return;
-      }
-
-      setPublicKey(addressResponse.address);
+      await requestAccess();
+      const result = await getAddress();
+      const key = typeof result === "string" ? result : result.address;
+      setPublicKey(key);
       setConnected(true);
       toast.success("Wallet connected");
     } catch (err) {
