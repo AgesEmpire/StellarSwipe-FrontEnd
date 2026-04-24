@@ -30,7 +30,7 @@ export default function Home() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center"
+        className="relative text-center"
       >
         <h1 className="text-4xl font-bold tracking-tight text-white">StellarSwipe</h1>
         <p className="mt-2 text-gray-400">
@@ -38,6 +38,7 @@ export default function Home() {
         </p>
       </motion.div>
 
+      {/* Wallet connection */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
