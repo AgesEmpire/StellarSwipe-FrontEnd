@@ -108,7 +108,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
               {(["LIMIT", "MARKET"] as OrderType[]).map((t) => (
                 <button
                   key={t}
-                  onClick={() => { setType(t); setTouched((prev) => ({ ...prev, limitPrice: false })); }}
+                  onClick={() => setType(t)}
                   aria-pressed={type === t}
                   className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all
                     ${type === t
@@ -134,13 +134,8 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                     placeholder="0.00"
                     value={limitPrice}
                     onChange={(e) => setLimitPrice(e.target.value)}
-                    onBlur={() => setTouched((t) => ({ ...t, limitPrice: true }))}
-                    className={`w-full rounded-lg bg-input border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm
-                      ${limitPriceError ? "border-accent-danger" : "border-border"}`}
+                    className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
                   />
-                  {limitPriceError && (
-                    <p className="mt-1 text-xs text-accent-danger" role="alert">{limitPriceError}</p>
-                  )}
                 </div>
               ) : (
                 <div>
@@ -163,13 +158,8 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  onBlur={() => setTouched((t) => ({ ...t, amount: true }))}
-                  className={`w-full rounded-lg bg-input border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm
-                    ${amountError ? "border-accent-danger" : "border-border"}`}
+                  className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
                 />
-                {amountError && (
-                  <p className="mt-1 text-xs text-accent-danger" role="alert">{amountError}</p>
-                )}
               </div>
 
               {/* Total (read-only) */}
