@@ -14,9 +14,16 @@ interface TradeModalProps {
   marketPrice?: number;
 }
 
-// Mock transaction builder
 const mockBuildTx = (order: object) =>
   new Promise<void>((res) => setTimeout(() => { console.log("tx built", order); res(); }, 800));
+
+function validateField(value: string, label: string): string {
+  if (!value.trim()) return `${label} is required`;
+  const num = Number(value);
+  if (isNaN(num)) return `${label} must be a number`;
+  if (num <= 0) return `${label} must be greater than 0`;
+  return "";
+}
 
 export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0.4821 }: TradeModalProps) {
   const [type, setType] = useState<OrderType>("LIMIT");
@@ -25,6 +32,10 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
   const [stopLoss, setStopLoss] = useState(10);
   const [positionLimit, setPositionLimit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [touched, setTouched] = useState({ limitPrice: false, amount: false });
+
+  const limitPriceError = type === "LIMIT" && touched.limitPrice ? validateField(limitPrice, "Limit price") : "";
+  const amountError = touched.amount ? validateField(amount, "Amount") : "";
 
   const focusTrapRef = useFocusTrap({ 
     isActive: open, 
@@ -34,11 +45,12 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
   const price = type === "MARKET" ? marketPrice : parseFloat(limitPrice) || 0;
   const total = price * (parseFloat(amount) || 0);
   const insufficient = total > walletBalance;
-  const disabled = !amount || (type === "LIMIT" && !limitPrice) || insufficient || submitting;
+  const hasErrors = !!amountError || (type === "LIMIT" && !!limitPriceError);
+  const disabled = !amount || (type === "LIMIT" && !limitPrice) || insufficient || submitting || hasErrors;
 
-  // ESC to close
   useEffect(() => {
     if (!open) return;
+    setTouched({ limitPrice: false, amount: false });
     const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -65,9 +77,13 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
           exit={{ opacity: 0 }}
         >
           {/* Overlay */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+          <div
+            className="absolute inset-0 bg-overlay/60 backdrop-blur-sm"
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-          {/* Modal */}
+          {/* Modal panel */}
           <motion.div
             ref={focusTrapRef}
             role="dialog"
@@ -76,8 +92,8 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             aria-describedby="trade-modal-description"
             className={`relative z-10 mx-4 w-full max-w-md rounded-2xl border p-4 shadow-2xl sm:mx-0 sm:p-6
               ${type === "MARKET"
-                ? "bg-indigo-950/95 border-indigo-500/40"
-                : "bg-gray-900/95 border-gray-700/60"}`}
+                ? "bg-accent-market/10 border-accent-market/30"
+                : "bg-surface border-border"}`}
             initial={{ scale: 0.92, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0, y: 20 }}
@@ -85,34 +101,28 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
-              <h2 id="trade-modal-title" className="text-lg font-semibold text-white">Place Order</h2>
+              <h2 className="text-lg font-semibold text-foreground">Place Order</h2>
               <button
                 onClick={onClose}
-                aria-label="Close trade modal"
-                className="rounded-full p-1 text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Close modal"
+                className="rounded-full p-1 text-foreground-muted hover:text-foreground hover:bg-foreground/10 transition-colors"
               >
-                <X size={18} />
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
-            <p id="trade-modal-description" className="sr-only">
-              Configure and place a {type.toLowerCase()} order for trading
-            </p>
-
-            {/* Market / Limit Toggle */}
-            <div className="flex rounded-lg bg-white/5 p-1 mb-5" role="tablist" aria-label="Order type selection">
+            {/* Order type toggle */}
+            <div role="group" aria-label="Order type" className="flex rounded-lg bg-foreground/5 p-1 mb-5">
               {(["LIMIT", "MARKET"] as OrderType[]).map((t) => (
                 <button
                   key={t}
                   data-order-type={t}
                   onClick={() => setType(t)}
-                  role="tab"
-                  aria-selected={type === t}
-                  aria-controls={`${t.toLowerCase()}-panel`}
-                  className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset
+                  aria-pressed={type === t}
+                  className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all
                     ${type === t
-                      ? "bg-white/15 text-white shadow"
-                      : "text-gray-400 hover:text-white"}`}
+                      ? "bg-foreground/15 text-foreground shadow"
+                      : "text-foreground-muted hover:text-foreground"}`}
                 >
                   {t === "LIMIT" ? "Limit" : "Market"}
                 </button>
@@ -122,70 +132,66 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             <div className="space-y-4" id={`${type.toLowerCase()}-panel`} role="tabpanel">
               {/* Price row */}
               {type === "LIMIT" ? (
-                <label className="block">
-                  <span className="text-xs text-gray-400 mb-1 block">Limit Price (USDC)</span>
+                <div>
+                  <label htmlFor="limit-price" className="text-xs text-foreground-muted mb-1 block">
+                    Limit Price (USDC)
+                  </label>
                   <input
+                    id="limit-price"
                     type="number"
                     min="0"
                     step="0.0001"
                     placeholder="0.00"
                     value={limitPrice}
                     onChange={(e) => setLimitPrice(e.target.value)}
-                    aria-describedby="limit-price-help"
-                    className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
                   />
-                  <span id="limit-price-help" className="sr-only">
-                    Enter the maximum price you're willing to pay per token
-                  </span>
-                </label>
+                </div>
               ) : (
                 <div>
-                  <span className="text-xs text-gray-400 mb-1 block">Current Market Price</span>
-                  <div 
-                    className="w-full rounded-lg bg-indigo-900/40 border border-indigo-500/30 px-3 py-2 text-indigo-300 text-sm font-mono"
-                    aria-label={`Current market price is ${marketPrice.toFixed(4)} USDC`}
-                  >
+                  <span className="text-xs text-foreground-muted mb-1 block">Current Market Price</span>
+                  <div className="w-full rounded-lg bg-accent-market/40 border border-accent-market/30 px-3 py-2 text-accent-market text-sm font-mono">
                     ${marketPrice.toFixed(4)} USDC
                   </div>
                 </div>
               )}
 
               {/* Amount */}
-              <label className="block">
-                <span className="text-xs text-gray-400 mb-1 block">Amount (XLM)</span>
+              <div>
+                <label htmlFor="trade-amount" className="text-xs text-foreground-muted mb-1 block">
+                  Amount (XLM)
+                </label>
                 <input
+                  id="trade-amount"
                   type="number"
                   min="0"
                   step="0.01"
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  aria-describedby="amount-help"
-                  className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
                 />
-                <span id="amount-help" className="sr-only">
-                  Enter the amount of XLM tokens you want to trade
-                </span>
-              </label>
+              </div>
 
               {/* Total (read-only) */}
               <div>
-                <span className="text-xs text-gray-400 mb-1 block">Total (USDC)</span>
-                <div 
-                  className={`w-full rounded-lg border px-3 py-2 text-sm font-mono
-                    ${insufficient ? "border-red-500/50 bg-red-900/20 text-red-400" : "border-white/10 bg-white/5 text-white"}`}
-                  aria-label={`Total cost: ${total.toFixed(4)} USDC${insufficient ? ". Insufficient balance." : ""}`}
-                >
+                <span className="text-xs text-foreground-muted mb-1 block">Total (USDC)</span>
+                <div className={`w-full rounded-lg border px-3 py-2 text-sm font-mono
+                  ${insufficient
+                    ? "border-accent-danger/50 bg-accent-danger/10 text-accent-danger"
+                    : "border-border bg-input text-foreground"}`}>
                   ${total.toFixed(4)}
-                  {insufficient && <span className="ml-2 text-xs text-red-400">Insufficient balance</span>}
+                  {insufficient && (
+                    <span className="ml-2 text-xs text-accent-danger">Insufficient balance</span>
+                  )}
                 </div>
               </div>
 
               {/* Stop-loss slider */}
               <div>
-                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <div className="flex justify-between text-xs text-foreground-muted mb-1">
                   <label htmlFor="stop-loss-slider">Stop-Loss</label>
-                  <span className="text-orange-400 font-medium" aria-live="polite">-{stopLoss}%</span>
+                  <span className="text-accent-warning font-medium">-{stopLoss}%</span>
                 </div>
                 <input
                   id="stop-loss-slider"
@@ -194,8 +200,11 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                   max={50}
                   value={stopLoss}
                   onChange={(e) => setStopLoss(Number(e.target.value))}
-                  aria-describedby="stop-loss-help"
-                  className="w-full accent-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  aria-label={`Stop-loss: ${stopLoss}%`}
+                  aria-valuemin={1}
+                  aria-valuemax={50}
+                  aria-valuenow={stopLoss}
+                  className="w-full accent-[hsl(var(--accent-warning))]"
                 />
                 <span id="stop-loss-help" className="sr-only">
                   Set the percentage loss at which to automatically sell. Currently set to {stopLoss} percent.
@@ -204,19 +213,22 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
 
               {/* Position limit toggle */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300 flex items-center gap-1">
+                <span id="position-limit-label" className="text-sm text-foreground flex items-center gap-1">
                   Position Limit
-                  <Info size={13} className="text-gray-500" aria-hidden="true" />
+                  <Info size={13} className="text-foreground-subtle" aria-hidden="true" />
                 </span>
                 <button
                   role="switch"
                   aria-checked={positionLimit}
-                  aria-describedby="position-limit-help"
+                  aria-labelledby="position-limit-label"
                   onClick={() => setPositionLimit((v) => !v)}
-                  className={`relative w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${positionLimit ? "bg-blue-500" : "bg-white/15"}`}
+                  className={`relative w-10 h-5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+                    ${positionLimit ? "bg-primary" : "bg-foreground/15"}`}
                 >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${positionLimit ? "translate-x-5" : ""}`} />
-                  <span className="sr-only">{positionLimit ? "Disable" : "Enable"} position limit</span>
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-foreground shadow transition-transform ${positionLimit ? "translate-x-5" : ""}`}
+                    aria-hidden="true"
+                  />
                 </button>
                 <span id="position-limit-help" className="sr-only">
                   Position limit helps manage risk by limiting the size of your position
@@ -227,16 +239,16 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             {/* Footer metrics */}
             <div className="mt-5 rounded-lg bg-white/5 border border-white/10 px-3 py-3 grid grid-cols-3 gap-1 text-center text-xs sm:px-4 sm:gap-2">
               <div>
-                <p className="text-gray-500">Network Fee</p>
-                <p className="text-gray-200 font-medium mt-0.5">{networkFee}</p>
+                <p className="text-foreground-subtle">Network Fee</p>
+                <p className="text-foreground font-medium mt-0.5">{networkFee}</p>
               </div>
               <div>
-                <p className="text-gray-500">Price Impact</p>
-                <p className="text-yellow-400 font-medium mt-0.5">{priceImpact}</p>
+                <p className="text-foreground-subtle">Price Impact</p>
+                <p className="text-accent-warning font-medium mt-0.5">{priceImpact}</p>
               </div>
               <div>
-                <p className="text-gray-500">Execution</p>
-                <p className="text-gray-200 font-medium mt-0.5">{execMethod}</p>
+                <p className="text-foreground-subtle">Execution</p>
+                <p className="text-foreground font-medium mt-0.5">{execMethod}</p>
               </div>
             </div>
 
@@ -244,13 +256,13 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             <button
               onClick={handleConfirm}
               disabled={disabled}
-              aria-describedby="confirm-button-help"
-              className={`mt-4 w-full rounded-xl py-3 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900
+              aria-disabled={disabled}
+              className={`mt-4 w-full rounded-xl py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
                 ${disabled
-                  ? "bg-white/10 text-gray-500 cursor-not-allowed focus:ring-gray-500"
+                  ? "bg-foreground/10 text-foreground-subtle cursor-not-allowed"
                   : type === "MARKET"
-                    ? "bg-indigo-600 hover:bg-indigo-500 text-white focus:ring-indigo-500"
-                    : "bg-blue-600 hover:bg-blue-500 text-white focus:ring-blue-500"}`}
+                    ? "bg-accent-market hover:opacity-90 text-foreground"
+                    : "bg-primary hover:opacity-90 text-primary-foreground"}`}
             >
               {submitting ? "Submitting…" : `Confirm ${type === "LIMIT" ? "Limit" : "Market"} Order`}
             </button>

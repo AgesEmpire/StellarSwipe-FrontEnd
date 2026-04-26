@@ -32,9 +32,7 @@ export function SignalFeed() {
       const response = await fetch(`/api/signals?page=${pageParam}&pageSize=${PAGE_SIZE}`, {
         cache: "no-store",
       });
-      if (!response.ok) {
-        throw new Error("Unable to load the signal feed.");
-      }
+      if (!response.ok) throw new Error("Unable to load the signal feed.");
       return response.json() as Promise<SignalResponse>;
     },
     getNextPageParam: (lastPage: SignalResponse) => lastPage.nextPage,
@@ -50,28 +48,16 @@ export function SignalFeed() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const loadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   useEffect(() => {
     const element = sentinelRef.current;
-    if (!element || !hasNextPage || isFetchingNextPage) {
-      return;
-    }
-
+    if (!element || !hasNextPage || isFetchingNextPage) return;
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          loadMore();
-        }
-      },
-      {
-        rootMargin: "240px",
-      }
+      (entries) => { if (entries[0]?.isIntersecting) loadMore(); },
+      { rootMargin: "240px" }
     );
-
     observer.observe(element);
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, loadMore]);
@@ -86,23 +72,23 @@ export function SignalFeed() {
             Browse the latest actionable signals with seamless infinite scrolling.
           </p>
         </div>
-        <div className="text-right text-sm text-slate-400">
+        <div className="text-right text-sm text-foreground-muted">
           {isFetching && !signals.length ? "Loading signals..." : "Scroll down to load more."}
         </div>
       </div>
 
       <div className="space-y-4">
-        {isError ? (
-          <div className="rounded-3xl border border-rose-200/20 bg-rose-50/10 p-5 text-sm text-rose-200">
+        {isError && (
+          <div className="rounded-3xl border border-accent-danger/20 bg-accent-danger/10 p-5 text-sm text-accent-danger">
             {error?.message ?? "There was a problem loading the signal feed."}
           </div>
-        ) : null}
+        )}
 
-        {!isLoading && signals.length === 0 ? (
-          <div className="rounded-3xl border border-slate-700/80 bg-slate-950/80 p-8 text-center text-slate-300">
+        {!isLoading && signals.length === 0 && (
+          <div className="rounded-3xl border border-border bg-surface/80 p-8 text-center text-foreground-muted">
             No signals available right now.
           </div>
-        ) : null}
+        )}
 
         {isLoading ? (
           <div className="space-y-4">
@@ -111,10 +97,10 @@ export function SignalFeed() {
                 key={index}
                 className="animate-pulse rounded-3xl border border-white/10 bg-slate-900/80 p-4 sm:p-6"
               >
-                <div className="mb-4 h-6 w-3/5 rounded-xl bg-slate-700" />
+                <div className="mb-4 h-6 w-3/5 rounded-xl bg-surface-high" />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="h-5 rounded-xl bg-slate-700" />
-                  <div className="h-5 rounded-xl bg-slate-700" />
+                  <div className="h-5 rounded-xl bg-surface-high" />
+                  <div className="h-5 rounded-xl bg-surface-high" />
                 </div>
               </div>
             ))}
@@ -127,7 +113,7 @@ export function SignalFeed() {
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  <p className="text-xs uppercase tracking-[0.3em] text-foreground-muted">
                     {new Date(signal.timestamp).toLocaleString()}
                   </p>
                   <h3 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-xl">
@@ -138,7 +124,7 @@ export function SignalFeed() {
                   Confidence {signal.confidence}%
                 </div>
               </div>
-              <p className="mt-4 text-sm leading-6 text-slate-300">{signal.details}</p>
+              <p className="mt-4 text-sm leading-6 text-foreground-muted">{signal.details}</p>
             </article>
           ))
         )}
@@ -147,32 +133,23 @@ export function SignalFeed() {
       <div className="mt-6 flex flex-col items-center gap-4">
         <div ref={sentinelRef} className="h-1 w-full" />
 
-        {isFetchingNextPage ? (
-          <div className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300">
+        {isFetchingNextPage && (
+          <div className="rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground-muted">
             Loading more signals...
           </div>
-        ) : null}
+        )}
 
-        {!hasNextPage && signals.length > 0 ? (
-          <p className="text-center text-sm text-slate-500">
-            You’ve reached the end of the feed.
+        {!hasNextPage && signals.length > 0 && (
+          <p className="text-center text-sm text-foreground-subtle">
+            You&apos;ve reached the end of the feed.
           </p>
-        ) : null}
+        )}
 
-        {hasNextPage ? (
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            disabled={isFetchingNextPage}
-            aria-describedby="load-more-help"
-            className="focus:ring-2 focus:ring-blue-500"
-          >
+        {hasNextPage && (
+          <Button variant="outline" onClick={loadMore} disabled={isFetchingNextPage}>
             {isFetchingNextPage ? "Loading more..." : "Load more signals"}
           </Button>
-        ) : null}
-        <span id="load-more-help" className="sr-only">
-          Load additional signals from the feed
-        </span>
+        )}
       </div>
     </section>
   );

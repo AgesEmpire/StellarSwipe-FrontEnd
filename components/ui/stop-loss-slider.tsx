@@ -66,17 +66,17 @@ export function StopLossSlider({
   // Colour the thumb/track based on risk level
   const riskColor =
     value <= 10
-      ? "text-green-500"
+      ? "text-accent-success"
       : value <= 30
-      ? "text-yellow-500"
-      : "text-red-500";
+      ? "text-accent-warning"
+      : "text-accent-danger";
 
   const trackFillColor =
     value <= 10
-      ? "bg-green-500"
+      ? "bg-accent-success"
       : value <= 30
-      ? "bg-yellow-500"
-      : "bg-red-500";
+      ? "bg-accent-warning"
+      : "bg-accent-danger";
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -147,19 +147,19 @@ export function StopLossSlider({
             "[&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-100",
             "[&::-webkit-slider-thumb]:hover:scale-110",
             value <= 10
-              ? "[&::-webkit-slider-thumb]:bg-green-500"
+              ? "[&::-webkit-slider-thumb]:bg-[hsl(var(--accent-success))]"
               : value <= 30
-              ? "[&::-webkit-slider-thumb]:bg-yellow-500"
-              : "[&::-webkit-slider-thumb]:bg-red-500",
+              ? "[&::-webkit-slider-thumb]:bg-[hsl(var(--accent-warning))]"
+              : "[&::-webkit-slider-thumb]:bg-[hsl(var(--accent-danger))]",
             // Firefox
             "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4",
             "[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2",
             "[&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:shadow-md",
             value <= 10
-              ? "[&::-moz-range-thumb]:bg-green-500"
+              ? "[&::-moz-range-thumb]:bg-[hsl(var(--accent-success))]"
               : value <= 30
-              ? "[&::-moz-range-thumb]:bg-yellow-500"
-              : "[&::-moz-range-thumb]:bg-red-500",
+              ? "[&::-moz-range-thumb]:bg-[hsl(var(--accent-warning))]"
+              : "[&::-moz-range-thumb]:bg-[hsl(var(--accent-danger))]",
             // Focus ring on thumb
             "focus-visible:[&::-webkit-slider-thumb]:ring-2",
             "focus-visible:[&::-webkit-slider-thumb]:ring-ring",

@@ -51,7 +51,7 @@ export default function Home() {
       >
         {connected ? (
           <>
-            <p className="text-sm text-gray-400 font-mono" aria-label={`Connected wallet: ${publicKey}`}>
+            <p className="text-sm text-foreground-muted font-mono">
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
             </p>
             <Button 
@@ -79,15 +79,13 @@ export default function Home() {
         <div className="flex gap-3">
           <button
             onClick={toggleLoading}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950 rounded"
-            aria-label="Preview loading skeleton animation"
+            className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
           >
             Preview skeleton
           </button>
           <button
             onClick={() => setModalOpen(true)}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950 rounded"
-            aria-label="Open trade modal dialog"
+            className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
           >
             Open trade modal
           </button>

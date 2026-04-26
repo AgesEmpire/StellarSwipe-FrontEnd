@@ -6,9 +6,9 @@ import { useToastStore, type ToastMessage } from "@/store/useToastStore";
 import { cn } from "@/lib/utils";
 
 const toneStyles: Record<ToastMessage["tone"], string> = {
-  success: "border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm",
-  error: "border-rose-300 bg-rose-50 text-rose-900 shadow-sm",
-  info: "border-sky-300 bg-sky-50 text-sky-900 shadow-sm",
+  success: "border-accent-success/30 bg-accent-success/10 text-foreground shadow-sm",
+  error:   "border-accent-danger/30  bg-accent-danger/10  text-foreground shadow-sm",
+  info:    "border-accent-sky/30     bg-accent-sky/10     text-foreground shadow-sm",
 };
 
 const toneIcons: Record<ToastMessage["tone"], typeof CheckCircle2> = {
@@ -48,7 +48,7 @@ export function ToastProvider() {
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-current shadow-sm">
+                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-foreground/10 text-current shadow-sm">
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </div>
 
@@ -64,7 +64,7 @@ export function ToastProvider() {
                 <button
                   type="button"
                   aria-label="Dismiss notification"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-current transition hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/50"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-current transition hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/50"
                   onClick={() => dismiss(toast.id)}
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
