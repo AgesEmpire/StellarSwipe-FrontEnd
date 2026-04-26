@@ -46,7 +46,7 @@ const CopyButton = React.forwardRef<HTMLButtonElement, CopyButtonProps>(
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:pointer-events-none disabled:opacity-50",
           // Copied state
-          copied && "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400",
+          copied && "border-accent-success/40 bg-accent-success/10 text-accent-success",
           className
         )}
         {...props}

@@ -51,7 +51,7 @@ export default function Home() {
       >
         {connected ? (
           <>
-            <p className="text-sm text-gray-400 font-mono">
+            <p className="text-sm text-foreground-muted font-mono">
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
             </p>
             <Button variant="outline" onClick={disconnect}>Disconnect</Button>
@@ -67,13 +67,13 @@ export default function Home() {
         <div className="flex gap-3">
           <button
             onClick={toggleLoading}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
           >
             Preview skeleton
           </button>
           <button
             onClick={() => setModalOpen(true)}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
           >
             Open trade modal
           </button>

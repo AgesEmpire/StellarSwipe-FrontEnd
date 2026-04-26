@@ -13,15 +13,11 @@ export function TransactionSuccess() {
 
   const handleViewPortfolio = useCallback(() => {
     clearSuccess();
-    // Navigate to portfolio - placeholder for now
     console.log("Navigate to portfolio");
   }, [clearSuccess]);
 
-  const handleContinueSwiping = useCallback(() => {
-    clearSuccess();
-  }, [clearSuccess]);
+  const handleContinueSwiping = useCallback(() => clearSuccess(), [clearSuccess]);
 
-  // Auto-dismiss
   useEffect(() => {
     if (!showSuccess) return;
     const timer = setTimeout(clearSuccess, AUTO_DISMISS_MS);
@@ -42,16 +38,14 @@ export function TransactionSuccess() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
         >
-          {/* Backdrop */}
           <motion.div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-overlay/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={clearSuccess}
           />
 
-          {/* Card */}
           <motion.div
             className="relative w-full max-w-md rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-zinc-900 to-zinc-950 p-4 shadow-2xl shadow-emerald-500/10 sm:p-6"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -59,41 +53,34 @@ export function TransactionSuccess() {
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
           >
-            {/* Close button */}
             <button
               onClick={clearSuccess}
-              className="absolute right-4 top-4 rounded-full p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+              aria-label="Close"
+              className="absolute right-4 top-4 rounded-full p-1 text-foreground-subtle transition-colors hover:bg-surface-high hover:text-foreground-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
 
-            {/* Success animation */}
             <div className="mb-4 flex justify-center">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 200,
-                  damping: 15,
-                  delay: 0.1,
-                }}
+                transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
               >
                 <div className="relative">
-                  {/* Glow ring */}
                   <motion.div
-                    className="absolute -inset-2 rounded-full bg-emerald-500/20 blur-xl"
+                    className="absolute -inset-2 rounded-full bg-accent-success/20 blur-xl"
                     animate={{ scale: [1, 1.15, 1] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                   />
-                  <CheckCircle className="relative h-14 w-14 text-emerald-400" />
+                  <CheckCircle className="relative h-14 w-14 text-accent-success" />
                 </div>
               </motion.div>
             </div>
 
-            {/* Title */}
             <motion.h2
-              className="mb-1 text-center text-xl font-semibold text-white"
+              id="tx-success-title"
+              className="mb-1 text-center text-xl font-semibold text-foreground"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -101,7 +88,7 @@ export function TransactionSuccess() {
               Trade Executed
             </motion.h2>
             <motion.p
-              className="mb-6 text-center text-sm text-zinc-400"
+              className="mb-6 text-center text-sm text-foreground-muted"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
@@ -109,9 +96,8 @@ export function TransactionSuccess() {
               Your swap completed successfully
             </motion.p>
 
-            {/* Transaction details */}
             <motion.div
-              className="mb-6 space-y-3 rounded-xl bg-zinc-800/50 p-4"
+              className="mb-6 space-y-3 rounded-xl bg-surface-high p-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -120,13 +106,13 @@ export function TransactionSuccess() {
               <DetailRow label="Amount" value={success.amount} />
               <DetailRow label="Price" value={success.price} />
               <DetailRow label="Fee" value={success.fee} />
-              <div className="flex items-center justify-between border-t border-zinc-700/50 pt-3">
-                <span className="text-xs text-zinc-500">Transaction</span>
+              <div className="flex items-center justify-between border-t border-border pt-3">
+                <span className="text-xs text-foreground-subtle">Transaction</span>
                 <a
                   href={`https://stellar.expert/explorer/testnet/tx/${success.hash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs font-mono text-emerald-400 transition-colors hover:text-emerald-300"
+                  className="flex items-center gap-1 text-xs font-mono text-accent-success transition-colors hover:opacity-80"
                 >
                   {truncatedHash}
                   <ArrowRight className="h-3 w-3" />
@@ -134,7 +120,6 @@ export function TransactionSuccess() {
               </div>
             </motion.div>
 
-            {/* Actions */}
             <motion.div
               className="flex flex-col gap-2 sm:flex-row"
               initial={{ opacity: 0, y: 10 }}
@@ -143,7 +128,7 @@ export function TransactionSuccess() {
             >
               <Button
                 onClick={handleViewPortfolio}
-                className="flex-1 gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                className="flex-1 gap-2 bg-accent-success text-foreground hover:opacity-90"
               >
                 <Eye className="h-4 w-4" />
                 View Portfolio
@@ -151,7 +136,7 @@ export function TransactionSuccess() {
               <Button
                 onClick={handleContinueSwiping}
                 variant="outline"
-                className="flex-1 gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                className="flex-1 gap-2"
               >
                 Continue Swiping
                 <ArrowRight className="h-4 w-4" />
@@ -167,8 +152,8 @@ export function TransactionSuccess() {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <span className="text-sm font-medium text-zinc-200">{value}</span>
+      <span className="text-xs text-foreground-subtle">{label}</span>
+      <span className="text-sm font-medium text-foreground">{value}</span>
     </div>
   );
 }

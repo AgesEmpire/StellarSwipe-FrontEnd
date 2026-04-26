@@ -13,7 +13,6 @@ interface TradeModalProps {
   marketPrice?: number;
 }
 
-// Mock transaction builder
 const mockBuildTx = (order: object) =>
   new Promise<void>((res) => setTimeout(() => { console.log("tx built", order); res(); }, 800));
 
@@ -30,7 +29,6 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
   const insufficient = total > walletBalance;
   const disabled = !amount || (type === "LIMIT" && !limitPrice) || insufficient || submitting;
 
-  // ESC to close
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -59,17 +57,21 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
           exit={{ opacity: 0 }}
         >
           {/* Overlay */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+          <div
+            className="absolute inset-0 bg-overlay/60 backdrop-blur-sm"
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-          {/* Modal */}
+          {/* Modal panel */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label={`${type === "LIMIT" ? "Limit" : "Market"} Order`}
             className={`relative z-10 mx-4 w-full max-w-md rounded-2xl border p-4 shadow-2xl sm:mx-0 sm:p-6
               ${type === "MARKET"
-                ? "bg-indigo-950/95 border-indigo-500/40"
-                : "bg-gray-900/95 border-gray-700/60"}`}
+                ? "bg-accent-market/10 border-accent-market/30"
+                : "bg-surface border-border"}`}
             initial={{ scale: 0.92, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0, y: 20 }}
@@ -77,26 +79,27 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-white">Place Order</h2>
+              <h2 className="text-lg font-semibold text-foreground">Place Order</h2>
               <button
                 onClick={onClose}
                 aria-label="Close modal"
-                className="rounded-full p-1 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="rounded-full p-1 text-foreground-muted hover:text-foreground hover:bg-foreground/10 transition-colors"
               >
-                <X size={18} />
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
 
-            {/* Market / Limit Toggle */}
-            <div className="flex rounded-lg bg-white/5 p-1 mb-5">
+            {/* Order type toggle */}
+            <div role="group" aria-label="Order type" className="flex rounded-lg bg-foreground/5 p-1 mb-5">
               {(["LIMIT", "MARKET"] as OrderType[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setType(t)}
+                  aria-pressed={type === t}
                   className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all
                     ${type === t
-                      ? "bg-white/15 text-white shadow"
-                      : "text-gray-400 hover:text-white"}`}
+                      ? "bg-foreground/15 text-foreground shadow"
+                      : "text-foreground-muted hover:text-foreground"}`}
                 >
                   {t === "LIMIT" ? "Limit" : "Market"}
                 </button>
@@ -106,78 +109,98 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             <div className="space-y-4">
               {/* Price row */}
               {type === "LIMIT" ? (
-                <label className="block">
-                  <span className="text-xs text-gray-400 mb-1 block">Limit Price (USDC)</span>
+                <div>
+                  <label htmlFor="limit-price" className="text-xs text-foreground-muted mb-1 block">
+                    Limit Price (USDC)
+                  </label>
                   <input
+                    id="limit-price"
                     type="number"
                     min="0"
                     placeholder="0.00"
                     value={limitPrice}
                     onChange={(e) => setLimitPrice(e.target.value)}
-                    className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm"
+                    className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
                   />
-                </label>
+                </div>
               ) : (
                 <div>
-                  <span className="text-xs text-gray-400 mb-1 block">Current Market Price</span>
-                  <div className="w-full rounded-lg bg-indigo-900/40 border border-indigo-500/30 px-3 py-2 text-indigo-300 text-sm font-mono">
+                  <span className="text-xs text-foreground-muted mb-1 block">Current Market Price</span>
+                  <div className="w-full rounded-lg bg-accent-market/40 border border-accent-market/30 px-3 py-2 text-accent-market text-sm font-mono">
                     ${marketPrice.toFixed(4)} USDC
                   </div>
                 </div>
               )}
 
               {/* Amount */}
-              <label className="block">
-                <span className="text-xs text-gray-400 mb-1 block">Amount (XLM)</span>
+              <div>
+                <label htmlFor="trade-amount" className="text-xs text-foreground-muted mb-1 block">
+                  Amount (XLM)
+                </label>
                 <input
+                  id="trade-amount"
                   type="number"
                   min="0"
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm"
+                  className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
                 />
-              </label>
+              </div>
 
               {/* Total (read-only) */}
               <div>
-                <span className="text-xs text-gray-400 mb-1 block">Total (USDC)</span>
+                <span className="text-xs text-foreground-muted mb-1 block">Total (USDC)</span>
                 <div className={`w-full rounded-lg border px-3 py-2 text-sm font-mono
-                  ${insufficient ? "border-red-500/50 bg-red-900/20 text-red-400" : "border-white/10 bg-white/5 text-white"}`}>
+                  ${insufficient
+                    ? "border-accent-danger/50 bg-accent-danger/10 text-accent-danger"
+                    : "border-border bg-input text-foreground"}`}>
                   ${total.toFixed(4)}
-                  {insufficient && <span className="ml-2 text-xs text-red-400">Insufficient balance</span>}
+                  {insufficient && (
+                    <span className="ml-2 text-xs text-accent-danger">Insufficient balance</span>
+                  )}
                 </div>
               </div>
 
               {/* Stop-loss slider */}
               <div>
-                <div className="flex justify-between text-xs text-gray-400 mb-1">
-                  <span>Stop-Loss</span>
-                  <span className="text-orange-400 font-medium">-{stopLoss}%</span>
+                <div className="flex justify-between text-xs text-foreground-muted mb-1">
+                  <label htmlFor="stop-loss-slider">Stop-Loss</label>
+                  <span className="text-accent-warning font-medium">-{stopLoss}%</span>
                 </div>
                 <input
+                  id="stop-loss-slider"
                   type="range"
                   min={1}
                   max={50}
                   value={stopLoss}
                   onChange={(e) => setStopLoss(Number(e.target.value))}
-                  className="w-full accent-orange-500"
+                  aria-label={`Stop-loss: ${stopLoss}%`}
+                  aria-valuemin={1}
+                  aria-valuemax={50}
+                  aria-valuenow={stopLoss}
+                  className="w-full accent-[hsl(var(--accent-warning))]"
                 />
               </div>
 
               {/* Position limit toggle */}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300 flex items-center gap-1">
+                <span id="position-limit-label" className="text-sm text-foreground flex items-center gap-1">
                   Position Limit
-                  <Info size={13} className="text-gray-500" />
+                  <Info size={13} className="text-foreground-subtle" aria-hidden="true" />
                 </span>
                 <button
                   role="switch"
                   aria-checked={positionLimit}
+                  aria-labelledby="position-limit-label"
                   onClick={() => setPositionLimit((v) => !v)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${positionLimit ? "bg-blue-500" : "bg-white/15"}`}
+                  className={`relative w-10 h-5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+                    ${positionLimit ? "bg-primary" : "bg-foreground/15"}`}
                 >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${positionLimit ? "translate-x-5" : ""}`} />
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-foreground shadow transition-transform ${positionLimit ? "translate-x-5" : ""}`}
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </div>
@@ -185,16 +208,16 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             {/* Footer metrics */}
             <div className="mt-5 rounded-lg bg-white/5 border border-white/10 px-3 py-3 grid grid-cols-3 gap-1 text-center text-xs sm:px-4 sm:gap-2">
               <div>
-                <p className="text-gray-500">Network Fee</p>
-                <p className="text-gray-200 font-medium mt-0.5">{networkFee}</p>
+                <p className="text-foreground-subtle">Network Fee</p>
+                <p className="text-foreground font-medium mt-0.5">{networkFee}</p>
               </div>
               <div>
-                <p className="text-gray-500">Price Impact</p>
-                <p className="text-yellow-400 font-medium mt-0.5">{priceImpact}</p>
+                <p className="text-foreground-subtle">Price Impact</p>
+                <p className="text-accent-warning font-medium mt-0.5">{priceImpact}</p>
               </div>
               <div>
-                <p className="text-gray-500">Execution</p>
-                <p className="text-gray-200 font-medium mt-0.5">{execMethod}</p>
+                <p className="text-foreground-subtle">Execution</p>
+                <p className="text-foreground font-medium mt-0.5">{execMethod}</p>
               </div>
             </div>
 
@@ -202,12 +225,13 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             <button
               onClick={handleConfirm}
               disabled={disabled}
-              className={`mt-4 w-full rounded-xl py-3 text-sm font-semibold transition-all
+              aria-disabled={disabled}
+              className={`mt-4 w-full rounded-xl py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
                 ${disabled
-                  ? "bg-white/10 text-gray-500 cursor-not-allowed"
+                  ? "bg-foreground/10 text-foreground-subtle cursor-not-allowed"
                   : type === "MARKET"
-                    ? "bg-indigo-600 hover:bg-indigo-500 text-white"
-                    : "bg-blue-600 hover:bg-blue-500 text-white"}`}
+                    ? "bg-accent-market hover:opacity-90 text-foreground"
+                    : "bg-primary hover:opacity-90 text-primary-foreground"}`}
             >
               {submitting ? "Submitting…" : `Confirm ${type === "LIMIT" ? "Limit" : "Market"} Order`}
             </button>
