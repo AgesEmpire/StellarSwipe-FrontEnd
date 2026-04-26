@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildSignalPage } from "@/lib/signals";
+import { traceWorker } from "@/src/tracing/worker-tracing.service";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -13,6 +14,11 @@ export async function GET(request: Request) {
     );
   }
 
-  const feed = buildSignalPage(page, pageSize);
+  const feed = await traceWorker(
+    "worker:signals:fetch",
+    async () => buildSignalPage(page, pageSize),
+    { page, pageSize }
+  );
+
   return NextResponse.json(feed, { status: 200 });
 }
