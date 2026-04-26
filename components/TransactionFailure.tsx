@@ -47,10 +47,7 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
           />
 
           <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="tx-failure-title"
-            className="relative w-full max-w-md rounded-2xl border border-accent-danger/20 bg-gradient-to-b from-surface to-background p-6 shadow-2xl"
+            className="relative w-full max-w-md rounded-2xl border border-red-500/20 bg-gradient-to-b from-zinc-900 to-zinc-950 p-4 shadow-2xl shadow-red-500/10 sm:p-6"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}

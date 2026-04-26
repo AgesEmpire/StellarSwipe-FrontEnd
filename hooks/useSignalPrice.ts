@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { traceWorker } from "@/src/tracing/worker-tracing.service";
 
 export interface SignalPrice {
   executionPrice: number;
@@ -34,16 +35,18 @@ export function useSignalPrice(intervalMs = 3000) {
   // Price polling
   useEffect(() => {
     const id = setInterval(() => {
-      setPrice((prev) => {
-        const next = mockFetchPrice(prev);
-        const dir = next.executionPrice > prev.executionPrice ? "up" : next.executionPrice < prev.executionPrice ? "down" : null;
-        if (dir) {
-          setFlash(dir);
-          setTimeout(() => setFlash(null), 900);
-        }
-        prevRef.current = next;
-        return next;
-      });
+      traceWorker("worker:signalPrice:poll", async () => {
+        setPrice((prev) => {
+          const next = mockFetchPrice(prev);
+          const dir = next.executionPrice > prev.executionPrice ? "up" : next.executionPrice < prev.executionPrice ? "down" : null;
+          if (dir) {
+            setFlash(dir);
+            setTimeout(() => setFlash(null), 900);
+          }
+          prevRef.current = next;
+          return next;
+        });
+      }).catch(console.error);
     }, intervalMs);
     return () => clearInterval(id);
   }, [intervalMs]);
