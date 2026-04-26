@@ -66,7 +66,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             role="dialog"
             aria-modal="true"
             aria-label={`${type === "LIMIT" ? "Limit" : "Market"} Order`}
-            className={`relative z-10 w-full max-w-md rounded-2xl border p-6 shadow-2xl
+            className={`relative z-10 mx-4 w-full max-w-md rounded-2xl border p-4 shadow-2xl sm:mx-0 sm:p-6
               ${type === "MARKET"
                 ? "bg-indigo-950/95 border-indigo-500/40"
                 : "bg-gray-900/95 border-gray-700/60"}`}
@@ -183,7 +183,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             </div>
 
             {/* Footer metrics */}
-            <div className="mt-5 rounded-lg bg-white/5 border border-white/10 px-4 py-3 grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="mt-5 rounded-lg bg-white/5 border border-white/10 px-3 py-3 grid grid-cols-3 gap-1 text-center text-xs sm:px-4 sm:gap-2">
               <div>
                 <p className="text-gray-500">Network Fee</p>
                 <p className="text-gray-200 font-medium mt-0.5">{networkFee}</p>
