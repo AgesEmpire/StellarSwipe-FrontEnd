@@ -53,7 +53,7 @@ export function TransactionSuccess() {
 
           {/* Card */}
           <motion.div
-            className="relative w-full max-w-md rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-zinc-900 to-zinc-950 p-6 shadow-2xl shadow-emerald-500/10"
+            className="relative w-full max-w-md rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-zinc-900 to-zinc-950 p-4 shadow-2xl shadow-emerald-500/10 sm:p-6"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}

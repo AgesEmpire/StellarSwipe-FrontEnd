@@ -77,11 +77,11 @@ export function SignalFeed() {
   }, [hasNextPage, isFetchingNextPage, loadMore]);
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-slate-950/80 p-6 shadow-xl shadow-slate-950/10">
+    <section className="rounded-3xl border border-white/10 bg-slate-950/80 p-4 shadow-xl shadow-slate-950/10 sm:p-6">
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-sky-400/90">Signal feed</p>
-          <h2 className="text-3xl font-semibold">Live market signals</h2>
+          <h2 className="text-xl font-semibold sm:text-2xl md:text-3xl">Live market signals</h2>
           <p className="max-w-2xl text-sm text-slate-400">
             Browse the latest actionable signals with seamless infinite scrolling.
           </p>
@@ -109,7 +109,7 @@ export function SignalFeed() {
             {Array.from({ length: 3 }).map((_, index) => (
               <div
                 key={index}
-                className="animate-pulse rounded-3xl border border-white/10 bg-slate-900/80 p-6"
+                className="animate-pulse rounded-3xl border border-white/10 bg-slate-900/80 p-4 sm:p-6"
               >
                 <div className="mb-4 h-6 w-3/5 rounded-xl bg-slate-700" />
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -123,18 +123,18 @@ export function SignalFeed() {
           signals.map((signal) => (
             <article
               key={signal.id}
-              className="rounded-3xl border border-white/10 bg-slate-950/90 p-6 shadow-sm shadow-slate-950/20 transition hover:-translate-y-0.5"
+              className="rounded-3xl border border-white/10 bg-slate-950/90 p-4 shadow-sm shadow-slate-950/20 transition hover:-translate-y-0.5 sm:p-6"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
                     {new Date(signal.timestamp).toLocaleString()}
                   </p>
-                  <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                  <h3 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-xl">
                     {signal.ticker} • {signal.action}
                   </h3>
                 </div>
-                <div className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-sky-300">
+                <div className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-sky-300 sm:px-4 sm:py-2 sm:text-sm">
                   Confidence {signal.confidence}%
                 </div>
               </div>
