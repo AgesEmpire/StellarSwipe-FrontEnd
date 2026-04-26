@@ -16,6 +16,14 @@ interface TradeModalProps {
 const mockBuildTx = (order: object) =>
   new Promise<void>((res) => setTimeout(() => { console.log("tx built", order); res(); }, 800));
 
+function validateField(value: string, label: string): string {
+  if (!value.trim()) return `${label} is required`;
+  const num = Number(value);
+  if (isNaN(num)) return `${label} must be a number`;
+  if (num <= 0) return `${label} must be greater than 0`;
+  return "";
+}
+
 export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0.4821 }: TradeModalProps) {
   const [type, setType] = useState<OrderType>("LIMIT");
   const [limitPrice, setLimitPrice] = useState("");
@@ -23,14 +31,20 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
   const [stopLoss, setStopLoss] = useState(10);
   const [positionLimit, setPositionLimit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [touched, setTouched] = useState({ limitPrice: false, amount: false });
+
+  const limitPriceError = type === "LIMIT" && touched.limitPrice ? validateField(limitPrice, "Limit price") : "";
+  const amountError = touched.amount ? validateField(amount, "Amount") : "";
 
   const price = type === "MARKET" ? marketPrice : parseFloat(limitPrice) || 0;
   const total = price * (parseFloat(amount) || 0);
   const insufficient = total > walletBalance;
-  const disabled = !amount || (type === "LIMIT" && !limitPrice) || insufficient || submitting;
+  const hasErrors = !!amountError || (type === "LIMIT" && !!limitPriceError);
+  const disabled = !amount || (type === "LIMIT" && !limitPrice) || insufficient || submitting || hasErrors;
 
   useEffect(() => {
     if (!open) return;
+    setTouched({ limitPrice: false, amount: false });
     const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
