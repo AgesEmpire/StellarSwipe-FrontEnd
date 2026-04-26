@@ -8,6 +8,7 @@ import {
 } from "@stellar/freighter-api";
 import { useWalletStore } from "@/store/useWalletStore";
 import { toast } from "@/lib/toast";
+import { traceWorker } from "@/src/tracing/worker-tracing.service";
 
 export function useWallet() {
   const { publicKey, isConnected: connected, setPublicKey, setConnected, disconnect } =
