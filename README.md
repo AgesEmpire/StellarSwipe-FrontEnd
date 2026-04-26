@@ -37,3 +37,47 @@ Set environment variables (.env.local):
 
 Run dev server:
   npm run dev
+
+## Worker Tracing
+
+Asynchronous worker execution paths are instrumented via `src/tracing/worker-tracing.service.ts`.
+
+### What is traced
+
+| Worker | Span name |
+|---|---|
+| `/api/signals` route handler | `worker:signals:fetch` |
+| Freighter wallet connect | `worker:wallet:connect` |
+| Signal price polling interval | `worker:signalPrice:poll` |
+
+### API
+
+```ts
+// Wrap any async function — returns its result, re-throws on error
+const data = await traceWorker("worker:my:task", async () => fetchData(), { page: 1 });
+
+// Manual span lifecycle
+const finish = startSpan("worker:my:task", { key: "value" });
+try {
+  await doWork();
+  finish("ok");
+} catch (err) {
+  finish("error", err as Error);
+}
+```
+
+Each span captures: `traceId`, `spanId`, `name`, `startedAt`, `endedAt`, `durationMs`, `status`, `attributes`, and `error` (if any).
+
+In development (`NODE_ENV=development`) spans are logged to `console.debug`. Replace the `emit` function in the service to forward spans to any observability backend (Datadog, OpenTelemetry, etc.).
+
+### Security
+
+- Attributes are caller-controlled — the service never reads or mutates them.
+- No secrets are injected or logged by the tracing layer itself.
+- Existing authentication and authorization semantics are fully preserved.
+
+### Running tests
+
+```bash
+npm test
+```

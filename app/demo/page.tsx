@@ -19,17 +19,17 @@ export default function DemoPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-10 p-8">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-10 sm:p-8">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md space-y-10"
+        className="w-full max-w-md space-y-6 sm:space-y-10"
       >
         <h1 className="text-2xl font-bold tracking-tight">Component Demo</h1>
 
         {/* ── Issue #22: Stop-Loss Slider ─────────────────────────────── */}
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-4 sm:p-6">
           <h2 className="text-base font-semibold">
             #22 — Stop-Loss Slider
           </h2>
@@ -84,7 +84,7 @@ export default function DemoPage() {
         </section>
 
         {/* ── Issue #37: Copy-to-Clipboard ────────────────────────────── */}
-        <section className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-4 sm:p-6">
           <h2 className="text-base font-semibold">
             #37 — Copy-to-Clipboard
           </h2>
