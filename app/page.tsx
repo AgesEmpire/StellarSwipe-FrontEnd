@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { TradeModal } from "@/components/TradeModal";
 import { WalletSelectionModal } from "@/components/WalletSelectionModal";
 import { SignalCard } from "@/components/SignalCard";
+import { CTABanner } from "@/components/CTABanner";
+import { HowItWorks } from "@/components/HowItWorks";
+import { Footer } from "@/components/Footer";
 
 export default function Home() {
   const { publicKey, connected, disconnect } = useWallet();
@@ -20,7 +23,6 @@ export default function Home() {
     setModalOpen(true);
   };
 
-  // Demo: toggle skeleton loading
   const toggleLoading = () => {
     setLoading(true);
     setTimeout(() => setLoading(false), 2500);
@@ -76,7 +78,33 @@ export default function Home() {
             Open trade modal
           </button>
         </div>
-      </div>
+
+        {/* CTA Banner */}
+        <div className="w-full max-w-3xl">
+          <CTABanner />
+        </div>
+
+        {/* Signal Card demo */}
+        <div className="flex flex-col items-center gap-3">
+          <SignalCard loading={loading} onTrade={handleTrade} />
+          <div className="flex gap-3">
+            <button
+              onClick={toggleLoading}
+              className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            >
+              Preview skeleton
+            </button>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            >
+              Open trade modal
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
 
       <TradeModal
         open={modalOpen}
