@@ -16,6 +16,14 @@ interface TradeModalProps {
 const mockBuildTx = (order: object) =>
   new Promise<void>((res) => setTimeout(() => { console.log("tx built", order); res(); }, 800));
 
+function validateField(value: string, label: string): string {
+  if (!value.trim()) return `${label} is required`;
+  const num = Number(value);
+  if (isNaN(num)) return `${label} must be a number`;
+  if (num <= 0) return `${label} must be greater than 0`;
+  return "";
+}
+
 export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0.4821 }: TradeModalProps) {
   const [type, setType] = useState<OrderType>("LIMIT");
   const [limitPrice, setLimitPrice] = useState("");
@@ -23,14 +31,20 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
   const [stopLoss, setStopLoss] = useState(10);
   const [positionLimit, setPositionLimit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [touched, setTouched] = useState({ limitPrice: false, amount: false });
+
+  const limitPriceError = type === "LIMIT" && touched.limitPrice ? validateField(limitPrice, "Limit price") : "";
+  const amountError = touched.amount ? validateField(amount, "Amount") : "";
 
   const price = type === "MARKET" ? marketPrice : parseFloat(limitPrice) || 0;
   const total = price * (parseFloat(amount) || 0);
   const insufficient = total > walletBalance;
-  const disabled = !amount || (type === "LIMIT" && !limitPrice) || insufficient || submitting;
+  const hasErrors = !!amountError || (type === "LIMIT" && !!limitPriceError);
+  const disabled = !amount || (type === "LIMIT" && !limitPrice) || insufficient || submitting || hasErrors;
 
   useEffect(() => {
     if (!open) return;
+    setTouched({ limitPrice: false, amount: false });
     const handler = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -94,7 +108,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
               {(["LIMIT", "MARKET"] as OrderType[]).map((t) => (
                 <button
                   key={t}
-                  onClick={() => setType(t)}
+                  onClick={() => { setType(t); setTouched((prev) => ({ ...prev, limitPrice: false })); }}
                   aria-pressed={type === t}
                   className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all
                     ${type === t
@@ -120,8 +134,13 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                     placeholder="0.00"
                     value={limitPrice}
                     onChange={(e) => setLimitPrice(e.target.value)}
-                    className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
+                    onBlur={() => setTouched((t) => ({ ...t, limitPrice: true }))}
+                    className={`w-full rounded-lg bg-input border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm
+                      ${limitPriceError ? "border-accent-danger" : "border-border"}`}
                   />
+                  {limitPriceError && (
+                    <p className="mt-1 text-xs text-accent-danger" role="alert">{limitPriceError}</p>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -144,8 +163,13 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm"
+                  onBlur={() => setTouched((t) => ({ ...t, amount: true }))}
+                  className={`w-full rounded-lg bg-input border px-3 py-2 text-foreground placeholder-foreground-subtle focus:outline-none focus:border-ring text-sm
+                    ${amountError ? "border-accent-danger" : "border-border"}`}
                 />
+                {amountError && (
+                  <p className="mt-1 text-xs text-accent-danger" role="alert">{amountError}</p>
+                )}
               </div>
 
               {/* Total (read-only) */}
