@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   isConnected,
   getAddress,
@@ -11,9 +12,11 @@ import { toast } from "@/lib/toast";
 export function useWallet() {
   const { publicKey, isConnected: connected, setPublicKey, setConnected, disconnect } =
     useWalletStore();
+  const [isConnecting, setIsConnecting] = useState(false);
 
   async function connect() {
     try {
+      setIsConnecting(true);
       const connectedResponse = await isConnected();
       if (!connectedResponse?.isConnected) {
         toast.error("Freighter wallet not found. Please install it.");
@@ -28,6 +31,8 @@ export function useWallet() {
     } catch (err) {
       toast.error("Failed to connect wallet");
       console.error(err);
+    } finally {
+      setIsConnecting(false);
     }
   }
 
@@ -36,5 +41,5 @@ export function useWallet() {
     toast.info("Wallet disconnected");
   }
 
-  return { publicKey, connected, connect, disconnect: disconnectWallet };
+  return { publicKey, connected, connect, disconnect: disconnectWallet, isConnecting };
 }

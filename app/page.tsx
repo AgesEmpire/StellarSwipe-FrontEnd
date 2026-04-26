@@ -5,11 +5,13 @@ import { motion } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { Button } from "@/components/ui/button";
 import { TradeModal } from "@/components/TradeModal";
+import { WalletSelectionModal } from "@/components/WalletSelectionModal";
 import { SignalCard } from "@/components/SignalCard";
 
 export default function Home() {
-  const { publicKey, connected, connect, disconnect } = useWallet();
+  const { publicKey, connected, disconnect } = useWallet();
   const [modalOpen, setModalOpen] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [marketPrice, setMarketPrice] = useState(0.4821);
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +55,7 @@ export default function Home() {
             <Button variant="outline" onClick={disconnect}>Disconnect</Button>
           </>
         ) : (
-          <Button onClick={connect} size="lg">Connect Wallet</Button>
+          <Button onClick={() => setWalletModalOpen(true)} size="lg">Connect Wallet</Button>
         )}
       </motion.div>
 
@@ -81,6 +83,11 @@ export default function Home() {
         onClose={() => setModalOpen(false)}
         marketPrice={marketPrice}
         walletBalance={250}
+      />
+
+      <WalletSelectionModal
+        open={walletModalOpen}
+        onClose={() => setWalletModalOpen(false)}
       />
     </main>
   );
