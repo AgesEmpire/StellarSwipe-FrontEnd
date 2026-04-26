@@ -31,15 +31,15 @@ export function PositionLimitToggle({
   };
 
   return (
-    <div className="w-full rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-700/50">
+    <div className="w-full rounded-xl border border-border bg-surface/60 p-4 transition-colors hover:border-border-strong">
       {/* Header row */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-zinc-400" />
-          <span className="text-sm font-medium text-zinc-200">Position Limit</span>
+          <Shield className="h-4 w-4 text-foreground-muted" />
+          <span className="text-sm font-medium text-foreground">Position Limit</span>
           <div className="group relative">
-            <Info className="h-3.5 w-3.5 text-zinc-600 cursor-help" />
-            <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-400 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 pointer-events-none">
+            <Info className="h-3.5 w-3.5 text-foreground-subtle cursor-help" />
+            <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground-muted opacity-0 shadow-lg transition-opacity group-hover:opacity-100 pointer-events-none">
               Cap your trade to a percentage of your portfolio
             </div>
           </div>
@@ -52,12 +52,12 @@ export function PositionLimitToggle({
           aria-label="Toggle position limit"
           disabled={!portfolioAvailable}
           onClick={toggle}
-          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
             !portfolioAvailable
               ? "cursor-not-allowed opacity-40"
               : enabled
-                ? "bg-blue-600"
-                : "bg-zinc-700"
+                ? "bg-primary"
+                : "bg-foreground/20"
           }`}
         >
           <motion.span
@@ -81,18 +81,18 @@ export function PositionLimitToggle({
         className="overflow-hidden"
       >
         <div className="mt-3 space-y-3">
-          <p className="text-xs text-zinc-500">
-            Cap trade at <span className="font-medium text-zinc-300">{percentage}%</span> of portfolio
+          <p className="text-xs text-foreground-subtle">
+            Cap trade at <span className="font-medium text-foreground">{percentage}%</span> of portfolio
             {calculatedLimit && (
-              <span className="text-zinc-400">
-                {" "}· Max trade: <span className="font-mono text-zinc-200">{calculatedLimit} XLM</span>
+              <span className="text-foreground-muted">
+                {" "}· Max trade: <span className="font-mono text-foreground">{calculatedLimit} XLM</span>
               </span>
             )}
           </p>
 
           {/* Slider */}
           <div className="flex items-center gap-3">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+            <SlidersHorizontal className="h-3.5 w-3.5 text-foreground-subtle shrink-0" />
             <input
               type="range"
               min={1}
@@ -101,15 +101,15 @@ export function PositionLimitToggle({
               value={percentage}
               onChange={handlePercentageChange}
               aria-label="Position limit percentage"
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-800 accent-blue-500
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-high accent-[hsl(var(--accent-primary))]
                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4
-                [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500
-                [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-blue-500/30
+                [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[hsl(var(--accent-primary))]
+                [&::-webkit-slider-thumb]:shadow-lg
                 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110
                 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full
-                [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:border-0"
+                [&::-moz-range-thumb]:bg-[hsl(var(--accent-primary))] [&::-moz-range-thumb]:border-0"
             />
-            <span className="min-w-[3ch] text-right text-xs font-mono text-zinc-400">
+            <span className="min-w-[3ch] text-right text-xs font-mono text-foreground-muted">
               {percentage}%
             </span>
           </div>
@@ -120,10 +120,12 @@ export function PositionLimitToggle({
               <button
                 key={val}
                 onClick={() => setPercentage(val)}
+                aria-label={`Set position limit to ${val}%`}
+                aria-pressed={percentage === val}
                 className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                   percentage === val
-                    ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
-                    : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300"
+                    ? "bg-accent-primary/10 text-accent-sky ring-1 ring-[hsl(var(--accent-primary)/0.3)]"
+                    : "bg-surface-high text-foreground-subtle hover:bg-border hover:text-foreground-muted"
                 }`}
               >
                 {val}%
@@ -138,7 +140,7 @@ export function PositionLimitToggle({
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-2 text-xs text-amber-500/70"
+          className="mt-2 text-xs text-accent-warning/70"
         >
           Connect wallet and load portfolio to enable position limits
         </motion.p>
@@ -149,7 +151,7 @@ export function PositionLimitToggle({
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-2 text-xs text-zinc-500"
+          className="mt-2 text-xs text-foreground-subtle"
         >
           Loading portfolio data...
         </motion.p>

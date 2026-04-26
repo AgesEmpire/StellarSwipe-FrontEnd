@@ -25,7 +25,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8 bg-gray-950">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8 bg-background">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -33,7 +33,7 @@ export default function Home() {
         className="relative text-center"
       >
         <h1 className="text-4xl font-bold tracking-tight text-white">StellarSwipe</h1>
-        <p className="mt-2 text-gray-400">
+        <p className="mt-2 text-foreground-muted">
           Connect your Freighter wallet to get started
         </p>
       </motion.div>
@@ -47,7 +47,7 @@ export default function Home() {
       >
         {connected ? (
           <>
-            <p className="text-sm text-gray-400 font-mono">
+            <p className="text-sm text-foreground-muted font-mono">
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
             </p>
             <Button variant="outline" onClick={disconnect}>Disconnect</Button>
@@ -63,13 +63,13 @@ export default function Home() {
         <div className="flex gap-3">
           <button
             onClick={toggleLoading}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
           >
             Preview skeleton
           </button>
           <button
             onClick={() => setModalOpen(true)}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
           >
             Open trade modal
           </button>
