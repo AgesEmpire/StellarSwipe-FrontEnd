@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Info } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 type OrderType = "LIMIT" | "MARKET";
 
@@ -35,6 +36,11 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
 
   const limitPriceError = type === "LIMIT" && touched.limitPrice ? validateField(limitPrice, "Limit price") : "";
   const amountError = touched.amount ? validateField(amount, "Amount") : "";
+
+  const focusTrapRef = useFocusTrap({ 
+    isActive: open, 
+    initialFocus: 'button[data-order-type="LIMIT"]' 
+  });
 
   const price = type === "MARKET" ? marketPrice : parseFloat(limitPrice) || 0;
   const total = price * (parseFloat(amount) || 0);
@@ -79,9 +85,11 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
 
           {/* Modal panel */}
           <motion.div
+            ref={focusTrapRef}
             role="dialog"
             aria-modal="true"
-            aria-label={`${type === "LIMIT" ? "Limit" : "Market"} Order`}
+            aria-labelledby="trade-modal-title"
+            aria-describedby="trade-modal-description"
             className={`relative z-10 mx-4 w-full max-w-md rounded-2xl border p-4 shadow-2xl sm:mx-0 sm:p-6
               ${type === "MARKET"
                 ? "bg-accent-market/10 border-accent-market/30"
@@ -108,6 +116,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
               {(["LIMIT", "MARKET"] as OrderType[]).map((t) => (
                 <button
                   key={t}
+                  data-order-type={t}
                   onClick={() => setType(t)}
                   aria-pressed={type === t}
                   className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all
@@ -120,7 +129,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
               ))}
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4" id={`${type.toLowerCase()}-panel`} role="tabpanel">
               {/* Price row */}
               {type === "LIMIT" ? (
                 <div>
@@ -131,6 +140,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                     id="limit-price"
                     type="number"
                     min="0"
+                    step="0.0001"
                     placeholder="0.00"
                     value={limitPrice}
                     onChange={(e) => setLimitPrice(e.target.value)}
@@ -155,6 +165,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                   id="trade-amount"
                   type="number"
                   min="0"
+                  step="0.01"
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -195,6 +206,9 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                   aria-valuenow={stopLoss}
                   className="w-full accent-[hsl(var(--accent-warning))]"
                 />
+                <span id="stop-loss-help" className="sr-only">
+                  Set the percentage loss at which to automatically sell. Currently set to {stopLoss} percent.
+                </span>
               </div>
 
               {/* Position limit toggle */}
@@ -216,6 +230,9 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
                     aria-hidden="true"
                   />
                 </button>
+                <span id="position-limit-help" className="sr-only">
+                  Position limit helps manage risk by limiting the size of your position
+                </span>
               </div>
             </div>
 
@@ -249,6 +266,14 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             >
               {submitting ? "Submitting…" : `Confirm ${type === "LIMIT" ? "Limit" : "Market"} Order`}
             </button>
+            <span id="confirm-button-help" className="sr-only">
+              {disabled 
+                ? insufficient 
+                  ? "Cannot place order: insufficient balance"
+                  : "Cannot place order: please fill in all required fields"
+                : `Place ${type.toLowerCase()} order for ${amount || 0} XLM at ${type === "MARKET" ? "market price" : `${limitPrice || 0} USDC`}`
+              }
+            </span>
           </motion.div>
         </motion.div>
       )}

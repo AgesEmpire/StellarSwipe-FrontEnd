@@ -95,11 +95,87 @@ export function SignalCard({
     onPass?.();
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      if (e.key === "ArrowLeft") {
+        handlePass();
+      } else {
+        onTrade?.(executionPrice);
+      }
+    }
+  };
+
   return (
-    <div className="w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 sm:p-5">
+    <article 
+      className="w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 sm:p-5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 focus-within:ring-offset-background"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      role="article"
+      aria-label={`${signal} signal for ${pair} at ${executionPrice} with ${confidence}% confidence`}
+    >
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-base sm:text-lg">{asset}</span>
+        <span className="font-semibold text-base sm:text-lg">{pair}</span>
         <SignalBadge signal={signal} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-muted-foreground">Execution Price</p>
+          <p className="font-mono font-semibold">${executionPrice.toFixed(4)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Confidence</p>
+          <p className="font-semibold">{confidence}%</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Target</p>
+          <p className="font-mono font-semibold">${projectedTarget.toFixed(4)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">ROI</p>
+          <p className={cn("font-semibold", isPositive ? "text-green-600" : "text-red-600")}>
+            {isPositive ? "+" : ""}{roi}%
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <DirectionIcon size={16} className={cn(
+          signal === "BUY" ? "text-green-600" : signal === "SELL" ? "text-red-600" : "text-gray-500"
+        )} />
+        <MiniROIChart data={roiHistory} />
+      </div>
+
+      <p className="text-sm text-muted-foreground leading-relaxed">{analysis}</p>
+
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <SignalTimestamp updatedAt={timestamp} />
+        <p className="text-xs text-muted-foreground">
+          Use ← to pass, → to trade, or buttons below
+        </p>
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePass}
+          className="flex-1"
+          aria-label={`Pass on ${signal} signal for ${pair}`}
+        >
+          <X size={16} className="mr-1" />
+          Pass
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => onTrade?.(executionPrice)}
+          className="flex-1"
+          aria-label={`Trade ${signal} signal for ${pair} at ${executionPrice}`}
+        >
+          <Zap size={16} className="mr-1" />
+          Trade
+        </Button>
       </div>
     </article>
   );

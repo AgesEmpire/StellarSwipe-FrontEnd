@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Wallet, Loader2, ExternalLink } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface WalletSelectionModalProps {
   open: boolean;
@@ -30,6 +31,11 @@ const WALLET_OPTIONS: WalletOption[] = [
 export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProps) {
   const { connect, isConnecting } = useWallet();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+
+  const focusTrapRef = useFocusTrap({ 
+    isActive: open, 
+    initialFocus: 'button[data-wallet-id="freighter"]' 
+  });
 
   // ESC to close
   useEffect(() => {
@@ -69,9 +75,11 @@ export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProp
 
           {/* Dialog */}
           <motion.div
+            ref={focusTrapRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Connect Wallet"
+            aria-labelledby="wallet-modal-title"
+            aria-describedby="wallet-modal-description"
             className="relative z-10 w-full max-w-sm rounded-2xl border border-gray-700/60 bg-gray-900/95 p-6 shadow-2xl"
             initial={{ scale: 0.92, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -80,16 +88,16 @@ export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProp
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-white">Connect Wallet</h2>
+              <h2 id="wallet-modal-title" className="text-lg font-semibold text-white">Connect Wallet</h2>
               <button
                 onClick={onClose}
-                aria-label="Close wallet selection"
-                className="rounded-full p-1 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Close wallet selection modal"
+                className="rounded-full p-1 text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <X size={18} />
               </button>
             </div>
-            <p className="text-sm text-gray-400 mb-5">
+            <p id="wallet-modal-description" className="text-sm text-gray-400 mb-5">
               Choose a wallet to connect to StellarSwipe
             </p>
 
@@ -102,27 +110,29 @@ export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProp
                 return (
                   <button
                     key={wallet.id}
+                    data-wallet-id={wallet.id}
                     onClick={() => handleSelectWallet(wallet.id)}
                     disabled={isConnecting}
-                    className="w-full flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:border-blue-500/50 hover:bg-white/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed"
+                    aria-describedby={`wallet-${wallet.id}-description`}
+                    className="w-full flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:border-blue-500/50 hover:bg-white/10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {/* Icon */}
                     <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600/20 border border-blue-500/30">
                       {loading ? (
-                        <Loader2 size={20} className="text-blue-400 animate-spin" />
+                        <Loader2 size={20} className="text-blue-400 animate-spin" aria-hidden="true" />
                       ) : (
-                        <Wallet size={20} className="text-blue-400" />
+                        <Wallet size={20} className="text-blue-400" aria-hidden="true" />
                       )}
                     </div>
 
                     {/* Text */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white">{wallet.name}</p>
-                      <p className="mt-0.5 text-xs text-gray-400 leading-relaxed">
+                      <p id={`wallet-${wallet.id}-description`} className="mt-0.5 text-xs text-gray-400 leading-relaxed">
                         {wallet.description}
                       </p>
                       {loading && (
-                        <p className="mt-1.5 text-xs text-blue-400">Connecting…</p>
+                        <p className="mt-1.5 text-xs text-blue-400" aria-live="polite">Connecting…</p>
                       )}
                     </div>
                   </button>

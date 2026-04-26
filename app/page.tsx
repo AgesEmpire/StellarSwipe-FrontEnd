@@ -54,10 +54,22 @@ export default function Home() {
             <p className="text-sm text-foreground-muted font-mono">
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
             </p>
-            <Button variant="outline" onClick={disconnect}>Disconnect</Button>
+            <Button 
+              variant="outline" 
+              onClick={disconnect}
+              className="focus:ring-2 focus:ring-blue-500"
+            >
+              Disconnect Wallet
+            </Button>
           </>
         ) : (
-          <Button onClick={() => setWalletModalOpen(true)} size="lg">Connect Wallet</Button>
+          <Button 
+            onClick={() => setWalletModalOpen(true)} 
+            size="lg"
+            className="focus:ring-2 focus:ring-blue-500"
+          >
+            Connect Wallet
+          </Button>
         )}
       </motion.div>
 
@@ -78,31 +90,12 @@ export default function Home() {
             Open trade modal
           </button>
         </div>
+      </div>
 
-        {/* CTA Banner */}
-        <div className="w-full max-w-3xl">
-          <CTABanner />
-        </div>
-
-        {/* Signal Card demo */}
-        <div className="flex flex-col items-center gap-3">
-          <SignalCard loading={loading} onTrade={handleTrade} />
-          <div className="flex gap-3">
-            <button
-              onClick={toggleLoading}
-              className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
-            >
-              Preview skeleton
-            </button>
-            <button
-              onClick={() => setModalOpen(true)}
-              className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
-            >
-              Open trade modal
-            </button>
-          </div>
-        </div>
-      </main>
+      {/* CTA Banner */}
+      <div className="w-full max-w-3xl">
+        <CTABanner />
+      </div>
 
       <Footer />
 
