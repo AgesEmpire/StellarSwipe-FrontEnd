@@ -164,10 +164,15 @@ export function SignalFeed() {
             variant="outline"
             onClick={loadMore}
             disabled={isFetchingNextPage}
+            aria-describedby="load-more-help"
+            className="focus:ring-2 focus:ring-blue-500"
           >
             {isFetchingNextPage ? "Loading more..." : "Load more signals"}
           </Button>
         ) : null}
+        <span id="load-more-help" className="sr-only">
+          Load additional signals from the feed
+        </span>
       </div>
     </section>
   );

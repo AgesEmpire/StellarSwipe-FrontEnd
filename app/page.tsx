@@ -51,13 +51,25 @@ export default function Home() {
       >
         {connected ? (
           <>
-            <p className="text-sm text-gray-400 font-mono">
+            <p className="text-sm text-gray-400 font-mono" aria-label={`Connected wallet: ${publicKey}`}>
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
             </p>
-            <Button variant="outline" onClick={disconnect}>Disconnect</Button>
+            <Button 
+              variant="outline" 
+              onClick={disconnect}
+              className="focus:ring-2 focus:ring-blue-500"
+            >
+              Disconnect Wallet
+            </Button>
           </>
         ) : (
-          <Button onClick={() => setWalletModalOpen(true)} size="lg">Connect Wallet</Button>
+          <Button 
+            onClick={() => setWalletModalOpen(true)} 
+            size="lg"
+            className="focus:ring-2 focus:ring-blue-500"
+          >
+            Connect Wallet
+          </Button>
         )}
       </motion.div>
 
@@ -67,42 +79,25 @@ export default function Home() {
         <div className="flex gap-3">
           <button
             onClick={toggleLoading}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950 rounded"
+            aria-label="Preview loading skeleton animation"
           >
             Preview skeleton
           </button>
           <button
             onClick={() => setModalOpen(true)}
-            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+            className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950 rounded"
+            aria-label="Open trade modal dialog"
           >
             Open trade modal
           </button>
         </div>
+      </div>
 
-        {/* CTA Banner */}
-        <div className="w-full max-w-3xl">
-          <CTABanner />
-        </div>
-
-        {/* Signal Card demo */}
-        <div className="flex flex-col items-center gap-3">
-          <SignalCard loading={loading} onTrade={handleTrade} />
-          <div className="flex gap-3">
-            <button
-              onClick={toggleLoading}
-              className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
-            >
-              Preview skeleton
-            </button>
-            <button
-              onClick={() => setModalOpen(true)}
-              className="text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
-            >
-              Open trade modal
-            </button>
-          </div>
-        </div>
-      </main>
+      {/* CTA Banner */}
+      <div className="w-full max-w-3xl">
+        <CTABanner />
+      </div>
 
       <Footer />
 
