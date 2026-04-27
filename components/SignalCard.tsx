@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { TrendingUp, TrendingDown, Minus, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SignalBadge } from "@/components/SignalBadge";
 import { SignalTimestamp } from "@/components/SignalTimestamp";
 import { TradeSkeleton } from "@/components/TradeSkeleton";
+import { TradeModal } from "@/components/TradeModal";
 import { cn } from "@/lib/utils";
 
 interface ROIPoint {
@@ -82,6 +83,8 @@ export function SignalCard({
   onPass,
 }: SignalCardProps) {
   const [passed, setPassed] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const executingRef = useRef(false);
 
   if (loading) return <TradeSkeleton />;
   if (passed) return null;
@@ -95,13 +98,30 @@ export function SignalCard({
     onPass?.();
   }
 
+  function handleExecuteTrade() {
+    if (executingRef.current) return;
+    executingRef.current = true;
+    setModalOpen(true);
+  }
+
+  function handleModalClose() {
+    setModalOpen(false);
+    executingRef.current = false;
+  }
+
+  function handleModalConfirm() {
+    setModalOpen(false);
+    executingRef.current = false;
+    onTrade?.(executionPrice);
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
       if (e.key === "ArrowLeft") {
         handlePass();
       } else {
-        onTrade?.(executionPrice);
+        handleExecuteTrade();
       }
     }
   };
@@ -169,14 +189,22 @@ export function SignalCard({
         </Button>
         <Button
           size="sm"
-          onClick={() => onTrade?.(executionPrice)}
-          className="flex-1"
-          aria-label={`Trade ${signal} signal for ${pair} at ${executionPrice}`}
+          onClick={handleExecuteTrade}
+          disabled={modalOpen}
+          className="flex-1 active:scale-95"
+          aria-label={`Execute trade: ${signal} signal for ${pair} at ${executionPrice}`}
         >
           <Zap size={16} className="mr-1" />
-          Trade
+          Execute Trade
         </Button>
       </div>
+
+      <TradeModal
+        open={modalOpen}
+        onClose={handleModalClose}
+        onConfirm={handleModalConfirm}
+        marketPrice={executionPrice}
+      />
     </article>
   );
 }
