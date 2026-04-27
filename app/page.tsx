@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { Button } from "@/components/ui/button";
+import { SecurityMetrics } from "@/components/SecurityMetrics";
 
 export default function Home() {
   const { publicKey, connected, connect, disconnect } = useWallet();
@@ -41,6 +42,7 @@ export default function Home() {
           </Button>
         )}
       </motion.div>
+      <SecurityMetrics />
     </main>
   );
 }
