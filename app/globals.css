@@ -1,58 +1,152 @@
 @import "tailwindcss";
 
 @layer base {
+  /*
+   * StellarSwipe design tokens — dark-first theme.
+   * All values are HSL channels (no `hsl()` wrapper) so Tailwind can apply
+   * opacity modifiers: e.g. `bg-background/80`.
+   *
+   * Semantic layers
+   * ───────────────
+   * background   — page canvas          (darkest)
+   * surface      — card / panel         (one step lighter)
+   * surface-high — elevated card        (two steps lighter)
+   * overlay      — modal backdrop fill
+   *
+   * Text
+   * ────
+   * foreground        — primary body text
+   * foreground-muted  — secondary / caption text
+   * foreground-subtle — placeholder / disabled text
+   *
+   * Borders & inputs
+   * ────────────────
+   * border       — default divider
+   * border-strong — hover / focus divider
+   * input        — input background
+   * ring         — focus ring
+   *
+   * Semantic accents (used for status, badges, CTAs)
+   * ─────────────────────────────────────────────────
+   * accent-primary   — blue CTA
+   * accent-sky       — sky highlight (signal feed labels)
+   * accent-success   — green / emerald (buy, success)
+   * accent-danger    — red (sell, error, stop-loss high)
+   * accent-warning   — orange / amber (stop-loss mid, price impact)
+   * accent-market    — indigo (market-order variant)
+   */
+
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    /* ── Light fallback (not used — app is dark-only) ── */
+    --background:     222 47% 8%;
+    --surface:        222 40% 11%;
+    --surface-high:   222 35% 15%;
+    --overlay:        0 0% 0%;
+
+    --foreground:        210 40% 96%;
+    --foreground-muted:  215 20% 60%;
+    --foreground-subtle: 215 15% 40%;
+
+    --border:        217 30% 18%;
+    --border-strong: 217 30% 28%;
+    --input:         222 40% 11%;
+    --ring:          217 91% 60%;
+
+    --accent-primary:  217 91% 60%;
+    --accent-sky:      199 89% 60%;
+    --accent-success:  160 84% 39%;
+    --accent-danger:   0  72% 51%;
+    --accent-warning:  25 95% 53%;
+    --accent-market:   239 84% 67%;
+
+    --radius: 0.75rem;
+
+    /* shadcn/ui compat aliases */
+    --card:                var(--surface);
+    --card-foreground:     var(--foreground);
+    --popover:             var(--surface);
+    --popover-foreground:  var(--foreground);
+    --primary:             var(--accent-primary);
+    --primary-foreground:  210 40% 98%;
+    --secondary:           var(--surface-high);
+    --secondary-foreground:var(--foreground);
+    --muted:               var(--surface-high);
+    --muted-foreground:    var(--foreground-muted);
+    --accent:              var(--surface-high);
+    --accent-foreground:   var(--foreground);
+    --destructive:         var(--accent-danger);
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
   }
 
+  /* Dark class kept for shadcn/ui compatibility — tokens are identical */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background:     222 47% 8%;
+    --surface:        222 40% 11%;
+    --surface-high:   222 35% 15%;
+    --overlay:        0 0% 0%;
+
+    --foreground:        210 40% 96%;
+    --foreground-muted:  215 20% 60%;
+    --foreground-subtle: 215 15% 40%;
+
+    --border:        217 30% 18%;
+    --border-strong: 217 30% 28%;
+    --input:         222 40% 11%;
+    --ring:          217 91% 60%;
+
+    --accent-primary:  217 91% 60%;
+    --accent-sky:      199 89% 60%;
+    --accent-success:  160 84% 39%;
+    --accent-danger:   0  72% 51%;
+    --accent-warning:  25 95% 53%;
+    --accent-market:   239 84% 67%;
   }
 }
 
 @layer base {
   * {
     border-color: hsl(var(--border));
+    box-sizing: border-box;
   }
+  html,
   body {
+    overflow-x: hidden;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    font-family: var(--font-sans), system-ui, sans-serif;
   }
+}
+
+/* ── Utility classes for tokens not covered by Tailwind's default palette ── */
+@layer utilities {
+  .bg-surface        { background-color: hsl(var(--surface)); }
+  .bg-surface-high   { background-color: hsl(var(--surface-high)); }
+  .bg-overlay        { background-color: hsl(var(--overlay)); }
+
+  .text-foreground-muted  { color: hsl(var(--foreground-muted)); }
+  .text-foreground-subtle { color: hsl(var(--foreground-subtle)); }
+
+  .border-strong { border-color: hsl(var(--border-strong)); }
+
+  .text-accent-sky     { color: hsl(var(--accent-sky)); }
+  .text-accent-success { color: hsl(var(--accent-success)); }
+  .text-accent-danger  { color: hsl(var(--accent-danger)); }
+  .text-accent-warning { color: hsl(var(--accent-warning)); }
+  .text-accent-market  { color: hsl(var(--accent-market)); }
+
+  .bg-accent-primary\/10  { background-color: hsl(var(--accent-primary) / 0.10); }
+  .bg-accent-success\/10  { background-color: hsl(var(--accent-success) / 0.10); }
+  .bg-accent-success\/20  { background-color: hsl(var(--accent-success) / 0.20); }
+  .bg-accent-danger\/10   { background-color: hsl(var(--accent-danger)  / 0.10); }
+  .bg-accent-danger\/20   { background-color: hsl(var(--accent-danger)  / 0.20); }
+  .bg-accent-market\/10   { background-color: hsl(var(--accent-market)  / 0.10); }
+  .bg-accent-market\/40   { background-color: hsl(var(--accent-market)  / 0.40); }
+
+  .border-accent-success\/20 { border-color: hsl(var(--accent-success) / 0.20); }
+  .border-accent-danger\/20  { border-color: hsl(var(--accent-danger)  / 0.20); }
+  .border-accent-market\/30  { border-color: hsl(var(--accent-market)  / 0.30); }
+  .border-accent-danger\/10  { border-color: hsl(var(--accent-danger)  / 0.10); }
+
+  .ring-accent-sky    { --tw-ring-color: hsl(var(--accent-sky)); }
+  .ring-accent-warning { --tw-ring-color: hsl(var(--accent-warning)); }
 }
