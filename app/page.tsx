@@ -1,26 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { useSignals } from "@/hooks/useSignals";
 import { Button } from "@/components/ui/button";
-import { WalletDropdown } from "@/components/WalletDropdown";
+import { SignalCard } from "@/components/SignalCard";
 import { SignalErrorState } from "@/components/SignalErrorState";
-import { Loader2 } from "lucide-react";
-
-export default function Home() {
-  const { connected, connect } = useWallet();
-  const { data: signals, isLoading, error, refetch } = useSignals();
 import { TradeModal } from "@/components/TradeModal";
 import { WalletSelectionModal } from "@/components/WalletSelectionModal";
-import { SignalCard } from "@/components/SignalCard";
-import { CTABanner } from "@/components/CTABanner";
-import { HowItWorks } from "@/components/HowItWorks";
-import { Footer } from "@/components/Footer";
+import { FeatureCards } from "@/components/FeatureCards";
+import { Loader2 } from "lucide-react";
+
+const HowItWorks = lazy(() =>
+  import("@/components/HowItWorks").then((m) => ({ default: m.HowItWorks }))
+);
+const CTABanner = lazy(() =>
+  import("@/components/CTABanner").then((m) => ({ default: m.CTABanner }))
+);
+const Footer = lazy(() =>
+  import("@/components/Footer").then((m) => ({ default: m.Footer }))
+);
+
+function SectionSkeleton({ className = "h-48" }: { className?: string }) {
+  return (
+    <div
+      className={`w-full rounded-2xl bg-slate-900/50 animate-pulse ${className}`}
+      aria-hidden
+    />
+  );
+}
 
 export default function Home() {
   const { publicKey, connected, disconnect } = useWallet();
+  const { data: signals, isLoading, error, refetch } = useSignals();
   const [modalOpen, setModalOpen] = useState(false);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [marketPrice, setMarketPrice] = useState(0.4821);
@@ -37,14 +50,17 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
+    <main className="flex min-h-screen flex-col items-center gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
+      {/* Hero */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative text-center"
+        className="relative text-center mt-8"
       >
-        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">StellarSwipe</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+          StellarSwipe
+        </h1>
         <p className="mt-2 text-gray-400">
           Connect your Freighter wallet to get started
         </p>
@@ -62,8 +78,8 @@ export default function Home() {
             <p className="text-sm text-foreground-muted font-mono">
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={disconnect}
               className="focus:ring-2 focus:ring-blue-500"
             >
@@ -71,8 +87,8 @@ export default function Home() {
             </Button>
           </>
         ) : (
-          <Button 
-            onClick={() => setWalletModalOpen(true)} 
+          <Button
+            onClick={() => setWalletModalOpen(true)}
             size="lg"
             className="focus:ring-2 focus:ring-blue-500"
           >
@@ -81,21 +97,19 @@ export default function Home() {
         )}
       </motion.div>
 
+      {/* Signal feed */}
       <div className="w-full max-w-md">
         {isLoading && (
           <div className="flex justify-center py-10">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         )}
-
-        {error && (
-          <SignalErrorState error={error as Error} onRetry={refetch} />
-        )}
-
+        {error && <SignalErrorState error={error as Error} onRetry={refetch} />}
         {signals && signals.length === 0 && (
-          <p className="text-center text-sm text-muted-foreground">No signals available.</p>
+          <p className="text-center text-sm text-muted-foreground">
+            No signals available.
+          </p>
         )}
-
         {signals && signals.length > 0 && (
           <ul className="flex flex-col gap-3">
             {signals.map((signal) => (
@@ -105,16 +119,21 @@ export default function Home() {
               >
                 <span className="font-medium">{signal.asset}</span>
                 <span
-                  className={signal.action === "BUY" ? "text-green-500" : "text-red-500"}
+                  className={
+                    signal.action === "BUY" ? "text-green-500" : "text-red-500"
+                  }
                 >
                   {signal.action}
                 </span>
-                <span className="text-muted-foreground">{signal.confidence}%</span>
+                <span className="text-muted-foreground">
+                  {signal.confidence}%
+                </span>
               </li>
             ))}
           </ul>
         )}
       </div>
+
       {/* Signal Card demo */}
       <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 sm:px-0">
         <SignalCard loading={loading} onTrade={handleTrade} />
@@ -134,12 +153,27 @@ export default function Home() {
         </div>
       </div>
 
-      {/* CTA Banner */}
-      <div className="w-full max-w-3xl">
-        <CTABanner />
+      {/* Feature Cards — critical path, loaded eagerly */}
+      <div className="w-full max-w-6xl">
+        <FeatureCards />
       </div>
 
-      <Footer />
+      {/* Below-the-fold — lazy loaded */}
+      <div className="w-full max-w-4xl">
+        <Suspense fallback={<SectionSkeleton className="h-64" />}>
+          <HowItWorks />
+        </Suspense>
+      </div>
+
+      <div className="w-full max-w-3xl">
+        <Suspense fallback={<SectionSkeleton className="h-48" />}>
+          <CTABanner />
+        </Suspense>
+      </div>
+
+      <Suspense fallback={<SectionSkeleton className="h-40" />}>
+        <Footer />
+      </Suspense>
 
       <TradeModal
         open={modalOpen}
