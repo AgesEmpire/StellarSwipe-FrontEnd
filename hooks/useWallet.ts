@@ -2,7 +2,7 @@
 
 import {
   isConnected,
-  getPublicKey,
+  getAddress,
   requestAccess,
 } from "@stellar/freighter-api";
 import { useWalletStore } from "@/store/useWalletStore";
@@ -20,7 +20,7 @@ export function useWallet() {
         return;
       }
       await requestAccess();
-      const key = await getPublicKey();
+      const { address: key } = await getAddress();
       setPublicKey(key);
       setConnected(true);
       toast.success("Wallet connected");
