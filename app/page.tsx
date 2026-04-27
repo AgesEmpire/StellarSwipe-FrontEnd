@@ -5,11 +5,12 @@ import { motion } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { useSignals } from "@/hooks/useSignals";
 import { Button } from "@/components/ui/button";
+import { WalletDropdown } from "@/components/WalletDropdown";
 import { SignalErrorState } from "@/components/SignalErrorState";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
-  const { publicKey, connected, connect, disconnect } = useWallet();
+  const { connected, connect } = useWallet();
   const { data: signals, isLoading, error, refetch } = useSignals();
 import { TradeModal } from "@/components/TradeModal";
 import { WalletSelectionModal } from "@/components/WalletSelectionModal";
