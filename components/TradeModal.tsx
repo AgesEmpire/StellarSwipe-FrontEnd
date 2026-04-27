@@ -10,6 +10,7 @@ type OrderType = "LIMIT" | "MARKET";
 interface TradeModalProps {
   open: boolean;
   onClose: () => void;
+  onConfirm?: () => void;
   walletBalance?: number;
   marketPrice?: number;
 }
@@ -25,7 +26,7 @@ function validateField(value: string, label: string): string {
   return "";
 }
 
-export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0.4821 }: TradeModalProps) {
+export function TradeModal({ open, onClose, onConfirm, walletBalance = 250, marketPrice = 0.4821 }: TradeModalProps) {
   const [type, setType] = useState<OrderType>("LIMIT");
   const [limitPrice, setLimitPrice] = useState("");
   const [amount, setAmount] = useState("");
@@ -60,8 +61,8 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
     setSubmitting(true);
     await mockBuildTx({ type, price, amount, stopLoss, positionLimit });
     setSubmitting(false);
-    onClose();
-  }, [type, price, amount, stopLoss, positionLimit, onClose]);
+    onConfirm ? onConfirm() : onClose();
+  }, [type, price, amount, stopLoss, positionLimit, onClose, onConfirm]);
 
   const networkFee = "0.00001 XLM";
   const priceImpact = type === "MARKET" ? "~0.12%" : "~0.05%";
