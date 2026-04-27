@@ -4,11 +4,12 @@ import { motion } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { useSignals } from "@/hooks/useSignals";
 import { Button } from "@/components/ui/button";
+import { WalletDropdown } from "@/components/WalletDropdown";
 import { SignalErrorState } from "@/components/SignalErrorState";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
-  const { publicKey, connected, connect, disconnect } = useWallet();
+  const { connected, connect } = useWallet();
   const { data: signals, isLoading, error, refetch } = useSignals();
 
   return (
@@ -31,14 +32,7 @@ export default function Home() {
         transition={{ delay: 0.2, duration: 0.4 }}
       >
         {connected ? (
-          <div className="flex flex-col items-center gap-3">
-            <p className="text-sm text-muted-foreground font-mono">
-              {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
-            </p>
-            <Button variant="outline" onClick={disconnect}>
-              Disconnect
-            </Button>
-          </div>
+          <WalletDropdown />
         ) : (
           <Button onClick={connect} size="lg">
             Connect Wallet
