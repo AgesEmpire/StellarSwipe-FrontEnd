@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SignalBadge } from "@/components/SignalBadge";
 import { SignalTimestamp } from "@/components/SignalTimestamp";
 import { TradeSkeleton } from "@/components/TradeSkeleton";
+import { MiniChart } from "@/components/chart/MiniChart";
 import { cn } from "@/lib/utils";
 
 interface ROIPoint {
@@ -24,43 +25,6 @@ interface SignalCardProps {
   timestamp?: Date;
   onTrade?: (price: number) => void;
   onPass?: () => void;
-}
-
-function MiniROIChart({ data }: { data: ROIPoint[] }) {
-  if (!data.length) return null;
-  const values = data.map((d) => d.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const w = 120;
-  const h = 40;
-  const points = data
-    .map((d, i) => {
-      const x = (i / (data.length - 1)) * w;
-      const y = h - ((d.value - min) / range) * h;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  const isPositive = values[values.length - 1] >= values[0];
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox={`0 0 ${w} ${h}`}
-      aria-label="ROI chart"
-      role="img"
-      className="overflow-visible"
-    >
-      <polyline
-        points={points}
-        fill="none"
-        stroke={isPositive ? "#22c55e" : "#ef4444"}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 const DEFAULT_ROI: ROIPoint[] = [
@@ -144,7 +108,7 @@ export function SignalCard({
         <DirectionIcon size={16} className={cn(
           signal === "BUY" ? "text-green-600" : signal === "SELL" ? "text-red-600" : "text-gray-500"
         )} />
-        <MiniROIChart data={roiHistory} />
+        <MiniChart data={roiHistory.map((d) => d.value)} />
       </div>
 
       <p className="text-sm text-muted-foreground leading-relaxed">{analysis}</p>

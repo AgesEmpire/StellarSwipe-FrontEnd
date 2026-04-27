@@ -71,7 +71,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-modal flex items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -90,7 +90,7 @@ export function TradeModal({ open, onClose, walletBalance = 250, marketPrice = 0
             aria-modal="true"
             aria-labelledby="trade-modal-title"
             aria-describedby="trade-modal-description"
-            className={`relative z-10 mx-4 w-full max-w-md rounded-2xl border p-4 shadow-2xl sm:mx-0 sm:p-6
+            className={`relative z-overlay mx-4 w-full max-w-md rounded-2xl border p-4 shadow-2xl sm:mx-0 sm:p-6
               ${type === "MARKET"
                 ? "bg-accent-market/10 border-accent-market/30"
                 : "bg-surface border-border"}`}
