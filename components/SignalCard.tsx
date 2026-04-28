@@ -33,43 +33,6 @@ interface SignalCardProps {
   onPass?: () => void;
 }
 
-function MiniROIChart({ data }: { data: ROIPoint[] }) {
-  if (!data.length) return null;
-  const values = data.map((d) => d.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const w = 120;
-  const h = 40;
-  const points = data
-    .map((d, i) => {
-      const x = (i / (data.length - 1)) * w;
-      const y = h - ((d.value - min) / range) * h;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  const isPositive = values[values.length - 1] >= values[0];
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox={`0 0 ${w} ${h}`}
-      aria-label="ROI chart"
-      role="img"
-      className="overflow-visible"
-    >
-      <polyline
-        points={points}
-        fill="none"
-        stroke={isPositive ? "#22c55e" : "#ef4444"}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 const DEFAULT_ROI: ROIPoint[] = [
   { value: 0 }, { value: 1.2 }, { value: 0.8 }, { value: 2.1 },
   { value: 1.9 }, { value: 3.4 }, { value: 2.8 }, { value: 4.2 },

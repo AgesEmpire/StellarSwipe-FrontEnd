@@ -61,6 +61,20 @@
 
     --radius: 0.75rem;
 
+    /*
+     * Z-Index Scale
+     * ─────────────
+     * Consistent layering so modals, dropdowns, toasts, and overlays
+     * always render in the correct order without conflicts.
+     * Each layer is intentionally spaced to allow future additions.
+     */
+    --z-dropdown:    100;
+    --z-sticky:      200;
+    --z-overlay:     300;
+    --z-modal:       400;
+    --z-toast:       500;
+    --z-loading:     600;
+
     /* shadcn/ui compat aliases */
     --card:                var(--surface);
     --card-foreground:     var(--foreground);
@@ -149,4 +163,12 @@
 
   .ring-accent-sky    { --tw-ring-color: hsl(var(--accent-sky)); }
   .ring-accent-warning { --tw-ring-color: hsl(var(--accent-warning)); }
+
+  /* Z-index utility classes */
+  .z-dropdown  { z-index: var(--z-dropdown); }
+  .z-sticky    { z-index: var(--z-sticky); }
+  .z-overlay   { z-index: var(--z-overlay); }
+  .z-modal     { z-index: var(--z-modal); }
+  .z-toast     { z-index: var(--z-toast); }
+  .z-loading   { z-index: var(--z-loading); }
 }

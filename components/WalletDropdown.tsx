@@ -59,7 +59,7 @@ export function WalletDropdown() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-72 rounded-xl border bg-popover shadow-lg p-2 flex flex-col gap-1 z-50"
+          className="absolute right-0 mt-2 w-72 rounded-xl border bg-popover shadow-lg p-2 flex flex-col gap-1 z-dropdown"
         >
           {/* Full address */}
           <p className="px-3 py-2 text-xs font-mono text-muted-foreground break-all select-all">

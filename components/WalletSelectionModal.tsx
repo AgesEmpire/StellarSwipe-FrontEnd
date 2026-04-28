@@ -61,7 +61,7 @@ export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProp
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-modal flex items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -80,7 +80,7 @@ export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProp
             aria-modal="true"
             aria-labelledby="wallet-modal-title"
             aria-describedby="wallet-modal-description"
-            className="relative z-10 w-full max-w-sm rounded-2xl border border-gray-700/60 bg-gray-900/95 p-6 shadow-2xl"
+            className="relative z-overlay w-full max-w-sm rounded-2xl border border-gray-700/60 bg-gray-900/95 p-6 shadow-2xl"
             initial={{ scale: 0.92, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0, y: 20 }}
