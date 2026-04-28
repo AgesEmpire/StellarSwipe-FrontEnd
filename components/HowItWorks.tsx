@@ -2,6 +2,7 @@
 
 import { Wallet, Users, Zap } from "lucide-react";
 import { motion } from "framer-motion";
+import { fadeUpVariants, useScrollViewport } from "@/hooks/useScrollAnimation";
 
 const steps = [
   {
@@ -21,16 +22,8 @@ const steps = [
   },
 ];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.15, duration: 0.5, ease: "easeOut" },
-  }),
-};
-
 export function HowItWorks() {
+  const scrollProps = useScrollViewport();
   return (
     <section className="w-full py-16 px-6" aria-labelledby="how-heading">
       <div className="mx-auto max-w-4xl text-center mb-12">
@@ -54,10 +47,8 @@ export function HowItWorks() {
               <motion.div
                 key={step.title}
                 custom={i}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, amount: 0.3 }}
-                variants={fadeUp}
+                variants={fadeUpVariants}
+                {...scrollProps}
                 className="flex flex-col items-center text-center gap-4"
               >
                 <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-slate-900 shadow-lg">
