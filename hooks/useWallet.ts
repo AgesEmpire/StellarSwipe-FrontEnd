@@ -24,7 +24,6 @@ export function useWallet() {
         return;
       }
       await requestAccess();
-      const { address: key } = await getAddress();
       const result = await getAddress();
       const key = typeof result === "string" ? result : result.address;
       setPublicKey(key);

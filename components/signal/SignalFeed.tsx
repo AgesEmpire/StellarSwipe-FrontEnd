@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/query-core";
 import { Button } from "@/components/ui/button";
+import { SignalEmptyState } from "@/components/SignalEmptyState";
 import type { Signal } from "@/lib/signals";
 
 interface SignalResponse {
@@ -26,6 +27,7 @@ export function SignalFeed() {
     hasNextPage,
     isFetchingNextPage,
     isFetching,
+    refetch,
   } = useInfiniteQuery<SignalResponse, Error, InfiniteData<SignalResponse, number>>({
     queryKey: ["signals"],
     queryFn: async ({ pageParam = 1 }) => {
@@ -84,10 +86,8 @@ export function SignalFeed() {
           </div>
         )}
 
-        {!isLoading && signals.length === 0 && (
-          <div className="rounded-3xl border border-border bg-surface/80 p-8 text-center text-foreground-muted">
-            No signals available right now.
-          </div>
+        {!isLoading && !isError && signals.length === 0 && (
+          <SignalEmptyState onRefresh={() => refetch()} />
         )}
 
         {isLoading ? (
