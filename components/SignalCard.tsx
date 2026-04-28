@@ -1,0 +1,233 @@
+"use client";
+
+import { useState, useRef } from "react";
+import {
+  motion,
+  useMotionValue,
+  useTransform,
+  AnimatePresence,
+} from "framer-motion";
+import { TrendingUp, TrendingDown, Minus, X, Zap, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { SignalBadge } from "@/components/SignalBadge";
+import { SignalTimestamp } from "@/components/SignalTimestamp";
+import { TradeSkeleton } from "@/components/TradeSkeleton";
+import { TradeModal } from "@/components/TradeModal";
+import { cn } from "@/lib/utils";
+
+interface ROIPoint {
+  value: number;
+}
+
+interface SignalCardProps {
+  loading?: boolean;
+  pair?: string;
+  executionPrice?: number;
+  confidence?: number;
+  projectedTarget?: number;
+  roiHistory?: ROIPoint[];
+  analysis?: string;
+  signal?: "BUY" | "SELL";
+  timestamp?: Date;
+  onTrade?: (price: number) => void;
+  onPass?: () => void;
+}
+
+const DEFAULT_ROI: ROIPoint[] = [
+  { value: 0 }, { value: 1.2 }, { value: 0.8 }, { value: 2.1 },
+  { value: 1.9 }, { value: 3.4 }, { value: 2.8 }, { value: 4.2 },
+];
+
+const SWIPE_THRESHOLD = 120;
+
+export function SignalCard({
+  loading = false,
+  pair = "XLM/USDC",
+  executionPrice = 0.4821,
+  confidence = 87,
+  projectedTarget = 0.5310,
+  roiHistory = DEFAULT_ROI,
+  analysis = "Momentum building after a strong volume breakout above the 50-day MA. RSI at 62 with room to run.",
+  signal = "BUY",
+  timestamp = new Date(Date.now() - 5 * 60 * 1000),
+  onTrade,
+  onPass,
+}: SignalCardProps) {
+  const [dismissed, setDismissed] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const executingRef = useRef(false);
+
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-300, 300], [-18, 18]);
+
+  // Overlay opacities — ramp up after 30px, full at threshold
+  const tradeOpacity = useTransform(x, [30, SWIPE_THRESHOLD], [0, 1]);
+  const passOpacity = useTransform(x, [-30, -SWIPE_THRESHOLD], [0, 1]);
+
+  if (loading) return <TradeSkeleton />;
+
+  const roi = (((projectedTarget - executionPrice) / executionPrice) * 100).toFixed(2);
+  const isPositive = parseFloat(roi) >= 0;
+  const DirectionIcon = signal === "BUY" ? TrendingUp : signal === "SELL" ? TrendingDown : Minus;
+
+  function handlePass() {
+    setDismissed(true);
+    onPass?.();
+  }
+
+  function handleExecuteTrade() {
+    if (executingRef.current) return;
+    executingRef.current = true;
+    setModalOpen(true);
+  }
+
+  function handleModalClose() {
+    setModalOpen(false);
+    executingRef.current = false;
+  }
+
+  function handleModalConfirm() {
+    setModalOpen(false);
+    executingRef.current = false;
+    onTrade?.(executionPrice);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      if (e.key === "ArrowLeft") handlePass();
+      else handleExecuteTrade();
+    }
+  }
+
+  function handleDragEnd(_: unknown, info: { offset: { x: number } }) {
+    if (info.offset.x > SWIPE_THRESHOLD) {
+      handleExecuteTrade();
+    } else if (info.offset.x < -SWIPE_THRESHOLD) {
+      handlePass();
+    }
+    // spring back handled by dragSnapToOrigin
+  }
+
+  return (
+    <AnimatePresence>
+      {!dismissed && (
+        <motion.div
+          className="relative w-full touch-none select-none"
+          style={{ x, rotate }}
+          drag="x"
+          dragSnapToOrigin
+          dragElastic={0.15}
+          dragConstraints={{ left: 0, right: 0 }}
+          onDragEnd={handleDragEnd}
+          exit={{ x: 0, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
+          whileTap={{ cursor: "grabbing" }}
+        >
+          {/* TRADE overlay */}
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-start rounded-2xl border-2 border-green-500 bg-green-500/10 pl-6"
+            style={{ opacity: tradeOpacity }}
+            aria-hidden="true"
+          >
+            <span className="flex items-center gap-1.5 rounded-lg bg-green-500 px-3 py-1.5 text-sm font-bold text-white shadow">
+              <Check size={15} />
+              TRADE
+            </span>
+          </motion.div>
+
+          {/* PASS overlay */}
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-end rounded-2xl border-2 border-red-500 bg-red-500/10 pr-6"
+            style={{ opacity: passOpacity }}
+            aria-hidden="true"
+          >
+            <span className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-sm font-bold text-white shadow">
+              <X size={15} />
+              PASS
+            </span>
+          </motion.div>
+
+          <article
+            className="w-full rounded-2xl border bg-card p-4 shadow-sm flex flex-col gap-3 sm:p-5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 focus-within:ring-offset-background"
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            role="article"
+            aria-label={`${signal} signal for ${pair} at ${executionPrice} with ${confidence}% confidence`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-base sm:text-lg">{pair}</span>
+              <SignalBadge signal={signal} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Execution Price</p>
+                <p className="font-mono font-semibold">${executionPrice.toFixed(4)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Confidence</p>
+                <p className="font-semibold">{confidence}%</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Target</p>
+                <p className="font-mono font-semibold">${projectedTarget.toFixed(4)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">ROI</p>
+                <p className={cn("font-semibold", isPositive ? "text-green-600" : "text-red-600")}>
+                  {isPositive ? "+" : ""}{roi}%
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <DirectionIcon size={16} className={cn(
+                signal === "BUY" ? "text-green-600" : signal === "SELL" ? "text-red-600" : "text-gray-500"
+              )} />
+              <MiniROIChart data={roiHistory} />
+            </div>
+
+            <p className="text-sm text-muted-foreground leading-relaxed">{analysis}</p>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <SignalTimestamp updatedAt={timestamp} />
+              <p className="text-xs text-muted-foreground">
+                Swipe or use ← → keys
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePass}
+                className="flex-1"
+                aria-label={`Pass on ${signal} signal for ${pair}`}
+              >
+                <X size={16} className="mr-1" />
+                Pass
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleExecuteTrade}
+                disabled={modalOpen}
+                className="flex-1 active:scale-95"
+                aria-label={`Execute trade: ${signal} signal for ${pair} at ${executionPrice}`}
+              >
+                <Zap size={16} className="mr-1" />
+                Execute Trade
+              </Button>
+            </div>
+          </article>
+
+          <TradeModal
+            open={modalOpen}
+            onClose={handleModalClose}
+            onConfirm={handleModalConfirm}
+            marketPrice={executionPrice}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
