@@ -12,8 +12,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
-  { href: "/signals", label: "Signals" },
-  { href: "/providers", label: "Providers" },
+  { href: "/app", label: "Signals" },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/tax", label: "Tax Report" },
+  { href: "/security", label: "Security" },
 ];
 
 export function Navbar() {
