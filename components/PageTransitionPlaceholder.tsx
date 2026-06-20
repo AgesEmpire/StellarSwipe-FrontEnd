@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePageTransitionStore } from "@/store/usePageTransitionStore";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { PageTransitionSkeleton } from "./PageTransitionSkeleton";
 
 /**
@@ -45,6 +46,7 @@ export function PageTransitionPlaceholder({
   minShowDuration = 300,
 }: PageTransitionPlaceholderProps) {
   const pathname = usePathname();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const { isTransitioning, startTransition, completeTransition } =
     usePageTransitionStore();
 
@@ -55,6 +57,8 @@ export function PageTransitionPlaceholder({
   >("feed");
   const showTimerRef = useRef<NodeJS.Timeout | null>(null);
   const minDurationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const effectiveShowDelay = prefersReducedMotion ? 0 : showDelay;
+  const effectiveMinShowDuration = prefersReducedMotion ? 0 : minShowDuration;
 
   // Determine skeleton variant based on route
   const getSkeletonVariant = (
@@ -85,14 +89,14 @@ export function PageTransitionPlaceholder({
       // Ensure minimum display duration for visibility
       minDurationTimerRef.current = setTimeout(() => {
         setVisiblePlaceholder(false);
-      }, minShowDuration);
-    }, showDelay);
+      }, effectiveMinShowDuration);
+    }, effectiveShowDelay);
 
     return () => {
       if (showTimerRef.current) clearTimeout(showTimerRef.current);
       if (minDurationTimerRef.current) clearTimeout(minDurationTimerRef.current);
     };
-  }, [pathname, showDelay, minShowDuration, startTransition]);
+  }, [pathname, effectiveShowDelay, effectiveMinShowDuration, startTransition]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -107,13 +111,17 @@ export function PageTransitionPlaceholder({
       {(isTransitioning || visiblePlaceholder) && (
         <motion.div
           key="page-transition-placeholder"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{
-            duration: 0.25,
-            ease: "easeInOut",
-          }}
+          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 12 }}
+          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -12 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : {
+                  duration: 0.25,
+                  ease: "easeInOut",
+                }
+          }
           className="fixed inset-0 top-14 z-loading bg-background pointer-events-none overflow-y-auto"
           aria-hidden="true"
           role="status"

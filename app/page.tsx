@@ -10,18 +10,20 @@ import { CTABanner } from "@/components/CTABanner";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Footer } from "@/components/Footer";
 import { PageTransition } from "@/components/PageTransition";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 export default function Home() {
   const { publicKey, connected, connect, disconnect } = useWallet();
   const [tradeOpen, setTradeOpen] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   return (
     <PageTransition>
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5 }}
           className="relative text-center"
         >
           <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
@@ -33,9 +35,11 @@ export default function Home() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
+          transition={
+            prefersReducedMotion ? { duration: 0 } : { delay: 0.2, duration: 0.4 }
+          }
           className="flex flex-col items-center gap-4"
         >
           {connected ? (

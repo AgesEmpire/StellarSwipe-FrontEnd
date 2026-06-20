@@ -1,5 +1,7 @@
 "use client";
 
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+
 /**
  * PageTransitionSkeleton
  * ─────────────────────
@@ -16,6 +18,9 @@ interface PageTransitionSkeletonProps {
 export function PageTransitionSkeleton({
   variant = "feed",
 }: PageTransitionSkeletonProps) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const pulseClass = prefersReducedMotion ? "" : "animate-pulse";
+
   if (variant === "feed") {
     return (
       <div className="w-full space-y-3 md:space-y-4 px-3 md:px-0">
@@ -24,7 +29,7 @@ export function PageTransitionSkeleton({
           {[...Array(2)].map((_, i) => (
             <div
               key={i}
-              className="w-full rounded-xl border border-border bg-surface p-4 md:p-5 space-y-3 md:space-y-4 animate-pulse"
+              className={`w-full rounded-xl border border-border bg-surface p-4 md:p-5 space-y-3 md:space-y-4 ${pulseClass}`}
             >
               {/* Header */}
               <div className="flex items-center justify-between">
@@ -61,7 +66,7 @@ export function PageTransitionSkeleton({
     return (
       <div className="w-full space-y-4 md:space-y-6 px-3 md:px-0">
         {/* Header section */}
-        <div className="rounded-xl border border-border bg-surface p-4 md:p-6 space-y-4 animate-pulse">
+        <div className={`rounded-xl border border-border bg-surface p-4 md:p-6 space-y-4 ${pulseClass}`}>
           <div className="h-8 w-3/4 md:w-1/2 rounded bg-surface-high" />
           <div className="flex flex-col md:flex-row gap-3 md:gap-4">
             <div className="h-6 w-24 rounded bg-surface-high" />
@@ -73,7 +78,7 @@ export function PageTransitionSkeleton({
         {[...Array(2)].map((_, i) => (
           <div
             key={i}
-            className="rounded-xl border border-border bg-surface p-4 md:p-6 space-y-3 md:space-y-4 animate-pulse"
+            className={`rounded-xl border border-border bg-surface p-4 md:p-6 space-y-3 md:space-y-4 ${pulseClass}`}
           >
             <div className="h-6 w-32 rounded bg-surface-high" />
             <div className="space-y-2">
@@ -89,7 +94,7 @@ export function PageTransitionSkeleton({
 
   if (variant === "table") {
     return (
-      <div className="w-full rounded-xl border border-border bg-surface overflow-hidden animate-pulse">
+      <div className={`w-full rounded-xl border border-border bg-surface overflow-hidden ${pulseClass}`}>
         {/* Table header */}
         <div className="hidden md:flex items-center gap-4 px-4 md:px-6 py-4 border-b border-border bg-surface-high">
           {[...Array(4)].map((_, i) => (
@@ -132,7 +137,7 @@ export function PageTransitionSkeleton({
           {[...Array(6)].map((_, i) => (
             <div
               key={i}
-              className="rounded-xl border border-border bg-surface p-4 space-y-3 animate-pulse"
+              className={`rounded-xl border border-border bg-surface p-4 space-y-3 ${pulseClass}`}
             >
               <div className="h-40 w-full rounded-lg bg-surface-high" />
               <div className="space-y-2">

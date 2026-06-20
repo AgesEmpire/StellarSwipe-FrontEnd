@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { MotionConfig } from "framer-motion";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "@/lib/queryClient";
@@ -14,9 +15,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
-      <ToastProvider />
-      <ReactQueryDevtools initialIsOpen={false} />
+      <MotionConfig reducedMotion="user">
+        {children}
+        <ToastProvider />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </MotionConfig>
     </QueryClientProvider>
   );
 }

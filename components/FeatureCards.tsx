@@ -64,7 +64,7 @@ export function FeatureCards() {
                 {...scrollProps}
                 className="group flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-900 p-6
                            transition-all duration-300 hover:border-sky-500/40 hover:shadow-lg hover:shadow-sky-900/20
-                           hover:-translate-y-1"
+                           hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:transform-none"
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20">
                   <Icon size={22} className="text-sky-400" aria-hidden />

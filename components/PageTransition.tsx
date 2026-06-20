@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ReactNode } from "react";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -14,6 +15,12 @@ const variants = {
 };
 
 export function PageTransition({ children }: PageTransitionProps) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  if (prefersReducedMotion) {
+    return <>{children}</>;
+  }
+
   return (
     <motion.div
       initial="hidden"

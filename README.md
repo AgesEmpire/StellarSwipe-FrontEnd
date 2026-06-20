@@ -38,6 +38,12 @@ Set environment variables (.env.local):
 Run dev server:
   npm run dev
 
+## Reduced Motion
+
+The app respects the system `prefers-reduced-motion` setting. When reduced motion is enabled, Framer Motion is configured globally with `reducedMotion="user"`, landing-page reveal animations render instantly, and page-transition placeholders keep their loading feedback visible without slide/pulse motion.
+
+To verify locally, open browser rendering tools or OS accessibility settings, enable reduced motion, then reload the app. The hero and scroll-reveal sections should appear without movement, and route-change placeholders should remain visible without animated transitions.
+
 ## Worker Tracing
 
 Asynchronous worker execution paths are instrumented via `src/tracing/worker-tracing.service.ts`.
@@ -81,4 +87,3 @@ In development (`NODE_ENV=development`) spans are logged to `console.debug`. Rep
 ```bash
 npm test
 ```
-
