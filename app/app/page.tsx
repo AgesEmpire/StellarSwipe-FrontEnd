@@ -23,11 +23,15 @@ import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatu
 import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
 import { PositionStopLossControl } from "@/components/PositionStopLossControl";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
+import {
+  ErrorBoundaryTestProbe,
+  ScopedErrorBoundary,
+} from "@/components/ScopedErrorBoundary";
 
 export default function AppPage() {
   const { publicKey, connected } = useWallet();
   const { data: signals, isLoading, error, refetch } = useSignals();
-  const { assets } = usePortfolio();
+  const { assets, refetch: refetchPortfolio } = usePortfolio();
   const { direction, asset, provider } = useSignalFilterStore();
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const pendingTransaction = useTransactionStore((state) =>
@@ -144,70 +148,100 @@ export default function AppPage() {
         <div className="mx-auto w-full max-w-7xl">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
             <div className="flex flex-col gap-4 min-w-0">
-              <SignalFeedFilters
-                availableAssets={availableAssets}
-                availableProviders={availableProviders}
-              />
-
-              <div className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
-                {isLoading && (
-                  <div className="flex justify-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin text-foreground-muted" />
-                  </div>
-                )}
-
-                {error && (
-                  <SignalErrorState error={error as Error} onRetry={refetch} />
-                )}
-
-                {filteredSignals && filteredSignals.length === 0 && (
-                  <p className="text-center text-sm text-foreground-muted">No signals available.</p>
-                )}
-
-                {filteredSignals && filteredSignals.length > 0 && (
-                  <ul className="flex flex-col gap-3" role="list" aria-label="Signal list">
-                    {filteredSignals.map((signal) => (
-                      <li
-                        key={signal.id}
-                        className="rounded-xl border border-border p-3 text-sm flex flex-wrap items-center justify-between gap-2 sm:p-4"
-                      >
-                        <span className="font-medium text-base sm:text-sm text-foreground">{signal.asset}</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signal.action === "BUY" ? "bg-green-500/15 text-green-400" : signal.action === "SELL" ? "bg-red-500/15 text-red-400" : "bg-slate-500/15 text-slate-400"}`}
-                        >
-                          {signal.action}
-                        </span>
-                        <span className="text-muted-foreground text-xs">{signal.confidence}% confidence</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 sm:px-0">
-                <SignalCard
-                  loading={loading}
-                  onTrade={handleTrade}
-                  providerStake={50000}
-                  providerReputation={85}
-                  portfolioBalance={assets.reduce((sum, asset) => sum + asset.value, 0)}
+              <ScopedErrorBoundary
+                sectionName="signal-feed"
+                sectionLabel="Signal feed"
+                onRetry={() => void refetch()}
+                resetKeys={[direction, asset, provider]}
+              >
+                <ErrorBoundaryTestProbe sectionName="signal-feed" />
+                <SignalFeedFilters
+                  availableAssets={availableAssets}
+                  availableProviders={availableProviders}
                 />
-                <div className="flex gap-3">
-                  <button
-                    onClick={toggleLoading}
-                    className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
-                  >
-                    Preview skeleton
-                  </button>
-                  <button
-                    onClick={() => setModalOpen(true)}
-                    className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
-                  >
-                    Open trade modal
-                  </button>
+
+                <div className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
+                  {isLoading && (
+                    <div className="flex justify-center py-10">
+                      <Loader2 className="h-6 w-6 animate-spin text-foreground-muted" />
+                    </div>
+                  )}
+
+                  {error && (
+                    <SignalErrorState error={error as Error} onRetry={refetch} />
+                  )}
+
+                  {filteredSignals && filteredSignals.length === 0 && (
+                    <p className="text-center text-sm text-foreground-muted">No signals available.</p>
+                  )}
+
+                  {filteredSignals && filteredSignals.length > 0 && (
+                    <ul className="flex flex-col gap-3" role="list" aria-label="Signal list">
+                      {filteredSignals.map((signal) => (
+                        <li
+                          key={signal.id}
+                          className="rounded-xl border border-border p-3 text-sm flex flex-wrap items-center justify-between gap-2 sm:p-4"
+                        >
+                          <span className="font-medium text-base sm:text-sm text-foreground">{signal.asset}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signal.action === "BUY" ? "bg-green-500/15 text-green-400" : signal.action === "SELL" ? "bg-red-500/15 text-red-400" : "bg-slate-500/15 text-slate-400"}`}
+                          >
+                            {signal.action}
+                          </span>
+                          <span className="text-muted-foreground text-xs">{signal.confidence}% confidence</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              </div>
+              </ScopedErrorBoundary>
+
+              <ScopedErrorBoundary
+                sectionName="trade-preview"
+                sectionLabel="Trade preview"
+                onRetry={() => setLoading(false)}
+              >
+                <ErrorBoundaryTestProbe sectionName="trade-preview" />
+                <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 sm:px-0">
+                  <SignalCard
+                    loading={loading}
+                    onTrade={handleTrade}
+                    providerStake={50000}
+                    providerReputation={85}
+                    portfolioBalance={assets.reduce((sum, asset) => sum + asset.value, 0)}
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={toggleLoading}
+                      className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
+                    >
+                      Preview skeleton
+                    </button>
+                    <button
+                      onClick={() => setModalOpen(true)}
+                      className="text-xs text-foreground-subtle hover:text-foreground-muted underline transition-colors"
+                    >
+                      Open trade modal
+                    </button>
+                  </div>
+                </div>
+              </ScopedErrorBoundary>
             </div>
+
+            <ScopedErrorBoundary
+              sectionName="portfolio-dashboard"
+              sectionLabel="Portfolio dashboard"
+              onRetry={() => void refetchPortfolio()}
+            >
+              <ErrorBoundaryTestProbe sectionName="portfolio-dashboard" />
+              <aside className="flex min-w-0 flex-col gap-4">
+                <PortfolioSummaryCards />
+                <PortfolioAllocationChart />
+                <PnLWidget />
+                <PositionStopLossControl />
+                <TransactionActivityFeed />
+              </aside>
+            </ScopedErrorBoundary>
           </div>
         </div>
 

@@ -10,6 +10,10 @@ import { ComparisonCard } from "@/components/comparison/ComparisonCard";
 import { MetricToggleBar } from "@/components/comparison/MetricToggleBar";
 import { ComparisonChart } from "@/components/comparison/ComparisonChart";
 import { AddSignalPanel } from "@/components/comparison/AddSignalPanel";
+import {
+  ErrorBoundaryTestProbe,
+  ScopedErrorBoundary,
+} from "@/components/ScopedErrorBoundary";
 
 function computeBestValues(signals: ReturnType<typeof useComparisonStore.getState>["signals"]): Record<string, number> {
   const best: Record<string, number> = {};
@@ -77,95 +81,104 @@ export default function ComparePage() {
             </div>
           </div>
 
-          {/* Add signal panel */}
-          <AnimatePresence>
-            {addPanelOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden mb-6"
-              >
-                <div className="rounded-xl border border-white/10 bg-gray-900 p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-semibold text-gray-300">Select signals to compare</h2>
-                    <span className="text-xs text-gray-500">{signals.length}/3 selected</span>
-                  </div>
-                  <AddSignalPanel />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <ScopedErrorBoundary
+            sectionName="comparison-tool"
+            sectionLabel="Signal comparison"
+            onRetry={() => setAddPanelOpen(false)}
+            resetKeys={[signals.length]}
+          >
+            <ErrorBoundaryTestProbe sectionName="comparison-tool" />
 
-          {signals.length === 0 ? (
-            /* Empty state */
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <GitCompare className="h-12 w-12 text-gray-700 mb-4" />
-              <h2 className="text-xl font-semibold text-gray-400 mb-2">No signals selected</h2>
-              <p className="text-gray-500 text-sm mb-6 max-w-sm">
-                Add up to 3 signals to compare their metrics, entry/exit points, and performance side-by-side.
-              </p>
-              <Button onClick={() => setAddPanelOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Your First Signal
-              </Button>
-            </div>
-          ) : (
-            <>
-              {/* Metric toggles */}
-              <div className="mb-6 print:hidden">
-                <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wider">Toggle Columns</p>
-                <MetricToggleBar hiddenMetrics={hiddenMetrics} onToggle={toggleMetric} />
-              </div>
-
-              {/* Side-by-side cards — horizontal scroll on mobile */}
-              <div className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
-                <div className="flex gap-4" style={{ minWidth: `${signals.length * 220}px` }}>
-                  {signals.map((signal) => (
-                    <motion.div
-                      key={signal.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="flex-1"
-                      style={{ minWidth: 200 }}
-                    >
-                      <ComparisonCard
-                        signal={signal}
-                        onRemove={() => removeSignal(signal.id)}
-                        hiddenMetrics={hiddenMetrics}
-                        bestValues={bestValues}
-                      />
-                    </motion.div>
-                  ))}
-
-                  {/* Placeholder slot when fewer than 3 */}
-                  {canAdd() && (
-                    <div
-                      className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-white/10 min-h-[200px] cursor-pointer hover:border-white/20 transition-colors print:hidden"
-                      style={{ minWidth: 200 }}
-                      onClick={() => setAddPanelOpen(true)}
-                      role="button"
-                      aria-label="Add another signal"
-                    >
-                      <div className="text-center text-gray-600">
-                        <Plus className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Add signal</p>
-                      </div>
+            {/* Add signal panel */}
+            <AnimatePresence>
+              {addPanelOpen && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mb-6"
+                >
+                  <div className="rounded-xl border border-white/10 bg-gray-900 p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-sm font-semibold text-gray-300">Select signals to compare</h2>
+                      <span className="text-xs text-gray-500">{signals.length}/3 selected</span>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Performance chart */}
-              {signals.length >= 2 && (
-                <div className="mt-8 rounded-xl border border-white/10 bg-gray-900 p-6">
-                  <h2 className="text-sm font-semibold text-gray-300 mb-5">Performance Comparison</h2>
-                  <ComparisonChart signals={signals} />
-                </div>
+                    <AddSignalPanel />
+                  </div>
+                </motion.div>
               )}
-            </>
-          )}
+            </AnimatePresence>
+
+            {signals.length === 0 ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <GitCompare className="h-12 w-12 text-gray-700 mb-4" />
+                <h2 className="text-xl font-semibold text-gray-400 mb-2">No signals selected</h2>
+                <p className="text-gray-500 text-sm mb-6 max-w-sm">
+                  Add up to 3 signals to compare their metrics, entry/exit points, and performance side-by-side.
+                </p>
+                <Button onClick={() => setAddPanelOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Your First Signal
+                </Button>
+              </div>
+            ) : (
+              <>
+                {/* Metric toggles */}
+                <div className="mb-6 print:hidden">
+                  <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wider">Toggle Columns</p>
+                  <MetricToggleBar hiddenMetrics={hiddenMetrics} onToggle={toggleMetric} />
+                </div>
+
+                {/* Side-by-side cards — horizontal scroll on mobile */}
+                <div className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <div className="flex gap-4" style={{ minWidth: `${signals.length * 220}px` }}>
+                    {signals.map((signal) => (
+                      <motion.div
+                        key={signal.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="flex-1"
+                        style={{ minWidth: 200 }}
+                      >
+                        <ComparisonCard
+                          signal={signal}
+                          onRemove={() => removeSignal(signal.id)}
+                          hiddenMetrics={hiddenMetrics}
+                          bestValues={bestValues}
+                        />
+                      </motion.div>
+                    ))}
+
+                    {/* Placeholder slot when fewer than 3 */}
+                    {canAdd() && (
+                      <div
+                        className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-white/10 min-h-[200px] cursor-pointer hover:border-white/20 transition-colors print:hidden"
+                        style={{ minWidth: 200 }}
+                        onClick={() => setAddPanelOpen(true)}
+                        role="button"
+                        aria-label="Add another signal"
+                      >
+                        <div className="text-center text-gray-600">
+                          <Plus className="h-8 w-8 mx-auto mb-2" />
+                          <p className="text-sm">Add signal</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Performance chart */}
+                {signals.length >= 2 && (
+                  <div className="mt-8 rounded-xl border border-white/10 bg-gray-900 p-6">
+                    <h2 className="text-sm font-semibold text-gray-300 mb-5">Performance Comparison</h2>
+                    <ComparisonChart signals={signals} />
+                  </div>
+                )}
+              </>
+            )}
+          </ScopedErrorBoundary>
         </div>
       </main>
 
