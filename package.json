@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:recommendation-explainability": "node scripts/verify-recommendation-explainability.mjs",
     "test": "jest --no-coverage"
   },
   "dependencies": {
