@@ -33,9 +33,10 @@ const STEPS: OnboardingStep[] = [
 ];
 
 export function OnboardingFlow() {
-  const { dismissed, setCompleted, setDismissed } = useOnboardingStore();
+  const { dismissed, isHydrated, setCompleted, setDismissed } = useOnboardingStore();
   const [step, setStep] = useState(0);
 
+  if (!isHydrated) return null;
   if (dismissed) return null;
 
   const current = STEPS[step];

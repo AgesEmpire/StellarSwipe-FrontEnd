@@ -1,10 +1,15 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Signal } from "@/lib/api";
+import {
+  createPersistedState,
+  type PersistHydrationState,
+  withPersistedHydration,
+} from "./persistHydration";
 
 const MAX_SIGNALS = 3;
 
-interface ComparisonState {
+interface ComparisonState extends PersistHydrationState {
   signals: Signal[];
   hiddenMetrics: string[];
   addSignal: (signal: Signal) => boolean;
@@ -18,6 +23,7 @@ interface ComparisonState {
 export const useComparisonStore = create<ComparisonState>()(
   persist(
     (set, get) => ({
+      ...createPersistedState<ComparisonState>(set),
       signals: [],
       hiddenMetrics: [],
 
@@ -44,6 +50,6 @@ export const useComparisonStore = create<ComparisonState>()(
       isSelected: (id) => get().signals.some((s) => s.id === id),
       canAdd: () => get().signals.length < MAX_SIGNALS,
     }),
-    { name: "signal-comparison" }
+    withPersistedHydration({ name: "signal-comparison" })
   )
 );

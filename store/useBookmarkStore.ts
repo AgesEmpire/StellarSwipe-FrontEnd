@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  createPersistedState,
+  type PersistHydrationState,
+  withPersistedHydration,
+} from "./persistHydration";
 
-interface BookmarkState {
+interface BookmarkState extends PersistHydrationState {
   bookmarks: string[];
   toggleBookmark: (id: string) => void;
   clearBookmarks: () => void;
@@ -10,6 +15,7 @@ interface BookmarkState {
 export const useBookmarkStore = create<BookmarkState>()(
   persist(
     (set) => ({
+      ...createPersistedState<BookmarkState>(set),
       bookmarks: [],
       toggleBookmark: (id: string) =>
         set((state) => ({
@@ -19,6 +25,6 @@ export const useBookmarkStore = create<BookmarkState>()(
         })),
       clearBookmarks: () => set({ bookmarks: [] }),
     }),
-    { name: "signal-bookmarks" }
+    withPersistedHydration({ name: "signal-bookmarks" })
   )
 );

@@ -5,7 +5,11 @@ import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { cn } from "@/lib/utils";
 
 export function DemoModeCallout({ className }: { className?: string }) {
-  const { setDemoMode } = useDemoModeStore();
+  const { isDemoMode, isHydrated, setDemoMode } = useDemoModeStore();
+
+  if (!isHydrated || !isDemoMode) {
+    return null;
+  }
 
   return (
     <div

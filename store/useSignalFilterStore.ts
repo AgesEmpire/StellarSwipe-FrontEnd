@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  createPersistedState,
+  type PersistHydrationState,
+  withPersistedHydration,
+} from "./persistHydration";
 
 export type FilterDirection = "ALL" | "BUY" | "SELL";
 export type FeedSortOrder = "latest" | "hot" | "relevant" | "confidence";
@@ -12,7 +17,7 @@ export const SORT_ORDER_LABELS: Record<FeedSortOrder, string> = {
   confidence: "Confidence",
 };
 
-interface SignalFilterState {
+interface SignalFilterState extends PersistHydrationState {
   direction: FilterDirection;
   asset: string;
   provider: string;
@@ -29,6 +34,7 @@ interface SignalFilterState {
 export const useSignalFilterStore = create<SignalFilterState>()(
   persist(
     (set) => ({
+      ...createPersistedState<SignalFilterState>(set),
       direction: "ALL",
       asset: "",
       provider: "",
@@ -48,6 +54,6 @@ export const useSignalFilterStore = create<SignalFilterState>()(
           sortOrder: "latest",
         }),
     }),
-    { name: "signal-filter-store" }
+    withPersistedHydration({ name: "signal-filter-store" })
   )
 );

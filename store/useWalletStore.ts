@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  createPersistedState,
+  type PersistHydrationState,
+  withPersistedHydration,
+} from "./persistHydration";
 
-interface WalletState {
+interface WalletState extends PersistHydrationState {
   publicKey: string | null;
   isConnected: boolean;
   network: string;
@@ -13,6 +18,7 @@ interface WalletState {
 export const useWalletStore = create<WalletState>()(
   persist(
     (set) => ({
+      ...createPersistedState<WalletState>(set),
       publicKey: null,
       isConnected: false,
       network: "TESTNET",
@@ -20,6 +26,6 @@ export const useWalletStore = create<WalletState>()(
       setConnected: (connected) => set({ isConnected: connected }),
       disconnect: () => set({ publicKey: null, isConnected: false }),
     }),
-    { name: "wallet-store" }
+    withPersistedHydration({ name: "wallet-store" })
   )
 );

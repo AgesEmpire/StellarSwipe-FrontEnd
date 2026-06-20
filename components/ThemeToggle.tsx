@@ -9,10 +9,12 @@ import { useEffect } from "react";
  * Mount once (inside Navbar or layout) — it handles DOM sync automatically.
  */
 export function ThemeToggle() {
-  const { theme, toggle } = useThemeStore();
+  const { theme, isHydrated, toggle } = useThemeStore();
 
   // Sync theme class on <html> whenever it changes
   useEffect(() => {
+    if (!isHydrated) return;
+
     const root = document.documentElement;
     if (theme === "light") {
       root.classList.remove("dark");
@@ -21,18 +23,25 @@ export function ThemeToggle() {
       root.classList.remove("light");
       root.classList.add("dark");
     }
-  }, [theme]);
+  }, [isHydrated, theme]);
+
+  const nextTheme = theme === "dark" ? "light" : "dark";
 
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-pressed={theme === "dark"}
-      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-      title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-      className="flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-surface-high/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      disabled={!isHydrated}
+      aria-pressed={isHydrated ? theme === "dark" : undefined}
+      aria-label={
+        isHydrated ? `Switch to ${nextTheme} mode` : "Loading theme preference"
+      }
+      title={isHydrated ? `Switch to ${nextTheme} mode` : "Loading theme preference"}
+      className="flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-surface-high/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-foreground-muted"
     >
-      {theme === "dark" ? (
+      {!isHydrated ? (
+        <span className="h-4 w-4 rounded-full bg-current/30" aria-hidden="true" />
+      ) : theme === "dark" ? (
         <Sun size={16} aria-hidden="true" />
       ) : (
         <Moon size={16} aria-hidden="true" />

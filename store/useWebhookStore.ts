@@ -1,5 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  createPersistedState,
+  type PersistHydrationState,
+  withPersistedHydration,
+} from './persistHydration';
 
 export type WebhookEventType = 'new_signal' | 'trade_execution' | 'portfolio_alert';
 
@@ -21,7 +26,7 @@ export interface Webhook {
   rateLimit: number; // remaining calls this minute
 }
 
-interface WebhookStore {
+interface WebhookStore extends PersistHydrationState {
   webhooks: Webhook[];
   addWebhook: (url: string, events: WebhookEventType[]) => Webhook;
   removeWebhook: (id: string) => void;
@@ -40,6 +45,7 @@ function generateSecret(): string {
 export const useWebhookStore = create<WebhookStore>()(
   persist(
     (set) => ({
+      ...createPersistedState<WebhookStore>(set),
       webhooks: [],
 
       addWebhook: (url, events) => {
@@ -83,6 +89,6 @@ export const useWebhookStore = create<WebhookStore>()(
       resetRateLimits: () =>
         set((s) => ({ webhooks: s.webhooks.map((w) => ({ ...w, rateLimit: 60 })) })),
     }),
-    { name: 'stellarswipe:webhooks' }
+    withPersistedHydration({ name: 'stellarswipe:webhooks' })
   )
 );

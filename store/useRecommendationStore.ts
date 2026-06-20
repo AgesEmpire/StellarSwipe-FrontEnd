@@ -1,5 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  createPersistedState,
+  type PersistHydrationState,
+  withPersistedHydration,
+} from './persistHydration';
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive';
 
@@ -21,7 +26,7 @@ export interface RecommendedSignal {
   reasons: string[];
 }
 
-interface RecommendationStore {
+interface RecommendationStore extends PersistHydrationState {
   settings: RecommendationSettings;
   feedback: RecommendationFeedback[];
   recommendations: RecommendedSignal[];
@@ -35,6 +40,7 @@ interface RecommendationStore {
 export const useRecommendationStore = create<RecommendationStore>()(
   persist(
     (set) => ({
+      ...createPersistedState<RecommendationStore>(set),
       settings: { enabled: true, riskProfile: 'moderate', privacyAccepted: false },
       feedback: [],
       recommendations: [],
@@ -61,6 +67,6 @@ export const useRecommendationStore = create<RecommendationStore>()(
           },
         })),
     }),
-    { name: 'stellarswipe:recommendations' }
+    withPersistedHydration({ name: 'stellarswipe:recommendations' })
   )
 );

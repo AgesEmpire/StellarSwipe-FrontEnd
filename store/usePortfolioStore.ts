@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  createPersistedState,
+  type PersistHydrationState,
+  withPersistedHydration,
+} from "./persistHydration";
 
 export interface PortfolioAsset {
   symbol: string;
@@ -11,7 +16,7 @@ export interface PortfolioAsset {
   unrealizedPnL?: number;
 }
 
-export interface PortfolioState {
+export interface PortfolioState extends PersistHydrationState {
   assets: PortfolioAsset[];
   totalValue: number;
   totalRealizedPnL: number;
@@ -28,6 +33,7 @@ export interface PortfolioState {
 export const usePortfolioStore = create<PortfolioState>()(
   persist(
     (set, get) => ({
+      ...createPersistedState<PortfolioState>(set),
       assets: [],
       totalValue: 0,
       totalRealizedPnL: 0,
@@ -65,6 +71,6 @@ export const usePortfolioStore = create<PortfolioState>()(
       },
       clear: () => set({ assets: [], totalValue: 0, totalRealizedPnL: 0, totalUnrealizedPnL: 0, lastUpdated: null }),
     }),
-    { name: "portfolio-store" }
+    withPersistedHydration({ name: "portfolio-store" })
   )
 );
