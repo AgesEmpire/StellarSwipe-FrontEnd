@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:image-usage": "node scripts/verify-image-usage.mjs",
     "test": "jest --no-coverage"
   },
   "dependencies": {
