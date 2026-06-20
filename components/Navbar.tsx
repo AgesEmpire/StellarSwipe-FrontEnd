@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/signals", label: "Signals" },
+  { href: "/bookmarks", label: "Bookmarks" },
   { href: "/providers", label: "Providers" },
 ];
 

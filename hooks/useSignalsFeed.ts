@@ -5,14 +5,18 @@ import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { buildSignalPage, Signal, SignalFeedPage } from "@/lib/signals";
 import { NetworkError, ServerError } from "@/lib/api";
 
-export function useSignalsFeed() {
+interface UseSignalsFeedOptions {
+  pageSize?: number;
+}
+
+export function useSignalsFeed({ pageSize = 10 }: UseSignalsFeedOptions = {}) {
   const { isDemoMode } = useDemoModeStore();
 
   const fetchLiveSignals = async (): Promise<Signal[]> => {
     let response: Response;
-    
+
     try {
-      response = await fetch("/api/signals", {
+      response = await fetch(`/api/signals?page=1&pageSize=${pageSize}`, {
         headers: {
           "Cache-Control": "no-cache",
         },
@@ -47,12 +51,12 @@ export function useSignalsFeed() {
   };
 
   const fetchDemoSignals = async (): Promise<Signal[]> => {
-    const page = buildSignalPage(1, 5);
+    const page = buildSignalPage(1, pageSize);
     return page.items;
   };
 
   const { data: signals, isLoading, error, refetch, isRefetching } = useQuery({
-    queryKey: ["signals", isDemoMode ? "demo" : "live"],
+    queryKey: ["signals", isDemoMode ? "demo" : "live", pageSize],
     queryFn: isDemoMode ? fetchDemoSignals : fetchLiveSignals,
     staleTime: 60000,
     retry: 2,
