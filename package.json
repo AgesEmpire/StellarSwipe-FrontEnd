@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:forced-colors": "node scripts/verify-forced-colors.mjs",
     "test": "jest --no-coverage"
   },
   "dependencies": {

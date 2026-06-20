@@ -292,3 +292,123 @@
   .z-toast     { z-index: var(--z-toast); }
   .z-loading   { z-index: var(--z-loading); }
 }
+
+/* Windows High Contrast / forced-colors support.
+ * Keep this global because the affected classes are mostly Tailwind utility
+ * combinations spread across buttons, badges, toggles, and signal cards.
+ */
+@media (forced-colors: active) {
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  :where(button, [role="button"], a, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])) {
+    forced-color-adjust: auto;
+  }
+
+  :where(button, [role="button"], a, input, select, textarea, summary, [role="switch"], [aria-pressed]):focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 3px;
+    box-shadow: none !important;
+  }
+
+  :where(button, [role="button"], [role="switch"], [aria-pressed]) {
+    border-color: ButtonText !important;
+  }
+
+  :where(button, [role="button"], [role="switch"]) {
+    background-color: ButtonFace;
+    color: ButtonText;
+  }
+
+  :where([aria-pressed="true"], [role="switch"][aria-checked="true"]) {
+    forced-color-adjust: none;
+    background-color: Highlight !important;
+    border-color: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  :where([aria-pressed="false"], [role="switch"][aria-checked="false"]) {
+    background-color: ButtonFace !important;
+    border-color: ButtonText !important;
+    color: ButtonText !important;
+  }
+
+  :where(
+    [class*="bg-green-"],
+    [class*="text-green-"],
+    [class*="border-green-"],
+    [class*="bg-emerald-"],
+    [class*="text-emerald-"],
+    [class*="border-emerald-"],
+    [class*="accent-success"]
+  ) {
+    forced-color-adjust: none;
+    background-color: Canvas !important;
+    border-color: CanvasText !important;
+    border-style: solid !important;
+    border-width: 1px !important;
+    color: CanvasText !important;
+  }
+
+  :where(
+    [class*="bg-red-"],
+    [class*="text-red-"],
+    [class*="border-red-"],
+    [class*="destructive"],
+    [class*="accent-danger"]
+  ) {
+    forced-color-adjust: none;
+    background-color: Canvas !important;
+    border-color: CanvasText !important;
+    border-style: double !important;
+    border-width: 3px !important;
+    color: CanvasText !important;
+  }
+
+  :where(
+    [class*="bg-amber-"],
+    [class*="text-amber-"],
+    [class*="border-amber-"],
+    [class*="bg-yellow-"],
+    [class*="text-yellow-"],
+    [class*="border-yellow-"],
+    [class*="bg-orange-"],
+    [class*="text-orange-"],
+    [class*="border-orange-"],
+    [class*="accent-warning"]
+  ) {
+    forced-color-adjust: none;
+    background-color: Canvas !important;
+    border-color: CanvasText !important;
+    border-style: dashed !important;
+    border-width: 2px !important;
+    color: CanvasText !important;
+  }
+
+  :where(
+    [class*="bg-blue-"],
+    [class*="text-blue-"],
+    [class*="border-blue-"],
+    [class*="bg-sky-"],
+    [class*="text-sky-"],
+    [class*="border-sky-"],
+    [class*="accent-primary"],
+    [class*="accent-sky"]
+  ) {
+    forced-color-adjust: none;
+    background-color: ButtonFace !important;
+    border-color: LinkText !important;
+    border-style: solid !important;
+    border-width: 1px !important;
+    color: LinkText !important;
+  }
+
+  :where([disabled], [aria-disabled="true"], .disabled) {
+    color: GrayText !important;
+    border-color: GrayText !important;
+  }
+}
