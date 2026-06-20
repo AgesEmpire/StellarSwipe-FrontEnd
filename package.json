@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:renovate-config": "node scripts/verify-renovate-config.mjs",
     "test": "jest --no-coverage"
   },
   "dependencies": {

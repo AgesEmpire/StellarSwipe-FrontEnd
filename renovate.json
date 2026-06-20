@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "dependencyDashboard": true,
+  "automerge": false,
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "separateMajorMinor": true,
+  "vulnerabilityAlerts": {
+    "labels": ["dependencies", "security"],
+    "dependencyDashboardApproval": false,
+    "automerge": false
+  },
+  "packageRules": [
+    {
+      "description": "Group routine production dependency updates",
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major dependency updates",
+      "labels": ["dependencies"]
+    },
+    {
+      "description": "Group routine development dependency updates",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dev dependency updates",
+      "labels": ["dependencies", "dev-dependencies"]
+    },
+    {
+      "description": "Require explicit dashboard approval before major upgrades",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "labels": ["dependencies", "major"]
+    }
+  ]
+}
