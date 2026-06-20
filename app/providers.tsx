@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "@/lib/queryClient";
 import { ToastProvider } from "@/components/ui/toast";
+import { ReactQueryDevtoolsPanel } from "@/components/ReactQueryDevtoolsPanel";
 import { initI18n } from "@/lib/i18n";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -16,7 +16,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       {children}
       <ToastProvider />
-      <ReactQueryDevtools initialIsOpen={false} />
+      <ReactQueryDevtoolsPanel />
     </QueryClientProvider>
   );
 }

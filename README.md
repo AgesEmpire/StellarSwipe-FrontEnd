@@ -38,6 +38,12 @@ Set environment variables (.env.local):
 Run dev server:
   npm run dev
 
+## React Query Devtools
+
+Local development builds automatically show the React Query Devtools toggle for inspecting query cache state, freshness, and refetch behavior. The panel is mounted inside the app's existing `QueryClientProvider`, so hooks such as `useSignals` and `usePortfolio` appear in the same cache the app uses.
+
+The devtools are loaded only when `NODE_ENV=development`; production builds render no devtools panel and do not require manual toggling.
+
 ## Worker Tracing
 
 Asynchronous worker execution paths are instrumented via `src/tracing/worker-tracing.service.ts`.
@@ -81,4 +87,3 @@ In development (`NODE_ENV=development`) spans are logged to `console.debug`. Rep
 ```bash
 npm test
 ```
-
