@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:theme-first-paint": "node scripts/verify-theme-first-paint.mjs",
     "test": "jest --no-coverage"
   },
   "dependencies": {

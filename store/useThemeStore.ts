@@ -2,8 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-type Theme = "dark" | "light";
+import { getInitialTheme, type Theme } from "@/lib/theme";
 
 interface ThemeState {
   theme: Theme;
@@ -14,7 +13,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      theme: "dark",
+      theme: getInitialTheme(),
       setTheme: (theme) => set({ theme }),
       toggle: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
     }),

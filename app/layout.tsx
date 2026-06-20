@@ -7,6 +7,7 @@ import { PageTransitionPlaceholder } from "@/components/PageTransitionPlaceholde
 import { TradeStatusBanner } from "@/components/TradeStatusBanner";
 import { DevPerfOverlay } from "@/components/DevPerfOverlay";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
+import { themeInitScript } from "@/lib/theme";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -31,10 +32,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Apply persisted theme before first paint to avoid flash */}
+        {/* Apply persisted theme before first paint to avoid flash. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var item=localStorage.getItem('stellar-theme');var theme=item?JSON.parse(item).state?.theme:null; if(!theme){theme=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';} document.documentElement.classList.remove('light','dark'); document.documentElement.classList.add(theme);}catch(e){}})();`,
+            __html: themeInitScript,
           }}
         />
       </head>

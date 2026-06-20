@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useThemeStore } from "@/store/useThemeStore";
+import { applyThemeToDocument } from "@/lib/theme";
 import { useEffect } from "react";
 
 /**
@@ -13,14 +14,7 @@ export function ThemeToggle() {
 
   // Sync theme class on <html> whenever it changes
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "light") {
-      root.classList.remove("dark");
-      root.classList.add("light");
-    } else {
-      root.classList.remove("light");
-      root.classList.add("dark");
-    }
+    applyThemeToDocument(theme);
   }, [theme]);
 
   return (
