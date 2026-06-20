@@ -12,7 +12,7 @@ import { usePriceFormat } from "@/hooks/usePriceFormat";
 
 type OrderType = "LIMIT" | "MARKET";
 
-export interface PositionDetails {
+interface PositionDetails {
   amount: string;
   price: number;
   orderType: OrderType;
