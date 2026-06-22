@@ -400,22 +400,22 @@ export function SignalCard({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-2 gap-y-3 text-xs sm:text-sm sm:gap-3">
               <div>
                 <p className="text-muted-foreground">Execution Price</p>
-                <p className="font-mono font-semibold">{fmt(executionPrice)}</p>
+                <p className="font-mono font-semibold text-sm sm:text-base">{fmt(executionPrice)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Confidence</p>
-                <p className="font-semibold">{signalConfidence}%</p>
+                <p className="font-semibold text-sm sm:text-base">{signalConfidence}%</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Target</p>
-                <p className="font-mono font-semibold">{fmt(projectedTarget)}</p>
+                <p className="font-mono font-semibold text-sm sm:text-base">{fmt(projectedTarget)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">ROI</p>
-                <p className={cn("font-semibold", isPositive ? "text-accent-success" : "text-accent-danger")}>
+                <p className={cn("font-semibold text-sm sm:text-base", isPositive ? "text-accent-success" : "text-accent-danger")}>
                   {isPositive ? "+" : ""}{roi}%
                 </p>
               </div>
@@ -518,19 +518,17 @@ export function SignalCard({
             <div className="flex gap-2 pt-2">
               <Button
                 variant="outline"
-                size="sm"
                 onClick={handlePass}
-                className="flex-1"
+                className="flex-1 h-11 sm:h-9 text-sm sm:text-xs"
                 aria-label={`Pass on ${signalAction} signal for ${signalPair}`}
               >
                 <X size={16} className="mr-1" />
                 Pass
               </Button>
               <Button
-                size="sm"
                 onClick={handleExecuteTrade}
                 disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason}
-                className="flex-1 active:scale-95"
+                className="flex-1 h-11 sm:h-9 text-sm sm:text-xs active:scale-95"
                 aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
               >
                 <Zap size={16} className="mr-1" />

@@ -139,7 +139,7 @@ export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProp
             aria-modal="true"
             aria-labelledby="wallet-modal-title"
             aria-describedby="wallet-modal-description"
-            className="relative z-overlay w-full max-w-sm rounded-2xl border border-border bg-surface/95 p-6 shadow-2xl"
+            className="relative z-overlay w-full max-w-sm rounded-2xl border border-border bg-surface/95 p-6 shadow-2xl mx-4 sm:mx-0"
             initial={{ scale: 0.92, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0, y: 20 }}
@@ -177,7 +177,7 @@ export function WalletSelectionModal({ open, onClose }: WalletSelectionModalProp
                     onClick={() => handleSelectWallet(wallet)}
                     disabled={isConnecting || state === "detecting"}
                     aria-describedby={`wallet-${wallet.id}-description`}
-                    className="w-full flex items-start gap-4 rounded-xl border border-border bg-surface p-4 text-left hover:border-blue-500/50 hover:bg-surface-high/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full flex items-start gap-4 rounded-xl border border-border bg-surface p-4 text-left hover:border-blue-500/50 hover:bg-surface-high/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 min-h-[68px]"
                   >
                     {/* Icon */}
                     <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600/20 border border-blue-500/30">
