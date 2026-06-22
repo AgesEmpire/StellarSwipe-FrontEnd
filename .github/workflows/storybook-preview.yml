@@ -1,0 +1,104 @@
+name: Storybook PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'components/**'
+      - 'src/**'
+      - 'app/**'
+      - '.storybook/**'
+      - 'package.json'
+      - 'package-lock.json'
+
+concurrency:
+  group: storybook-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Storybook
+        run: npx storybook build --output-dir storybook-static/pr-${{ github.event.pull_request.number }}
+
+      - name: Upload Storybook artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-pr-${{ github.event.pull_request.number }}
+          path: storybook-static/pr-${{ github.event.pull_request.number }}
+          retention-days: 7
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./storybook-static
+          destination_dir: pr-${{ github.event.pull_request.number }}
+          keep_files: true
+
+      - name: Post preview URL comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const repo = context.repo;
+            const pagesUrl = `https://${repo.owner}.github.io/${repo.repo}/pr-${prNumber}/`;
+
+            const commentBody = `## 📖 Storybook Preview
+
+            A Storybook preview has been deployed for this PR:
+
+            **🔗 Preview URL:** ${pagesUrl}
+
+            This preview will be updated automatically when new commits are pushed to this branch.
+            The preview will be cleaned up when the PR is merged or closed.`;
+
+            // Check for existing comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existingComment = comments.find(c =>
+              c.body.includes('📖 Storybook Preview') && c.user.type === 'Bot'
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: repo.owner,
+                repo: repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: repo.owner,
+                repo: repo.repo,
+                issue_number: prNumber,
+                body: commentBody,
+              });
+            }
+
+      - name: Output preview URL
+        run: |
+          echo "::notice::Storybook preview deployed to https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/"
