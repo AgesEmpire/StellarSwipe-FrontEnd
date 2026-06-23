@@ -62,6 +62,7 @@ interface SignalCardProps {
   portfolioBalance?: number;
   onTrade?: (pair: string, price: number) => void;
   onPass?: () => void;
+  tradingDisabled?: boolean;
 }
 
 const DEFAULT_ROI: ROIPoint[] = [
@@ -99,6 +100,7 @@ export function SignalCard({
   portfolioBalance,
   onTrade,
   onPass,
+  tradingDisabled = false,
 }: SignalCardProps) {
   const [dismissed, setDismissed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -189,6 +191,7 @@ export function SignalCard({
   }
 
   function handleExecuteTrade() {
+    if (tradingDisabled) return;
     if (executingRef.current) return;
     executingRef.current = true;
     setActionAnnouncement(`Opening trade modal for ${signalAction} ${signalPair}`);
@@ -530,12 +533,12 @@ export function SignalCard({
               <Button
                 size="sm"
                 onClick={handleExecuteTrade}
-                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason}
+                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason || tradingDisabled}
                 className="flex-1 active:scale-95"
-                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}${tradingDisabled ? " (unavailable — offline)" : ""}`}
               >
                 <Zap size={16} className="mr-1" />
-                {isDemoMode ? "Demo Trade" : "Execute Trade"}
+                {tradingDisabled ? "Offline" : isDemoMode ? "Demo Trade" : "Execute Trade"}
               </Button>
             </div>
           </article>

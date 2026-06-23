@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { useSignals } from "@/hooks/useSignals";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useSignalFilterStore } from "@/store/useSignalFilterStore";
 import { useTransactionStore } from "@/store/useTransactionStore";
@@ -28,7 +29,17 @@ import { OnboardingFlow } from "@/components/OnboardingFlow";
 export default function AppPage() {
   const { publicKey, connected } = useWallet();
   const { data: signals, isLoading, error, refetch } = useSignals();
+  const online = useOnlineStatus();
+  const wasOnline = useRef(online);
   const { assets } = usePortfolio();
+
+  // Refresh the feed when connectivity is restored.
+  useEffect(() => {
+    if (online && !wasOnline.current) {
+      void refetch();
+    }
+    wasOnline.current = online;
+  }, [online, refetch]);
   const { direction, asset, provider } = useSignalFilterStore();
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const pendingTransaction = useTransactionStore((state) =>
@@ -191,6 +202,7 @@ export default function AppPage() {
                 <SignalCard
                   loading={loading}
                   onTrade={handleTrade}
+                  tradingDisabled={!online}
                   providerStake={50000}
                   providerReputation={85}
                   portfolioBalance={assets.reduce((sum, asset) => sum + asset.value, 0)}
