@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/i18n";
 
 export function PortfolioSummaryCards() {
   const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL } = usePortfolioStore();
@@ -16,23 +17,23 @@ export function PortfolioSummaryCards() {
   const stats = [
     {
       label: "Balance",
-      value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: formatCurrency(totalValue),
       icon: Wallet,
-      className: "text-sky-400",
+      className: "text-accent-sky",
     },
     {
       label: "Total P/L",
       value: `${isPositive ? "+" : ""}$${Math.abs(totalPnL).toFixed(2)}`,
       sub: `${isPositive ? "+" : ""}${pnlPercent.toFixed(2)}%`,
       icon: isPositive ? TrendingUp : TrendingDown,
-      className: isPositive ? "text-green-400" : "text-red-400",
+      className: isPositive ? "text-accent-success" : "text-accent-danger",
     },
     {
       label: "Positions",
       value: String(activePositions),
       sub: `${assets.length} asset${assets.length !== 1 ? "s" : ""}`,
       icon: BarChart2,
-      className: "text-violet-400",
+      className: "text-accent-market",
     },
   ];
 

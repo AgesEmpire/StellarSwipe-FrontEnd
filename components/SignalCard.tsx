@@ -60,6 +60,7 @@ interface SignalCardProps {
   requiredStake?: number;
   conflictReason?: SignalConflictReason;
   portfolioBalance?: number;
+  isOffline?: boolean;
   onTrade?: (pair: string, price: number) => void;
   onPass?: () => void;
 }
@@ -97,6 +98,7 @@ export function SignalCard({
   requiredStake = 1000,
   conflictReason,
   portfolioBalance,
+  isOffline = false,
   onTrade,
   onPass,
 }: SignalCardProps) {
@@ -248,6 +250,10 @@ export function SignalCard({
   }
 
   function handleDragEnd(_: unknown, info: PanInfo) {
+    if (isOffline) {
+      setIsDragging(false);
+      return;
+    }
     const offsetX = info.offset.x;
     const velocityX = info.velocity.x;
     const fastSwipe = Math.abs(velocityX) > VELOCITY_THRESHOLD && Math.abs(offsetX) > 40;
@@ -431,8 +437,8 @@ export function SignalCard({
                   className={cn(
                     "inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold",
                     deltaPositive
-                      ? "bg-emerald-500/15 text-emerald-300"
-                      : "bg-red-500/15 text-red-300"
+                      ? "bg-accent-success/15 text-accent-success"
+                      : "bg-accent-danger/15 text-accent-danger"
                   )}
                 >
                   <span>{deltaLabel}</span>
@@ -530,9 +536,9 @@ export function SignalCard({
               <Button
                 size="sm"
                 onClick={handleExecuteTrade}
-                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason}
+                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason || isOffline}
                 className="flex-1 active:scale-95"
-                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}${isOffline ? " (unavailable — offline)" : ""}`}
               >
                 <Zap size={16} className="mr-1" />
                 {isDemoMode ? "Demo Trade" : "Execute Trade"}
