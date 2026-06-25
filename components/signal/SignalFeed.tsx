@@ -18,6 +18,8 @@ import { Search, X, SlidersHorizontal } from "lucide-react";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
+import { useServiceWorker } from "@/hooks/useServiceWorker";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 interface SignalResponse {
   items: Signal[];
@@ -159,6 +161,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const syncStatus = useSyncStatus(isFetching);
+  const { isOffline } = useServiceWorker();
 
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -255,7 +258,14 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         )}
       </div>
 
-      {/* Filters — desktop: inline panel; mobile: bottom sheet trigger */}
+      {/* Offline banner */}
+      {isOffline && (
+        <div className="mb-4">
+          <OfflineBanner />
+        </div>
+      )}
+
+      {/* Filters — desktop: inline panel; mobile: bottom sheet trigger */}}
       <div className="mb-4">
         {/* Mobile filter trigger button */}
         <div className="flex items-center gap-2 sm:hidden mb-3">
@@ -348,8 +358,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
               <article
                 key={signal.id}
                 tabIndex={0}
-                aria-label={`${signal.ticker} ${signal.action} signal, ${signal.confidence}% confidence${signal.provider ? `, provider ${signal.provider}` : ""}${signal.status ? `, status ${signal.status}` : ""}${isExpired ? ", expired" : ""}. Use arrow keys to navigate between signals.`}
+                aria-label={`${signal.ticker} ${signal.action} signal, ${signal.confidence}% confidence${signal.provider ? `, provider ${signal.provider}` : ""}${signal.status ? `, status ${signal.status}` : ""}${isExpired ? ", expired" : ""}${isOffline ? ", trade actions unavailable offline" : ""}. Use arrow keys to navigate between signals.`}
                 className="rounded-3xl border border-white/10 bg-slate-950/90 p-4 shadow-sm shadow-slate-950/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 sm:p-6"
+                data-offline={isOffline ? "true" : undefined}
               >
                 {/* Expired banner — shown above content, clearly visible */}
                 {isExpired && (
@@ -385,10 +396,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                           <span
                             className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${
                               signal.status === "Active"
-                                ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/20"
+                                ? "bg-accent-success/10 text-accent-success ring-accent-success/20"
                                 : signal.status === "Waiting"
-                                ? "bg-amber-500/10 text-amber-300 ring-amber-500/20"
-                                : "bg-slate-500/10 text-slate-400 ring-slate-500/20"
+                                ? "bg-accent-warning/10 text-accent-warning ring-accent-warning/20"
+                                : "bg-foreground/10 text-foreground-muted ring-foreground/20"
                             }`}
                             aria-label={`Status: ${signal.status}`}
                           >
