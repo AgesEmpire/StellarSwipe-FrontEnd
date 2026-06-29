@@ -26,6 +26,14 @@ const PerformanceDashboard = dynamic(
   }
 )
 
+const PeriodComparisonWidget = dynamic(
+  () => import("@/components/comparison/PeriodComparisonWidget").then((m) => ({ default: m.PeriodComparisonWidget })),
+  {
+    loading: () => <div className="animate-pulse h-64 bg-white/10 rounded" />,
+    ssr: false,
+  }
+)
+
 export default function AnalyticsPage() {
   return (
     <div className="p-6">
@@ -35,6 +43,16 @@ export default function AnalyticsPage() {
         <PnLWidget />
         <div className="md:col-span-2">
           <PerformanceDashboard />
+        </div>
+        <div className="md:col-span-2">
+          <PeriodComparisonWidget
+            pnl={1500}
+            winRate={62.5}
+            totalTrades={40}
+            priorPnl={1200}
+            priorWinRate={58}
+            priorTotalTrades={36}
+          />
         </div>
       </div>
     </div>
