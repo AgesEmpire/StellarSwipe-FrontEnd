@@ -164,9 +164,11 @@ export function SignalCard({
   // #319: directional color tint that deepens as the card is dragged past the
   // tint threshold — green for trade (right), red for pass (left).
   const tradeTintOpacity = useTransform(x, [0, TINT_THRESHOLD], [0, MAX_TINT_OPACITY]);
-  const passTintOpacity = useTransform(x, [0, -TINT_THRESHOLD], [0, MAX_TINT_OPACITY]);
+  const passTintOpacity = useTransform(x, [-TINT_THRESHOLD, 0], [MAX_TINT_OPACITY, 0]);
 
-  const { price, flash, relativeTime } = useSignalPrice(3000);
+  // Single hook call that includes `isStale` – the duplicate call has been removed.
+  const { price, flash, relativeTime, isStale } = useSignalPrice(3000);
+
   const signalId = signalIdProp ?? signalData?.id ?? pair ?? "signal-unknown";
   const signalPair = pair ?? `${signalData?.asset ?? "XLM"}/USDC`;
   const signalAction = signalData?.action ?? action;
@@ -404,12 +406,12 @@ export function SignalCard({
           dragConstraints={{ left: -180, right: 180 }}
           dragElastic={0.15}
           dragTransition={{ bounceStiffness: 600, bounceDamping: 22 }}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            exit={{ x: 0, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
-            whileTap={{ cursor: "grabbing" }}
-            aria-disabled={dismissPending}
-          >
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          exit={{ x: 0, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
+          whileTap={{ cursor: "grabbing" }}
+          aria-disabled={dismissPending}
+        >
           {/* #319: drag-direction color tint — opacity tracks drag distance */}
           <motion.div
             className="pointer-events-none absolute inset-0 z-0 rounded-2xl bg-green-500"
@@ -591,8 +593,16 @@ export function SignalCard({
                   <span className="text-foreground-muted">({deltaAbsLabel})</span>
                 </motion.div>
               </div>
+              {/* Replaced the old relativeTime display with the stale‑aware indicator */}
               <div className="text-right text-[11px] text-foreground-muted">
-                {relativeTime}
+                {isStale ? (
+                  <span className="inline-flex items-center gap-1 text-accent-warning" aria-label="Price data may be outdated">
+                    <AlarmClock size={10} />
+                    Stale
+                  </span>
+                ) : (
+                  relativeTime
+                )}
               </div>
             </div>
 
@@ -684,14 +694,14 @@ export function SignalCard({
                   Pass
                 </Button>
               )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExecuteTrade}
-                  disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason || dismissPending || dismissed}
-                  className="flex-1 active:scale-95"
-                  aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
-                >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExecuteTrade}
+                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason || dismissPending || dismissed}
+                className="flex-1 active:scale-95"
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+              >
                 <Zap size={16} className="mr-1" />
                 {isDemoMode ? "Demo Trade" : "Execute Trade"}
               </Button>
