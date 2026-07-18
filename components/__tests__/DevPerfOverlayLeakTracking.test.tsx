@@ -13,6 +13,9 @@
 
 import { render, screen, act } from "@testing-library/react";
 import { DevPerfOverlay } from "@/components/DevPerfOverlay";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
@@ -34,19 +37,13 @@ function createIncreasingSequence(length: number) {
 
 describe("DevPerfOverlay leak-tracking heuristics", () => {
   afterEach(() => {
-    Object.defineProperty(process.env, "NODE_ENV", {
-      value: ORIGINAL_NODE_ENV,
-      configurable: true,
-    });
+    process.env.NODE_ENV = ORIGINAL_NODE_ENV as string;
   });
 
   it("renders in development mode", () => {
-    Object.defineProperty(process.env, "NODE_ENV", {
-      value: "development",
-      configurable: true,
-    });
+    process.env.NODE_ENV = "development";
 
-    render(<DevPerfOverlay />);
+    render(<QueryClientProvider client={queryClient}><DevPerfOverlay /></QueryClientProvider>);
     expect(screen.getByLabelText("Performance metrics overlay (dev mode only)")).toBeTruthy();
   });
 
@@ -82,12 +79,9 @@ describe("DevPerfOverlay leak-tracking heuristics", () => {
   });
 
   it("does not render in production builds", () => {
-    Object.defineProperty(process.env, "NODE_ENV", {
-      value: "production",
-      configurable: true,
-    });
+    process.env.NODE_ENV = "production";
 
-    const { container } = render(<DevPerfOverlay />);
+    const { container } = render(<QueryClientProvider client={queryClient}><DevPerfOverlay /></QueryClientProvider>);
     expect(container.firstChild).toBeNull();
   });
 });

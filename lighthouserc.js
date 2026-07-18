@@ -7,7 +7,7 @@ module.exports = {
       startServerReadyTimeout: 30000,
       url: [
         "http://localhost:3000/",
-        "http://localhost:3000/feed",
+        "http://localhost:3000/app",
       ],
       numberOfRuns: 2,
     },

@@ -1,5 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
 import React from "react";
-import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ComparisonTray } from "@/components/ComparisonTray";
@@ -9,7 +11,7 @@ import type { Signal } from "@/lib/api-types.generated";
 // Framer Motion animates exit transitions, keeping elements in the DOM while
 // fading out. Replace AnimatePresence and motion.* with synchronous pass-through
 // wrappers so assertions don't race the animation clock.
-vi.mock("framer-motion", () => {
+jest.mock("framer-motion", () => {
   const passThrough =
     (tag: string) =>
     // eslint-disable-next-line react/display-name
@@ -48,7 +50,7 @@ function makeSignal(n: number): Signal {
     asset: `Signal ${n}`,
     action: "BUY",
     confidence: 75,
-    ticker: `S${n}`,
+    ticker: `Signal ${n}`,
     details: "",
     timestamp: "2024-01-01T00:00:00Z",
   } as Signal;

@@ -139,7 +139,9 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
         touches: [{ clientY: 180 } as any],
       } as TouchEventInit);
       container.dispatchEvent(touchMove);
+    });
 
+    act(() => {
       // Release
       const touchEnd = new TouchEvent("touchend", {
         touches: [] as any,
@@ -212,7 +214,9 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
         touches: [{ clientY: 180 } as any],
       } as TouchEventInit);
       container.dispatchEvent(touchMove);
+    });
 
+    act(() => {
       const touchEnd = new TouchEvent("touchend", {
         touches: [] as any,
       } as TouchEventInit);
@@ -232,7 +236,9 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
         touches: [{ clientY: 180 } as any],
       } as TouchEventInit);
       container.dispatchEvent(touchMove);
+    });
 
+    act(() => {
       const touchEnd = new TouchEvent("touchend", {
         touches: [] as any,
       } as TouchEventInit);
@@ -243,8 +249,8 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
     // After debounce timeout, isRefreshing should be false
-    act(() => {
-      jest.advanceTimersByTime(PULL_TO_REFRESH_DEBOUNCE_MS);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(PULL_TO_REFRESH_DEBOUNCE_MS);
     });
 
     // Re-render to see updated state
@@ -302,9 +308,11 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
         touches: [{ clientY: 150 } as any],
       } as TouchEventInit);
       container.dispatchEvent(touchMove);
+    });
 
-      expect(result.current.pullDistance).toBe(50);
+    expect(result.current.pullDistance).toBe(50);
 
+    act(() => {
       const touchEnd = new TouchEvent("touchend", {
         touches: [] as any,
       } as TouchEventInit);
@@ -338,7 +346,9 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
         touches: [{ clientY: 180 } as any],
       } as TouchEventInit);
       container.dispatchEvent(touchMove);
+    });
 
+    act(() => {
       const touchEnd = new TouchEvent("touchend", {
         touches: [] as any,
       } as TouchEventInit);

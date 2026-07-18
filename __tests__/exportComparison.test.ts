@@ -5,7 +5,7 @@
  * correct number of data rows for a mocked comparison set.
  */
 
-import { describe, it, expect } from "vitest";
+
 import {
   buildComparisonCsv,
   COMPARISON_CSV_COLUMNS,

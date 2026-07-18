@@ -82,19 +82,33 @@ export function useSignalPrice(
       if (cancelled) return;
 
       traceWorker("worker:signalPrice:poll", async () => {
-        setPrice((prev) => {
-          const next = mockFetchPrice(prev);
-          const dir = next.executionPrice > prev.executionPrice ? "up" : next.executionPrice < prev.executionPrice ? "down" : null;
-          if (dir) {
-            setFlash(dir);
-            setTimeout(() => setFlash(null), 900);
+        const prev = prevRef.current;
+        const next = await fetchPriceRef.current(prev);
+        
+        if (cancelled) return;
+        
+        consecutiveFailures = 0;
+        setStale(false);
+        setPrice(next);
+        
+        const dir = next.executionPrice > prev.executionPrice ? "up" : next.executionPrice < prev.executionPrice ? "down" : null;
+        if (dir) {
+          setFlash(dir);
+          setTimeout(() => setFlash(null), 900);
+        }
+        prevRef.current = next;
+      })
+        .catch((err) => {
+          Sentry.captureException(err);
+          consecutiveFailures++;
+          setStale(true);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            const nextDelay = computePollDelayMs(intervalMs, consecutiveFailures);
+            schedule(nextDelay);
           }
-          prevRef.current = next;
-          return next;
         });
-      }).catch((err) => Sentry.captureException(err)).finally(() => {
-        if (!cancelled) schedule(intervalMs);
-      });
     };
 
     schedule(intervalMs);

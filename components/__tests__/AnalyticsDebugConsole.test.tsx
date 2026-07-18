@@ -11,17 +11,11 @@ const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 describe("AnalyticsDebugConsole", () => {
   afterEach(() => {
-    Object.defineProperty(process.env, "NODE_ENV", {
-      value: ORIGINAL_NODE_ENV,
-      configurable: true,
-    });
+    process.env.NODE_ENV = ORIGINAL_NODE_ENV as string;
   });
 
   it("does not render when the build environment is production", () => {
-    Object.defineProperty(process.env, "NODE_ENV", {
-      value: "production",
-      configurable: true,
-    });
+    process.env.NODE_ENV = "production";
 
     const { container } = render(<AnalyticsDebugConsole />);
     expect(container.firstChild).toBeNull();

@@ -46,6 +46,7 @@ jobs:
 
       - name: Run Chromatic
         id: chromatic
+        if: ${{ secrets.CHROMATIC_PROJECT_TOKEN != '' }}
         uses: chromaui/action@latest
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
@@ -57,7 +58,7 @@ jobs:
           autoAcceptChanges: false
 
       - name: Post Storybook preview URL
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.chromatic.outputs.storybookUrl != ''
         uses: actions/github-script@v7
         with:
           script: |

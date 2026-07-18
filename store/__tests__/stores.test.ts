@@ -37,7 +37,7 @@ describe("useWalletStore", () => {
   });
 
   it("disconnect clears key and connected flag", () => {
-    useWalletStore.setState({ publicKey: "GKEY", isConnected: true });
+    useWalletStore.setState({ activePublicKey: "GKEY", publicKey: "GKEY", isConnected: true, wallets: [{ publicKey: "GKEY" }] });
     useWalletStore.getState().disconnect();
     const { publicKey, isConnected } = useWalletStore.getState();
     expect(publicKey).toBeNull();

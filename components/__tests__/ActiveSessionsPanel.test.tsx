@@ -434,7 +434,7 @@ describe("ActiveSessionsPanel – states", () => {
       />
     );
 
-    expect(screen.getByRole("region", { hidden: true })).toBeTruthy();
+    expect(screen.getByLabelText("Loading sessions")).toBeTruthy();
     // List and error should NOT appear
     expect(screen.queryByTestId("sessions-list")).toBeNull();
     expect(screen.queryByTestId("sessions-error")).toBeNull();

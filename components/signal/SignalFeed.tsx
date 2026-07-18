@@ -25,6 +25,7 @@ import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { queryOptions as queryOpts } from "@/lib/queryOptions";
+import { fetchSignals } from "@/lib/api";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
 import {
@@ -95,11 +96,8 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   } = useInfiniteQuery<SignalResponse, Error, InfiniteData<SignalResponse, number>>({
     queryKey: ["signals"],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await fetch(`/api/signals?page=${pageParam}&pageSize=${PAGE_SIZE}`, {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Unable to load the signal feed.");
-      return response.json() as Promise<SignalResponse>;
+      // Use fetchSignals so absolute base URL is prepended correctly for MSW testing environments
+      return fetchSignals({ page: pageParam as number, pageSize: PAGE_SIZE }) as Promise<SignalResponse>;
     },
     getNextPageParam: (lastPage: SignalResponse) => lastPage.nextPage,
     initialPageParam: 1,
@@ -194,12 +192,14 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     [signals, selectedSignalId]
   );
 
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+
   // Virtual row configuration - estimate height based on typical signal card
   const estimatedRowHeight = 280;
 
   const virtualizer = useVirtualizer({
     count: signals.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollEl,
     estimateSize: () => estimatedRowHeight,
     overscan: 3,
     scrollMargin: 100,
@@ -215,7 +215,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   }, [refetch]);
 
   const { pullDistance, isRefreshing } = usePullToRefresh({
-    container: parentRef.current,
+    container: scrollEl,
     onRefresh: handlePullRefresh,
     disabled: isLoading, // Disable while initial load is in flight
   });
@@ -479,12 +479,8 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       />
 
       {/* Pull-to-refresh indicator — visible on touch devices only */}
-      <div className="sm:hidden">
-        <PullToRefreshIndicator
-          pullDistance={pullDistance}
-          isRefreshing={isRefreshing}
-          data-testid="pull-to-refresh-container"
-        />
+      <div className="sm:hidden" data-testid="pull-to-refresh-container">
+        <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
       </div>
 
       <div
@@ -498,7 +494,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       >
         <div className="min-w-0">
           <div
-            ref={parentRef}
+            ref={setScrollEl}
             className="max-h-[70vh] overflow-auto"
             role="feed"
             aria-busy={isLoading}

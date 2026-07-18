@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DemoModeToggle } from "@/components/DemoModeToggle";
 import { useDemoModeStore, useDemoModeHydrated } from "@/store/useDemoModeStore";

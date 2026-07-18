@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+
 import { useComparisonStore, MAX_COMPARISON } from "@/store/useComparisonStore";
 import type { Signal } from "@/lib/api-types.generated";
 

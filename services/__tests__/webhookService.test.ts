@@ -21,10 +21,14 @@ function networkError() {
   return Promise.reject(new Error('Network failure'));
 }
 
-function abortError() {
-  return Promise.reject(
-    Object.assign(new Error('The user aborted a request'), { name: 'AbortError' })
-  );
+function abortError(url: string | URL | globalThis.Request, options?: RequestInit): Promise<Response> {
+  return new Promise((_, reject) => {
+    if (options?.signal) {
+      options.signal.addEventListener('abort', () => {
+        reject(Object.assign(new Error('The user aborted a request'), { name: 'AbortError' }));
+      });
+    }
+  });
 }
 
 describe('webhookService', () => {
@@ -143,7 +147,9 @@ describe('webhookService', () => {
 
     it('reports a timeout message when the request aborts', async () => {
       const webhook = useWebhookStore.getState().addWebhook(HOOK_URL, ['new_signal']);
-      fetchSpy.mockImplementationOnce(abortError);
+      fetchSpy.mockImplementationOnce(() => 
+        Promise.reject(Object.assign(new Error('timeout'), { name: 'AbortError' }))
+      );
 
       const delivery = await sendTestWebhook(webhook.id);
 
@@ -248,16 +254,18 @@ describe('webhookService', () => {
 
   describe('retry and backoff', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      fetchSpy.mockClear();
+      useWebhookStore.setState({ webhooks: [] });
     });
 
     it('retries up to 3 times on network failure before recording a failed delivery', async () => {
       const webhook = useWebhookStore.getState().addWebhook(HOOK_URL, ['new_signal']);
+      useWebhookStore.setState({
+        webhooks: useWebhookStore.getState().webhooks.map(w => w.id === webhook.id ? { ...w, backoffInterval: 1 } : w)
+      });
       fetchSpy.mockImplementation(networkError);
 
-      const promise = dispatchWebhookEvent('new_signal', {});
-      await jest.runAllTimersAsync();
-      await promise;
+      await dispatchWebhookEvent('new_signal', {});
 
       expect(fetchSpy).toHaveBeenCalledTimes(3);
 
@@ -270,13 +278,14 @@ describe('webhookService', () => {
 
     it('succeeds and stops retrying on a 200 response after one failure', async () => {
       const webhook = useWebhookStore.getState().addWebhook(HOOK_URL, ['new_signal']);
+      useWebhookStore.setState({
+        webhooks: useWebhookStore.getState().webhooks.map(w => w.id === webhook.id ? { ...w, backoffInterval: 1 } : w)
+      });
       fetchSpy
         .mockImplementationOnce(networkError)
         .mockImplementationOnce(ok200);
 
-      const promise = dispatchWebhookEvent('new_signal', {});
-      await jest.runAllTimersAsync();
-      await promise;
+      await dispatchWebhookEvent('new_signal', {});
 
       expect(fetchSpy).toHaveBeenCalledTimes(2);
 
@@ -288,27 +297,31 @@ describe('webhookService', () => {
 
     it('records a timeout error when all retry attempts abort', async () => {
       const webhook = useWebhookStore.getState().addWebhook(HOOK_URL, ['new_signal']);
-      fetchSpy.mockImplementation(abortError);
+      useWebhookStore.setState({
+        webhooks: useWebhookStore.getState().webhooks.map(w => w.id === webhook.id ? { ...w, backoffInterval: 1 } : w)
+      });
+      fetchSpy.mockImplementation(() => 
+        Promise.reject(Object.assign(new Error('timeout'), { name: 'AbortError' }))
+      );
 
-      const promise = dispatchWebhookEvent('new_signal', {});
-      await jest.runAllTimersAsync();
-      await promise;
+      await dispatchWebhookEvent('new_signal', {});
 
       const stored = useWebhookStore
         .getState()
         .webhooks.find((w) => w.id === webhook.id);
+      expect(stored?.deliveries[0].status).toBe('failed');
       expect(stored?.deliveries[0].error).toMatch(/timed out/i);
     });
 
     it('makes exactly 3 fetch attempts when the server consistently returns 500', async () => {
-      useWebhookStore.getState().addWebhook(HOOK_URL, ['new_signal']);
+      const webhook = useWebhookStore.getState().addWebhook(HOOK_URL, ['new_signal']);
+      useWebhookStore.setState({
+        webhooks: useWebhookStore.getState().webhooks.map(w => w.id === webhook.id ? { ...w, backoffInterval: 1 } : w)
+      });
       fetchSpy.mockImplementation(err500);
 
-      const promise = dispatchWebhookEvent('new_signal', {});
-      await jest.runAllTimersAsync();
-      await promise;
+      await dispatchWebhookEvent('new_signal', {});
 
-      // non-2xx on the last attempt ends the loop; earlier non-2xx attempts retry
       expect(fetchSpy).toHaveBeenCalledTimes(3);
     });
   });

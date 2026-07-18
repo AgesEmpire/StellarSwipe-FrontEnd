@@ -155,7 +155,7 @@ describe("PullToRefreshIndicator – visual feedback for pull-to-refresh", () =>
       />
     );
 
-    const spinnerDiv = container.querySelector("div[style*='rotate']");
+    const spinnerDiv = screen.getByTestId("refresh-spinner");
     // The spinner should be animated when isRefreshing is true
     // (Framer Motion handles the actual animation)
     expect(spinnerDiv).toBeInTheDocument();

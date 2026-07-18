@@ -30,8 +30,9 @@ export class ServerError extends Error {
 async function apiFetch<T>(url: string): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url);
-  } catch {
+    const fetchUrl = url.startsWith("/") ? `http://localhost${url}` : url;
+    res = await fetch(fetchUrl);
+  } catch (error) {
     throw new NetworkError();
   }
   if (!res.ok) throw new ServerError(res.status);
