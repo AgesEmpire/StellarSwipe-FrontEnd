@@ -32,10 +32,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
+      - name: Test (Jest)
         run: npm test
 
-      - name: Test with Coverage
+      - name: Test (Vitest — comparison-tray suites)
+        run: npm run test:vitest
+
+      - name: Test with Coverage (Jest)
         run: npm run test:coverage
 
       - name: Upload Coverage Report
