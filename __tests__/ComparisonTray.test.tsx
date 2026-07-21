@@ -66,12 +66,12 @@ describe("ComparisonTray – rendering", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders each signal's asset as a chip", () => {
+  it("renders each signal's ticker as a chip", () => {
     seedSignals(3);
     render(<ComparisonTray />);
-    expect(screen.getByText("Signal 1")).toBeInTheDocument();
-    expect(screen.getByText("Signal 2")).toBeInTheDocument();
-    expect(screen.getByText("Signal 3")).toBeInTheDocument();
+    expect(screen.getByText("S1")).toBeInTheDocument();
+    expect(screen.getByText("S2")).toBeInTheDocument();
+    expect(screen.getByText("S3")).toBeInTheDocument();
   });
 
   it("shows the 'Clear all' button when there are signals", () => {
@@ -126,7 +126,7 @@ describe("ComparisonTray – per-item remove", () => {
     seedSignals(3);
     render(<ComparisonTray />);
     const removeButtons = screen.getAllByRole("button", {
-      name: /remove signal/i,
+      name: /remove .* from comparison/i,
     });
     expect(removeButtons).toHaveLength(3);
   });
@@ -136,12 +136,12 @@ describe("ComparisonTray – per-item remove", () => {
     render(<ComparisonTray />);
 
     await userEvent.click(
-      screen.getByRole("button", { name: /remove signal 2/i })
+      screen.getByRole("button", { name: /remove S2 from comparison/i })
     );
 
-    expect(screen.queryByText("Signal 2")).not.toBeInTheDocument();
-    expect(screen.getByText("Signal 1")).toBeInTheDocument();
-    expect(screen.getByText("Signal 3")).toBeInTheDocument();
+    expect(screen.queryByText("S2")).not.toBeInTheDocument();
+    expect(screen.getByText("S1")).toBeInTheDocument();
+    expect(screen.getByText("S3")).toBeInTheDocument();
 
     const { signals } = useComparisonStore.getState();
     expect(signals.map((s) => s.id)).toEqual(["sig-1", "sig-3"]);
@@ -156,14 +156,14 @@ describe("ComparisonTray – clear all", () => {
     await userEvent.click(screen.getByRole("button", { name: /clear all/i }));
 
     expect(useComparisonStore.getState().signals).toHaveLength(0);
-    expect(screen.queryByText("Signal 1")).not.toBeInTheDocument();
+    expect(screen.queryByText("S1")).not.toBeInTheDocument();
   });
 
   it("keeps per-item remove buttons working alongside clear all", () => {
     seedSignals(2);
     render(<ComparisonTray />);
     expect(
-      screen.getAllByRole("button", { name: /remove signal/i })
+      screen.getAllByRole("button", { name: /remove .* from comparison/i })
     ).toHaveLength(2);
     expect(
       screen.getByRole("button", { name: /clear all/i })

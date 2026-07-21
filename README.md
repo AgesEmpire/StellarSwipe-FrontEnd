@@ -167,6 +167,16 @@ In development (`NODE_ENV=development`) spans are logged to `console.debug`. Rep
 
 ### Running tests
 
-```bash
-npm test
-```
+Two test runners are configured:
+
+- **Jest** — runs the main test suites from store-level `__tests__` directories:
+  ```bash
+  npm test           # Jest (no coverage)
+  npm run test:coverage  # Jest with coverage
+  ```
+- **Vitest** — runs the comparison-tray suites at the project root `__tests__/`:
+  ```bash
+  npm run test:vitest
+  ```
+
+Both runners execute automatically in CI on every push/PR. The **Test (Jest)** step runs the main test suites, and the **Test (Vitest)** step runs the comparison-tray suites, ensuring that no regressions in the comparison-tray feature can merge undetected.
