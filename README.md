@@ -13,6 +13,12 @@ Modern, responsive web app featuring:
 
 Connects to Soroban contracts for on-chain actions.
 
+## Security
+
+Found a vulnerability? Please don't open a public issue — see
+[SECURITY.md](SECURITY.md) for how to report it privately, supported
+versions, and our disclosure policy.
+
 ## Tech Stack
 
 - Next.js 15+ (App Router)
