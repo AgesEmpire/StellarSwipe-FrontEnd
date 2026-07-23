@@ -8,7 +8,7 @@ import {
   Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NetworkError, ServerError } from "@/lib/api";
+import { NetworkError, ServerError, TimeoutError } from "@/lib/api";
 import { useState } from "react";
 
 interface SignalErrorStateProps {
@@ -25,7 +25,23 @@ function getErrorDetails(error: Error): {
 } {
   const isNetwork = error instanceof NetworkError;
   const isServer = error instanceof ServerError;
+  const isTimeout = error instanceof TimeoutError;
   const message = error.message || "Unknown error";
+
+  if (isTimeout) {
+    return {
+      icon: <Clock className="h-10 w-10 text-destructive" />,
+      title: "Request Timed Out",
+      description:
+        "The signal service took too long to respond. This is usually temporary.",
+      suggestions: [
+        "Check your internet connection speed",
+        "Wait a moment and retry",
+        "Contact support if this keeps happening",
+      ],
+      severity: "warning",
+    };
+  }
 
   if (isNetwork) {
     return {
