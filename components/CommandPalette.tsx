@@ -38,6 +38,7 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
   const router = useRouter();
   const { toggle: toggleTheme } = useThemeStore();
   const inputRef = useRef<HTMLInputElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -79,9 +80,13 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
 
   useEffect(() => {
     if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
       setQuery("");
       setActiveIndex(0);
       requestAnimationFrame(() => inputRef.current?.focus());
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
     }
   }, [open]);
 
