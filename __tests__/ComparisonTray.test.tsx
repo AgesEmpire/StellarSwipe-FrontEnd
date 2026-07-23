@@ -1,5 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
 import React from "react";
-import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ComparisonTray } from "@/components/ComparisonTray";
@@ -9,24 +11,36 @@ import type { Signal } from "@/lib/api-types.generated";
 // Framer Motion animates exit transitions, keeping elements in the DOM while
 // fading out. Replace AnimatePresence and motion.* with synchronous pass-through
 // wrappers so assertions don't race the animation clock.
-vi.mock("framer-motion", () => {
+jest.mock("framer-motion", () => {
   const passThrough =
     (tag: string) =>
     // eslint-disable-next-line react/display-name
-    ({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) => {
+    ({
+      children,
+      ...rest
+    }: React.PropsWithChildren<Record<string, unknown>>) => {
       const {
-        initial, animate, exit, transition, whileHover, whileTap, layout,
+        initial,
+        animate,
+        exit,
+        transition,
+        whileHover,
+        whileTap,
+        layout,
         ...htmlProps
       } = rest;
-      void initial; void animate; void exit; void transition;
-      void whileHover; void whileTap; void layout;
+      void initial;
+      void animate;
+      void exit;
+      void transition;
+      void whileHover;
+      void whileTap;
+      void layout;
       return React.createElement(tag, htmlProps, children);
     };
 
   return {
-    AnimatePresence: ({ children }: React.PropsWithChildren) => (
-      <>{children}</>
-    ),
+    AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
     motion: new Proxy(
       {},
       {
@@ -48,7 +62,7 @@ function makeSignal(n: number): Signal {
     asset: `Signal ${n}`,
     action: "BUY",
     confidence: 75,
-    ticker: `S${n}`,
+    ticker: `Signal ${n}`,
     details: "",
     timestamp: "2024-01-01T00:00:00Z",
   } as Signal;
@@ -85,7 +99,10 @@ describe("ComparisonTray – rendering", () => {
 
 describe("ComparisonTray – limit-reached banner", () => {
   it("shows the limit message when limitReached is true", () => {
-    useComparisonStore.setState({ limitReached: true, signals: [makeSignal(1)] });
+    useComparisonStore.setState({
+      limitReached: true,
+      signals: [makeSignal(1)],
+    });
     render(<ComparisonTray />);
     expect(screen.getByRole("alert")).toHaveTextContent(
       `up to ${MAX_COMPARISON} signals`

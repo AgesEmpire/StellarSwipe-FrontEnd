@@ -41,13 +41,21 @@ describe("computeTintOpacity – overlay opacity tracks drag distance", () => {
   });
 
   it("reaches max opacity at the threshold", () => {
-    expect(computeTintOpacity(TINT_THRESHOLD).green).toBeCloseTo(MAX_TINT_OPACITY);
-    expect(computeTintOpacity(-TINT_THRESHOLD).red).toBeCloseTo(MAX_TINT_OPACITY);
+    expect(computeTintOpacity(TINT_THRESHOLD).green).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
+    expect(computeTintOpacity(-TINT_THRESHOLD).red).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
   });
 
   it("clamps at max opacity past the threshold", () => {
-    expect(computeTintOpacity(TINT_THRESHOLD * 5).green).toBeCloseTo(MAX_TINT_OPACITY);
-    expect(computeTintOpacity(-TINT_THRESHOLD * 5).red).toBeCloseTo(MAX_TINT_OPACITY);
+    expect(computeTintOpacity(TINT_THRESHOLD * 5).green).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
+    expect(computeTintOpacity(-TINT_THRESHOLD * 5).red).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
   });
 
   it("honours a configurable threshold", () => {
@@ -95,9 +103,13 @@ import { classifyArrowKeyWithSettings } from "@/lib/signalGestures";
 
 describe("classifyArrowKeyWithSettings – default (swapDirections=false)", () => {
   it("behaves identically to classifyArrowKey when swapDirections is false", () => {
-    expect(classifyArrowKeyWithSettings("ArrowRight", true, false)).toBe("trade");
+    expect(classifyArrowKeyWithSettings("ArrowRight", true, false)).toBe(
+      "trade"
+    );
     expect(classifyArrowKeyWithSettings("ArrowLeft", true, false)).toBe("pass");
-    expect(classifyArrowKeyWithSettings("ArrowLeft", false, false)).toBe("none");
+    expect(classifyArrowKeyWithSettings("ArrowLeft", false, false)).toBe(
+      "none"
+    );
     expect(classifyArrowKeyWithSettings("ArrowUp", true, false)).toBe("none");
   });
 });
@@ -112,12 +124,16 @@ describe("classifyArrowKeyWithSettings – swapped (swapDirections=true)", () =>
   });
 
   it("ArrowLeft still trades even when pass action is hidden (left=trade in swapped mode)", () => {
-    expect(classifyArrowKeyWithSettings("ArrowLeft", false, true)).toBe("trade");
+    expect(classifyArrowKeyWithSettings("ArrowLeft", false, true)).toBe(
+      "trade"
+    );
   });
 
   it("ArrowRight is a no-op (pass) when pass action is hidden and directions are swapped", () => {
     // pass is disabled, so ArrowRight→pass should be none
-    expect(classifyArrowKeyWithSettings("ArrowRight", false, true)).toBe("none");
+    expect(classifyArrowKeyWithSettings("ArrowRight", false, true)).toBe(
+      "none"
+    );
   });
 
   it("ignores unrelated keys even when directions are swapped", () => {

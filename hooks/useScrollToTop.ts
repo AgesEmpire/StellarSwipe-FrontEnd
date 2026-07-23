@@ -33,7 +33,8 @@ export function useScrollToTop(
 
   useEffect(() => {
     const getThreshold = () =>
-      options.threshold ?? (typeof window !== "undefined" ? window.innerHeight : 600);
+      options.threshold ??
+      (typeof window !== "undefined" ? window.innerHeight : 600);
 
     const handleScroll = () => {
       setIsVisible(window.scrollY > getThreshold());

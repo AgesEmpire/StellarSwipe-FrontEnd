@@ -1,86 +1,100 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react'
-import { runBacktest, type BacktestParams, type BacktestResult } from '@/lib/backtest'
-import { Download, Save, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useBacktestPresetsStore } from '@/store/useBacktestPresetsStore'
+import React, { useState } from "react";
+import {
+  runBacktest,
+  type BacktestParams,
+  type BacktestResult,
+} from "@/lib/backtest";
+import { Download, Save, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useBacktestPresetsStore } from "@/store/useBacktestPresetsStore";
 
 function downloadFile(content: string, filename: string, mime: string) {
-  const blob = new Blob([content], { type: mime })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function exportCSV(params: BacktestParams, result: BacktestResult) {
-  const header = 'time,pnl\n'
-  const rows = result.trades.map((t) => `${t.time},${t.pnl}`).join('\n')
+  const header = "time,pnl\n";
+  const rows = result.trades.map((t) => `${t.time},${t.pnl}`).join("\n");
   const meta = [
     `# from,${params.from}`,
     `# to,${params.to}`,
-    `# signals,${params.signals.join('|')}`,
+    `# signals,${params.signals.join("|")}`,
     `# slippageBps,${params.slippageBps ?? 0}`,
     `# feeBps,${params.feeBps ?? 0}`,
     `# totalReturn,${result.totalReturn}`,
     `# winRate,${result.winRate}`,
     `# maxDrawdown,${result.maxDrawdown}`,
-  ].join('\n')
-  downloadFile(`${meta}\n${header}${rows}`, 'backtest-result.csv', 'text/csv')
+  ].join("\n");
+  downloadFile(`${meta}\n${header}${rows}`, "backtest-result.csv", "text/csv");
 }
 
 function exportJSON(params: BacktestParams, result: BacktestResult) {
-  const payload = { inputs: params, results: result }
-  downloadFile(JSON.stringify(payload, null, 2), 'backtest-result.json', 'application/json')
+  const payload = { inputs: params, results: result };
+  downloadFile(
+    JSON.stringify(payload, null, 2),
+    "backtest-result.json",
+    "application/json"
+  );
 }
 
 export default function BacktestTool() {
-  const [from, setFrom] = useState('2023-01-01')
-  const [to, setTo] = useState('2023-12-31')
-  const [selected, setSelected] = useState<string[]>([])
-  const [slippageBps, setSlippageBps] = useState(10)
-  const [feeBps, setFeeBps] = useState(10)
-  const [result, setResult] = useState<BacktestResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [presetName, setPresetName] = useState('')
-  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [from, setFrom] = useState("2023-01-01");
+  const [to, setTo] = useState("2023-12-31");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [slippageBps, setSlippageBps] = useState(10);
+  const [feeBps, setFeeBps] = useState(10);
+  const [result, setResult] = useState<BacktestResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [presetName, setPresetName] = useState("");
+  const [showSaveInput, setShowSaveInput] = useState(false);
 
-  const { presets, savePreset, deletePreset } = useBacktestPresetsStore()
+  const { presets, savePreset, deletePreset } = useBacktestPresetsStore();
 
-  const params: BacktestParams = { from, to, signals: selected, slippageBps, feeBps }
+  const params: BacktestParams = {
+    from,
+    to,
+    signals: selected,
+    slippageBps,
+    feeBps,
+  };
 
   async function handleRun() {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const r = await runBacktest(params)
-      setResult(r)
+      const r = await runBacktest(params);
+      setResult(r);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Simulation failed')
+      setError(e instanceof Error ? e.message : "Simulation failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   function handleSavePreset() {
-    if (!presetName.trim()) return
-    savePreset(presetName.trim(), params)
-    setPresetName('')
-    setShowSaveInput(false)
+    if (!presetName.trim()) return;
+    savePreset(presetName.trim(), params);
+    setPresetName("");
+    setShowSaveInput(false);
   }
 
   function handleLoadPreset(id: string) {
-    const preset = presets.find((p) => p.id === id)
-    if (!preset) return
-    setFrom(preset.params.from)
-    setTo(preset.params.to)
-    setSelected(preset.params.signals)
-    setSlippageBps(preset.params.slippageBps ?? 10)
-    setFeeBps(preset.params.feeBps ?? 10)
+    const preset = presets.find((p) => p.id === id);
+    if (!preset) return;
+    setFrom(preset.params.from);
+    setTo(preset.params.to);
+    setSelected(preset.params.signals);
+    setSlippageBps(preset.params.slippageBps ?? 10);
+    setFeeBps(preset.params.feeBps ?? 10);
   }
 
   return (
@@ -88,7 +102,9 @@ export default function BacktestTool() {
       {/* Presets */}
       {presets.length > 0 && (
         <div className="mb-4">
-          <label className="text-xs text-foreground-muted block mb-1">Load Preset</label>
+          <label className="text-xs text-foreground-muted block mb-1">
+            Load Preset
+          </label>
           <div className="flex flex-wrap gap-2">
             {presets.map((p) => (
               <div key={p.id} className="flex items-center gap-1">
@@ -116,19 +132,37 @@ export default function BacktestTool() {
       {/* Inputs */}
       <div className="flex flex-wrap gap-4 mb-4">
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">From</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="block" />
+          <label className="text-xs text-foreground-muted block mb-1">
+            From
+          </label>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="block"
+          />
         </div>
         <div>
           <label className="text-xs text-foreground-muted block mb-1">To</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="block" />
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="block"
+          />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">Providers / Signals</label>
+          <label className="text-xs text-foreground-muted block mb-1">
+            Providers / Signals
+          </label>
           <select
             multiple
             value={selected}
-            onChange={(e) => setSelected(Array.from(e.target.selectedOptions).map((o) => o.value))}
+            onChange={(e) =>
+              setSelected(
+                Array.from(e.target.selectedOptions).map((o) => o.value)
+              )
+            }
             className="block"
           >
             <option value="providerA">Provider A</option>
@@ -138,7 +172,9 @@ export default function BacktestTool() {
           </select>
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">Slippage (bps)</label>
+          <label className="text-xs text-foreground-muted block mb-1">
+            Slippage (bps)
+          </label>
           <input
             type="number"
             min={0}
@@ -148,7 +184,9 @@ export default function BacktestTool() {
           />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">Fee (bps)</label>
+          <label className="text-xs text-foreground-muted block mb-1">
+            Fee (bps)
+          </label>
           <input
             type="number"
             min={0}
@@ -170,7 +208,7 @@ export default function BacktestTool() {
               placeholder="Preset name"
               className="text-sm px-2 py-1 bg-white/10 rounded border border-white/20 focus:outline-none"
               data-testid="preset-name-input"
-              onKeyDown={(e) => e.key === 'Enter' && handleSavePreset()}
+              onKeyDown={(e) => e.key === "Enter" && handleSavePreset()}
               autoFocus
             />
             <Button
@@ -181,7 +219,14 @@ export default function BacktestTool() {
             >
               Save
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setShowSaveInput(false); setPresetName('') }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowSaveInput(false);
+                setPresetName("");
+              }}
+            >
               Cancel
             </Button>
           </>
@@ -201,8 +246,12 @@ export default function BacktestTool() {
 
       {/* Actions */}
       <div className="flex gap-3 mb-6">
-        <Button onClick={handleRun} disabled={loading} className="bg-purple-500 text-white">
-          {loading ? 'Running…' : 'Run Simulation'}
+        <Button
+          onClick={handleRun}
+          disabled={loading}
+          className="bg-purple-500 text-white"
+        >
+          {loading ? "Running…" : "Run Simulation"}
         </Button>
         <Button
           variant="outline"
@@ -233,15 +282,21 @@ export default function BacktestTool() {
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-white/5 rounded p-3 text-center">
               <p className="text-xs text-gray-400 mb-1">Total Return</p>
-              <p className="text-lg font-semibold">{(result.totalReturn * 100).toFixed(2)}%</p>
+              <p className="text-lg font-semibold">
+                {(result.totalReturn * 100).toFixed(2)}%
+              </p>
             </div>
             <div className="bg-white/5 rounded p-3 text-center">
               <p className="text-xs text-gray-400 mb-1">Win Rate</p>
-              <p className="text-lg font-semibold">{(result.winRate * 100).toFixed(1)}%</p>
+              <p className="text-lg font-semibold">
+                {(result.winRate * 100).toFixed(1)}%
+              </p>
             </div>
             <div className="bg-white/5 rounded p-3 text-center">
               <p className="text-xs text-gray-400 mb-1">Max Drawdown</p>
-              <p className="text-lg font-semibold">{(result.maxDrawdown * 100).toFixed(2)}%</p>
+              <p className="text-lg font-semibold">
+                {(result.maxDrawdown * 100).toFixed(2)}%
+              </p>
             </div>
           </div>
 
@@ -258,8 +313,13 @@ export default function BacktestTool() {
                   {result.trades.map((t, i) => (
                     <tr key={i} className="border-b border-white/5">
                       <td className="py-1 pr-4">{t.time}</td>
-                      <td className={`py-1 ${t.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {t.pnl >= 0 ? '+' : ''}{t.pnl.toFixed(4)}
+                      <td
+                        className={`py-1 ${
+                          t.pnl >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {t.pnl >= 0 ? "+" : ""}
+                        {t.pnl.toFixed(4)}
                       </td>
                     </tr>
                   ))}
@@ -271,10 +331,11 @@ export default function BacktestTool() {
       ) : (
         !loading && (
           <p className="text-gray-400">
-            Simulated results, win rate, drawdown and trades will appear here after running the simulation.
+            Simulated results, win rate, drawdown and trades will appear here
+            after running the simulation.
           </p>
         )
       )}
     </div>
-  )
+  );
 }

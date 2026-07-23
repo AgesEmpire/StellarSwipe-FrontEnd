@@ -62,7 +62,11 @@ export function TradeModal({
   const { isDemoMode } = useDemoModeStore();
   const { enabled: positionLimitEnabled, percentage: positionLimitPercentage } =
     usePositionLimitStore();
-  const { isMismatch: networkMismatch, walletNetwork, appNetwork } = useNetworkMismatch();
+  const {
+    isMismatch: networkMismatch,
+    walletNetwork,
+    appNetwork,
+  } = useNetworkMismatch();
   const fmt = usePriceFormat();
 
   // Live-region ref for announcing order-type changes to screen readers
@@ -75,8 +79,12 @@ export function TradeModal({
   }, [positionLimitEnabled, portfolioBalance, positionLimitPercentage]);
 
   const limitPriceError =
-    type === "LIMIT" && touched.limitPrice ? validateTradeField(limitPrice, "Limit price") : "";
-  const amountError = touched.amount ? validateTradeField(amount, "Amount") : "";
+    type === "LIMIT" && touched.limitPrice
+      ? validateTradeField(limitPrice, "Limit price")
+      : "";
+  const amountError = touched.amount
+    ? validateTradeField(amount, "Amount")
+    : "";
 
   const focusTrapRef = useFocusTrap({
     isActive: open,
@@ -87,7 +95,9 @@ export function TradeModal({
   const total = price * (parseFloat(amount) || 0);
   const insufficient = total > walletBalance;
   const exceedsPositionLimit =
-    positionLimitEnabled && positionLimitInUSD !== null && total > positionLimitInUSD;
+    positionLimitEnabled &&
+    positionLimitInUSD !== null &&
+    total > positionLimitInUSD;
   const hasErrors = !!amountError || (type === "LIMIT" && !!limitPriceError);
 
   // Estimate slippage: market orders use a fixed proxy; limit orders use
@@ -186,16 +196,28 @@ export function TradeModal({
       setSubmitting(false);
       setStep("review");
       setConfirmError(
-        (err as Error).message || "Transaction confirmation failed. Your order was not placed."
+        (err as Error).message ||
+          "Transaction confirmation failed. Your order was not placed."
       );
     }
-  }, [type, price, amount, stopLoss, positionLimit, onClose, onConfirm, disabled]);
+  }, [
+    type,
+    price,
+    amount,
+    stopLoss,
+    positionLimit,
+    onClose,
+    onConfirm,
+    disabled,
+  ]);
 
   // Announce order-type changes to screen readers via live region
   const handleOrderTypeChange = (newType: OrderType) => {
     setType(newType);
     if (liveRegionRef.current) {
-      liveRegionRef.current.textContent = `Order type changed to ${newType === "LIMIT" ? "Limit" : "Market"}`;
+      liveRegionRef.current.textContent = `Order type changed to ${
+        newType === "LIMIT" ? "Limit" : "Market"
+      }`;
     }
   };
 
@@ -261,11 +283,13 @@ export function TradeModal({
                   Place Order
                 </h2>
                 <p id="trade-modal-description" className="sr-only">
-                  Use Tab to navigate fields. Press Escape to close. Press Enter to confirm when
-                  the form is valid.
+                  Use Tab to navigate fields. Press Escape to close. Press Enter
+                  to confirm when the form is valid.
                 </p>
                 {isDemoMode && (
-                  <span className="text-xs text-blue-400 font-medium">Demo Mode</span>
+                  <span className="text-xs text-blue-400 font-medium">
+                    Demo Mode
+                  </span>
                 )}
               </div>
               <button
@@ -311,7 +335,9 @@ export function TradeModal({
                   aria-hidden="true"
                 />
                 <div>
-                  <p className="text-base font-semibold text-foreground">Order submitted!</p>
+                  <p className="text-base font-semibold text-foreground">
+                    Order submitted!
+                  </p>
                   <p className="mt-1 text-sm text-foreground-muted">
                     Waiting for on-chain confirmation…
                   </p>
@@ -332,7 +358,9 @@ export function TradeModal({
                   className="space-y-4"
                   id={`${type.toLowerCase()}-panel`}
                   role="group"
-                  aria-label={`${type === "LIMIT" ? "Limit" : "Market"} order fields`}
+                  aria-label={`${
+                    type === "LIMIT" ? "Limit" : "Market"
+                  } order fields`}
                 >
                   {/* Price row */}
                   {type === "LIMIT" ? (
@@ -351,14 +379,22 @@ export function TradeModal({
                         placeholder="0.00"
                         value={limitPrice}
                         onChange={(e) => setLimitPrice(e.target.value)}
-                        onBlur={() => setTouched((t) => ({ ...t, limitPrice: true }))}
-                        aria-describedby={limitPriceError ? "limit-price-error" : undefined}
+                        onBlur={() =>
+                          setTouched((t) => ({ ...t, limitPrice: true }))
+                        }
+                        aria-describedby={
+                          limitPriceError ? "limit-price-error" : undefined
+                        }
                         aria-invalid={!!limitPriceError}
                         className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle text-sm
                           focus:outline-none focus:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
                       />
                       {limitPriceError && (
-                        <p id="limit-price-error" role="alert" className="mt-1 text-xs text-accent-danger">
+                        <p
+                          id="limit-price-error"
+                          role="alert"
+                          className="mt-1 text-xs text-accent-danger"
+                        >
                           {limitPriceError}
                         </p>
                       )}
@@ -370,7 +406,9 @@ export function TradeModal({
                       </span>
                       <div
                         className="w-full rounded-lg bg-accent-market/40 border border-accent-market/30 px-3 py-2 text-accent-market text-sm font-mono"
-                        aria-label={`Current market price: ${fmt(marketPrice)} USDC`}
+                        aria-label={`Current market price: ${fmt(
+                          marketPrice
+                        )} USDC`}
                       >
                         {fmt(marketPrice)} USDC
                       </div>
@@ -394,13 +432,19 @@ export function TradeModal({
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       onBlur={() => setTouched((t) => ({ ...t, amount: true }))}
-                      aria-describedby={amountError ? "trade-amount-error" : undefined}
+                      aria-describedby={
+                        amountError ? "trade-amount-error" : undefined
+                      }
                       aria-invalid={!!amountError}
                       className="w-full rounded-lg bg-input border border-border px-3 py-2 text-foreground placeholder-foreground-subtle text-sm
                         focus:outline-none focus:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
                     />
                     {amountError && (
-                      <p id="trade-amount-error" role="alert" className="mt-1 text-xs text-accent-danger">
+                      <p
+                        id="trade-amount-error"
+                        role="alert"
+                        className="mt-1 text-xs text-accent-danger"
+                      >
                         {amountError}
                       </p>
                     )}
@@ -417,7 +461,9 @@ export function TradeModal({
                           type="button"
                           onClick={() => applyPreset(pct)}
                           disabled={!price}
-                          aria-label={`Set amount to ${pct === 100 ? "maximum" : `${pct}%`} of wallet balance`}
+                          aria-label={`Set amount to ${
+                            pct === 100 ? "maximum" : `${pct}%`
+                          } of wallet balance`}
                           className={`flex-1 rounded-md py-1 text-xs font-medium transition-colors
                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface
                             ${
@@ -434,7 +480,9 @@ export function TradeModal({
 
                   {/* Total (read-only) */}
                   <div>
-                    <span className="text-xs text-foreground-muted mb-1 block">Total (USDC)</span>
+                    <span className="text-xs text-foreground-muted mb-1 block">
+                      Total (USDC)
+                    </span>
                     <div
                       className={`w-full rounded-lg border px-3 py-2 text-sm font-mono
                         ${
@@ -442,11 +490,15 @@ export function TradeModal({
                             ? "border-accent-danger/50 bg-accent-danger/10 text-accent-danger"
                             : "border-border bg-input text-foreground"
                         }`}
-                      aria-label={`Total: $${total.toFixed(4)} USDC${insufficient ? " — insufficient balance" : ""}`}
+                      aria-label={`Total: $${total.toFixed(4)} USDC${
+                        insufficient ? " — insufficient balance" : ""
+                      }`}
                     >
                       ${total.toFixed(4)}
                       {insufficient && (
-                        <span className="ml-2 text-xs text-accent-danger">Insufficient balance</span>
+                        <span className="ml-2 text-xs text-accent-danger">
+                          Insufficient balance
+                        </span>
                       )}
                     </div>
                   </div>
@@ -459,7 +511,9 @@ export function TradeModal({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium text-accent-danger">Low balance</p>
+                          <p className="font-medium text-accent-danger">
+                            Low balance
+                          </p>
                           <p className="text-foreground-muted text-xs mt-1">
                             You do not have enough funds to place this trade.
                           </p>
@@ -488,9 +542,14 @@ export function TradeModal({
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-4 w-4 text-accent-warning flex-shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-medium text-accent-warning">Position limit exceeded</p>
+                          <p className="font-medium text-accent-warning">
+                            Position limit exceeded
+                          </p>
                           <p className="text-foreground-muted text-xs mt-1">
-                            This trade (${total.toFixed(2)}) exceeds your {positionLimitPercentage}% position limit (${positionLimitInUSD.toFixed(2)}). Reduce the amount or disable position limits.
+                            This trade (${total.toFixed(2)}) exceeds your{" "}
+                            {positionLimitPercentage}% position limit ($
+                            {positionLimitInUSD.toFixed(2)}). Reduce the amount
+                            or disable position limits.
                           </p>
                         </div>
                       </div>
@@ -503,7 +562,10 @@ export function TradeModal({
                       <label htmlFor="stop-loss-slider">
                         <GlossaryTerm term="stop-loss">Stop-Loss</GlossaryTerm>
                       </label>
-                      <span className="text-accent-warning font-medium" aria-hidden="true">
+                      <span
+                        className="text-accent-warning font-medium"
+                        aria-hidden="true"
+                      >
                         -{stopLoss}%
                       </span>
                     </div>
@@ -523,8 +585,8 @@ export function TradeModal({
                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface rounded"
                     />
                     <span id="stop-loss-help" className="sr-only">
-                      Set the percentage loss at which to automatically sell. Currently set to{" "}
-                      {stopLoss} percent.
+                      Set the percentage loss at which to automatically sell.
+                      Currently set to {stopLoss} percent.
                     </span>
                   </div>
 
@@ -535,7 +597,11 @@ export function TradeModal({
                       className="text-sm text-foreground flex items-center gap-1"
                     >
                       Position Limit
-                      <Info size={13} className="text-foreground-subtle" aria-hidden="true" />
+                      <Info
+                        size={13}
+                        className="text-foreground-subtle"
+                        aria-hidden="true"
+                      />
                     </span>
                     <button
                       role="switch"
@@ -555,7 +621,8 @@ export function TradeModal({
                       />
                     </button>
                     <span id="position-limit-help" className="sr-only">
-                      Position limit helps manage risk by limiting the size of your position
+                      Position limit helps manage risk by limiting the size of
+                      your position
                     </span>
                   </div>
                 </div>
@@ -590,7 +657,10 @@ export function TradeModal({
                 </button>
 
                 {/* Keyboard shortcut hint */}
-                <p className="mt-2 text-center text-xs text-foreground-subtle" aria-hidden="true">
+                <p
+                  className="mt-2 text-center text-xs text-foreground-subtle"
+                  aria-hidden="true"
+                >
                   <kbd className="font-mono">Esc</kbd> to cancel
                 </p>
               </>
@@ -613,8 +683,12 @@ export function TradeModal({
                         aria-hidden="true"
                       />
                       <div>
-                        <p className="font-medium text-accent-danger">Confirmation failed</p>
-                        <p className="mt-0.5 text-xs text-foreground-muted">{confirmError}</p>
+                        <p className="font-medium text-accent-danger">
+                          Confirmation failed
+                        </p>
+                        <p className="mt-0.5 text-xs text-foreground-muted">
+                          {confirmError}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -627,27 +701,37 @@ export function TradeModal({
                   <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="text-foreground-muted">Order type</span>
-                      <span className="font-medium text-foreground">{type === "LIMIT" ? "Limit" : "Market"}</span>
+                      <span className="font-medium text-foreground">
+                        {type === "LIMIT" ? "Limit" : "Market"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="text-foreground-muted">Amount</span>
-                      <span className="font-mono font-medium text-foreground">{amount} XLM</span>
+                      <span className="font-mono font-medium text-foreground">
+                        {amount} XLM
+                      </span>
                     </div>
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="text-foreground-muted">Price</span>
                       <span className="font-mono font-medium text-foreground">
-                        {type === "MARKET" ? `${fmt(marketPrice)} USDC (market)` : `${limitPrice} USDC`}
+                        {type === "MARKET"
+                          ? `${fmt(marketPrice)} USDC (market)`
+                          : `${limitPrice} USDC`}
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="text-foreground-muted">Total</span>
-                      <span className="font-mono font-medium text-foreground">${total.toFixed(4)} USDC</span>
+                      <span className="font-mono font-medium text-foreground">
+                        ${total.toFixed(4)} USDC
+                      </span>
                     </div>
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="text-foreground-muted">
                         <GlossaryTerm term="stop-loss">Stop-loss</GlossaryTerm>
                       </span>
-                      <span className="font-mono font-medium text-accent-warning">-{stopLoss}%</span>
+                      <span className="font-mono font-medium text-accent-warning">
+                        -{stopLoss}%
+                      </span>
                     </div>
                   </div>
 
@@ -657,17 +741,23 @@ export function TradeModal({
                       <span className="text-foreground-subtle">
                         Trade fee ({(tradeFeePercent * 100).toFixed(2)}%)
                       </span>
-                      <span className="font-mono font-medium">${tradeFee.toFixed(4)}</span>
+                      <span className="font-mono font-medium">
+                        ${tradeFee.toFixed(4)}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-foreground-subtle">Network fee</span>
+                      <span className="text-foreground-subtle">
+                        Network fee
+                      </span>
                       <span className="font-mono font-medium">
                         {networkFee} (~${networkFeeUSDC.toFixed(6)})
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-2 border-t pt-2">
                       <span className="text-foreground-subtle">Net amount</span>
-                      <span className="font-mono font-medium">${netAmount.toFixed(4)}</span>
+                      <span className="font-mono font-medium">
+                        ${netAmount.toFixed(4)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -702,7 +792,9 @@ export function TradeModal({
                   >
                     {submitting
                       ? "Submitting…"
-                      : `Confirm ${type === "LIMIT" ? "Limit" : "Market"} Order`}
+                      : `Confirm ${
+                          type === "LIMIT" ? "Limit" : "Market"
+                        } Order`}
                   </button>
                 </div>
                 <span id="confirm-button-help" className="sr-only">
@@ -711,7 +803,10 @@ export function TradeModal({
                   }. Press Enter to confirm.`}
                 </span>
 
-                <p className="mt-2 text-center text-xs text-foreground-subtle" aria-hidden="true">
+                <p
+                  className="mt-2 text-center text-xs text-foreground-subtle"
+                  aria-hidden="true"
+                >
                   <kbd className="font-mono">Esc</kbd> to cancel ·{" "}
                   <kbd className="font-mono">Enter</kbd> to confirm
                 </p>

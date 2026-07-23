@@ -25,7 +25,9 @@ export function buildOtpAuthUri(
     digits: "6",
     period: "30",
   });
-  return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?${params.toString()}`;
+  return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(
+    account
+  )}?${params.toString()}`;
 }
 
 export function buildQrImageUrl(otpAuthUri: string): string {
@@ -60,7 +62,10 @@ export function consumeBackupCode(
   return { success: true, updatedCodes };
 }
 
-export function formatBackupCodesText(codes: BackupCode[], account: string): string {
+export function formatBackupCodesText(
+  codes: BackupCode[],
+  account: string
+): string {
   const lines = [
     "StellarSwipe — 2FA Backup Codes",
     `Account: ${account}`,
@@ -68,8 +73,11 @@ export function formatBackupCodesText(codes: BackupCode[], account: string): str
     "",
     "Keep these codes in a safe place. Each code can only be used once.",
     "",
-    ...codes.map((code, i) =>
-      `${String(i + 1).padStart(2, "0")}. ${code.value}${code.consumed ? " (used)" : ""}`
+    ...codes.map(
+      (code, i) =>
+        `${String(i + 1).padStart(2, "0")}. ${code.value}${
+          code.consumed ? " (used)" : ""
+        }`
     ),
     "",
     "If you lose access to your authenticator, use one of these codes to sign in.",

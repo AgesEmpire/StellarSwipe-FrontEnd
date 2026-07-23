@@ -4,7 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { ThumbsUp, ThumbsDown, Sparkles } from "lucide-react";
 import { useRecommendationStore } from "@/store/useRecommendationStore";
-import { computeRecommendations, recordExplicitFeedback } from "@/services/recommendationEngine";
+import {
+  computeRecommendations,
+  recordExplicitFeedback,
+} from "@/services/recommendationEngine";
 import type { Signal } from "@/lib/api-types.generated";
 
 interface SignalRecommendationsProps {
@@ -15,9 +18,15 @@ interface SignalRecommendationsProps {
 /**
  * Personalised signal suggestions in the feed header (#171)
  */
-export function SignalRecommendations({ signals, onSelectSignal }: SignalRecommendationsProps) {
-  const { settings, recommendations, feedback, setRecommendations } = useRecommendationStore();
-  const [submittedFeedback, setSubmittedFeedback] = useState<Record<string, 'up' | 'down'>>({});
+export function SignalRecommendations({
+  signals,
+  onSelectSignal,
+}: SignalRecommendationsProps) {
+  const { settings, recommendations, feedback, setRecommendations } =
+    useRecommendationStore();
+  const [submittedFeedback, setSubmittedFeedback] = useState<
+    Record<string, "up" | "down">
+  >({});
 
   useEffect(() => {
     if (settings.enabled && settings.privacyAccepted && signals.length > 0) {
@@ -25,21 +34,34 @@ export function SignalRecommendations({ signals, onSelectSignal }: SignalRecomme
     } else {
       setRecommendations([]);
     }
-  }, [signals, settings.enabled, settings.privacyAccepted, settings.riskProfile]);
+  }, [
+    signals,
+    settings.enabled,
+    settings.privacyAccepted,
+    settings.riskProfile,
+  ]);
 
-  const handleFeedback = useCallback((signalId: string, sentiment: 'up' | 'down') => {
-    recordExplicitFeedback(signalId, sentiment);
-    setSubmittedFeedback((prev) => ({ ...prev, [signalId]: sentiment }));
-    setTimeout(() => {
-      setSubmittedFeedback((prev) => {
-        const next = { ...prev };
-        delete next[signalId];
-        return next;
-      });
-    }, 1500);
-  }, []);
+  const handleFeedback = useCallback(
+    (signalId: string, sentiment: "up" | "down") => {
+      recordExplicitFeedback(signalId, sentiment);
+      setSubmittedFeedback((prev) => ({ ...prev, [signalId]: sentiment }));
+      setTimeout(() => {
+        setSubmittedFeedback((prev) => {
+          const next = { ...prev };
+          delete next[signalId];
+          return next;
+        });
+      }, 1500);
+    },
+    []
+  );
 
-  if (!settings.enabled || !settings.privacyAccepted || recommendations.length === 0) return null;
+  if (
+    !settings.enabled ||
+    !settings.privacyAccepted ||
+    recommendations.length === 0
+  )
+    return null;
 
   return (
     <section aria-label="Recommended signals" className="space-y-2">
@@ -51,7 +73,9 @@ export function SignalRecommendations({ signals, onSelectSignal }: SignalRecomme
         {recommendations.map((rec) => {
           const signal = signals.find((s) => s.id === rec.signalId);
           if (!signal) return null;
-          const userFeedback = feedback.find((f) => f.signalId === rec.signalId);
+          const userFeedback = feedback.find(
+            (f) => f.signalId === rec.signalId
+          );
           const justSubmitted = submittedFeedback[rec.signalId];
 
           return (
@@ -68,7 +92,9 @@ export function SignalRecommendations({ signals, onSelectSignal }: SignalRecomme
                 <span className="font-semibold text-sm">{signal.ticker}</span>
                 <span
                   className={`text-xs font-medium px-1.5 py-0.5 rounded ${
-                    signal.action === "BUY" ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500"
+                    signal.action === "BUY"
+                      ? "bg-green-500/20 text-green-500"
+                      : "bg-red-500/20 text-red-500"
                   }`}
                 >
                   {signal.action}
@@ -76,7 +102,8 @@ export function SignalRecommendations({ signals, onSelectSignal }: SignalRecomme
               </div>
 
               <div className="text-xs text-muted-foreground">
-                Score: <span className="font-medium text-foreground">{rec.score}</span>
+                Score:{" "}
+                <span className="font-medium text-foreground">{rec.score}</span>
               </div>
 
               {/* Reasons with link to factors page */}
@@ -100,31 +127,44 @@ export function SignalRecommendations({ signals, onSelectSignal }: SignalRecomme
               </div>
 
               {/* Explicit feedback controls */}
-              <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="flex items-center gap-2 pt-1"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {justSubmitted ? (
                   <span
                     className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                      justSubmitted === 'up' ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'
+                      justSubmitted === "up"
+                        ? "text-green-500 bg-green-500/10"
+                        : "text-red-500 bg-red-500/10"
                     }`}
                     aria-live="polite"
                   >
-                    {justSubmitted === 'up' ? 'Thanks!' : 'Got it'}
+                    {justSubmitted === "up" ? "Thanks!" : "Got it"}
                   </span>
                 ) : (
                   <>
                     <button
-                      onClick={() => handleFeedback(rec.signalId, 'up')}
+                      onClick={() => handleFeedback(rec.signalId, "up")}
                       aria-label="Like recommendation"
                       aria-pressed={userFeedback?.liked === true}
-                      className={`p-1 rounded hover:bg-green-500/20 transition-colors ${userFeedback?.liked === true ? "text-green-500" : "text-muted-foreground"}`}
+                      className={`p-1 rounded hover:bg-green-500/20 transition-colors ${
+                        userFeedback?.liked === true
+                          ? "text-green-500"
+                          : "text-muted-foreground"
+                      }`}
                     >
                       <ThumbsUp size={12} />
                     </button>
                     <button
-                      onClick={() => handleFeedback(rec.signalId, 'down')}
+                      onClick={() => handleFeedback(rec.signalId, "down")}
                       aria-label="Dislike recommendation"
                       aria-pressed={userFeedback?.liked === false}
-                      className={`p-1 rounded hover:bg-red-500/20 transition-colors ${userFeedback?.liked === false ? "text-red-500" : "text-muted-foreground"}`}
+                      className={`p-1 rounded hover:bg-red-500/20 transition-colors ${
+                        userFeedback?.liked === false
+                          ? "text-red-500"
+                          : "text-muted-foreground"
+                      }`}
                     >
                       <ThumbsDown size={12} />
                     </button>

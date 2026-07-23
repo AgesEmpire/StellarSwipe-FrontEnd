@@ -42,16 +42,16 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
     ].join(", ");
 
     const getFocusableElements = (): HTMLElement[] =>
-      Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)).filter(
-        (el) => !el.closest("[hidden]") && el.offsetParent !== null
-      );
+      Array.from(
+        container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)
+      ).filter((el) => !el.closest("[hidden]") && el.offsetParent !== null);
 
     // Move focus to the designated initial element (or first focusable).
     const focusInitial = () => {
       const elements = getFocusableElements();
       if (elements.length === 0) return;
       const target = initialFocus
-        ? (container.querySelector<HTMLElement>(initialFocus) ?? elements[0])
+        ? container.querySelector<HTMLElement>(initialFocus) ?? elements[0]
         : elements[0];
       target?.focus({ preventScroll: true });
     };

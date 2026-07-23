@@ -31,7 +31,12 @@ function drawPnlCard(stats: ShareStat[]): HTMLCanvasElement {
     throw new Error("Unable to generate share card.");
   }
 
-  const bgGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  const bgGradient = ctx.createLinearGradient(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
   bgGradient.addColorStop(0, "#0f172a");
   bgGradient.addColorStop(1, "#1e293b");
   ctx.fillStyle = bgGradient;
@@ -101,7 +106,8 @@ function drawPnlCard(stats: ShareStat[]): HTMLCanvasElement {
 }
 
 export function PnLShareCardGenerator() {
-  const [selectedStats, setSelectedStats] = useState<ShareStatKey[]>(DEFAULT_SELECTION);
+  const [selectedStats, setSelectedStats] =
+    useState<ShareStatKey[]>(DEFAULT_SELECTION);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
 
@@ -144,10 +150,14 @@ export function PnLShareCardGenerator() {
     try {
       const response = await fetch(previewUrl);
       const blob = await response.blob();
-      const file = new File([blob], "stellarswipe-pnl-card.png", { type: "image/png" });
+      const file = new File([blob], "stellarswipe-pnl-card.png", {
+        type: "image/png",
+      });
 
       if (navigator.canShare && !navigator.canShare({ files: [file] })) {
-        setShareError("This device cannot share files directly. Download instead.");
+        setShareError(
+          "This device cannot share files directly. Download instead."
+        );
         return;
       }
 
@@ -158,7 +168,9 @@ export function PnLShareCardGenerator() {
       });
       setShareError(null);
     } catch {
-      setShareError("Share cancelled or unavailable. You can download the card instead.");
+      setShareError(
+        "Share cancelled or unavailable. You can download the card instead."
+      );
     }
   };
 
@@ -166,10 +178,15 @@ export function PnLShareCardGenerator() {
     <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 md:p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-sky-400">Share</p>
-          <h2 className="text-lg font-semibold text-foreground">P&L image card</h2>
+          <p className="text-xs uppercase tracking-[0.25em] text-sky-400">
+            Share
+          </p>
+          <h2 className="text-lg font-semibold text-foreground">
+            P&L image card
+          </h2>
           <p className="text-sm text-foreground-muted">
-            Select the stats to include, generate a preview, then download or share.
+            Select the stats to include, generate a preview, then download or
+            share.
           </p>
         </div>
         <Sparkles className="h-5 w-5 text-sky-400" aria-hidden="true" />
@@ -194,18 +211,34 @@ export function PnLShareCardGenerator() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={generatePreview}>Generate card preview</Button>
-        <Button type="button" variant="outline" onClick={handleDownload} disabled={!previewUrl} className="gap-1.5">
+        <Button type="button" onClick={generatePreview}>
+          Generate card preview
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleDownload}
+          disabled={!previewUrl}
+          className="gap-1.5"
+        >
           <Download className="h-4 w-4" />
           Download image
         </Button>
-        <Button type="button" variant="outline" onClick={handleShare} disabled={!previewUrl} className="gap-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleShare}
+          disabled={!previewUrl}
+          className="gap-1.5"
+        >
           <Share2 className="h-4 w-4" />
           Share
         </Button>
       </div>
 
-      {shareError && <p className="mb-3 text-xs text-amber-400">{shareError}</p>}
+      {shareError && (
+        <p className="mb-3 text-xs text-amber-400">{shareError}</p>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
         {previewUrl ? (

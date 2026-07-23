@@ -5,6 +5,7 @@ We use [Knip](https://github.com/webpro/knip) to automatically find unused files
 ## Configuration File
 
 The tool configuration is located in [knip.json](file:///home/nusrat/Desktop/tawfiqa/StellarSwipe-FrontEnd/knip.json). It is configured to scan the following directories:
+
 - `app/`
 - `components/`
 - `hooks/`

@@ -13,6 +13,9 @@
 
 import { render, screen, act } from "@testing-library/react";
 import { DevPerfOverlay } from "@/components/DevPerfOverlay";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
@@ -21,7 +24,11 @@ const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
  * (listeners added over time without cleanup).
  */
 function createIncreasingSequence(length: number) {
-  const snapshots: Array<{ listenerCount: number; timerCount: number; total: number }> = [];
+  const snapshots: Array<{
+    listenerCount: number;
+    timerCount: number;
+    total: number;
+  }> = [];
   for (let i = 0; i < length; i++) {
     snapshots.push({
       listenerCount: 5 + i * 2,
@@ -46,8 +53,14 @@ describe("DevPerfOverlay leak-tracking heuristics", () => {
       configurable: true,
     });
 
-    render(<DevPerfOverlay />);
-    expect(screen.getByLabelText("Performance metrics overlay (dev mode only)")).toBeTruthy();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <DevPerfOverlay />
+      </QueryClientProvider>
+    );
+    expect(
+      screen.getByLabelText("Performance metrics overlay (dev mode only)")
+    ).toBeTruthy();
   });
 
   it("simulates a leak scenario (listeners added without cleanup) and verifies the heuristic flags it", () => {
@@ -87,7 +100,11 @@ describe("DevPerfOverlay leak-tracking heuristics", () => {
       configurable: true,
     });
 
-    const { container } = render(<DevPerfOverlay />);
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <DevPerfOverlay />
+      </QueryClientProvider>
+    );
     expect(container.firstChild).toBeNull();
   });
 });

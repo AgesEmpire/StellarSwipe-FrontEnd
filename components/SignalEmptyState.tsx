@@ -59,7 +59,12 @@ export function SignalEmptyState({
         className="py-16"
         icon={<Icon className="h-8 w-8 text-sky-400/70" />}
         action={
-          <Button size="sm" variant="outline" onClick={onRefresh} className="gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onRefresh}
+            className="gap-2"
+          >
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
             {variant === "no-results" ? "Clear & Refresh" : "Refresh"}
           </Button>

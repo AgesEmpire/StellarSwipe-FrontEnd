@@ -17,7 +17,11 @@ export function FeedDensityToggle({ className }: FeedDensityToggleProps) {
       type="button"
       role="switch"
       aria-checked={isCompact}
-      aria-label={isCompact ? "Switch to comfortable density" : "Switch to compact density"}
+      aria-label={
+        isCompact
+          ? "Switch to comfortable density"
+          : "Switch to compact density"
+      }
       onClick={() => setDensity(isCompact ? "comfortable" : "compact")}
       title={isCompact ? "Comfortable view" : "Compact view"}
       className={cn(

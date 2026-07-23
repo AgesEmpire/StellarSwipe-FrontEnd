@@ -3,11 +3,7 @@
  * Tests the pure service layer (lib/apiKeys.ts) and display logic.
  */
 
-import {
-  fetchApiKeys,
-  createApiKey,
-  revokeApiKey,
-} from "@/lib/apiKeys";
+import { fetchApiKeys, createApiKey, revokeApiKey } from "@/lib/apiKeys";
 
 // Reset module between tests to get a clean mock store
 beforeEach(() => {

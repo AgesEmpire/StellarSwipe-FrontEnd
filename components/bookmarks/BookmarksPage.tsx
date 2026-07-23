@@ -17,7 +17,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SignalCard } from "@/components/SignalCard";
-import { useBookmarkStore, useBookmarkHydrated, type BookmarkFolder } from "@/store/useBookmarkStore";
+import {
+  useBookmarkStore,
+  useBookmarkHydrated,
+  type BookmarkFolder,
+} from "@/store/useBookmarkStore";
 import { useBookmarkActions } from "@/hooks/useBookmarkActions";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { cn } from "@/lib/utils";
@@ -190,7 +194,9 @@ function FolderList({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between px-1 pb-1">
-        <span className="text-xs uppercase tracking-wider text-foreground-muted">Folders</span>
+        <span className="text-xs uppercase tracking-wider text-foreground-muted">
+          Folders
+        </span>
         <button
           onClick={() => setIsCreating(true)}
           className="inline-flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:bg-white/10 hover:text-foreground"
@@ -250,7 +256,9 @@ function FolderList({
             >
               <FolderIcon className="h-4 w-4 shrink-0" />
               <span className="flex-1 truncate">{folder.name}</span>
-              <span className="text-xs text-foreground-muted">{folder.signalIds.length}</span>
+              <span className="text-xs text-foreground-muted">
+                {folder.signalIds.length}
+              </span>
               <div className="hidden gap-0.5 group-hover:flex">
                 <button
                   onClick={(e) => {
@@ -302,7 +310,9 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
 
   let filteredSignalIds: string[];
   if (selectedFolder) {
-    filteredSignalIds = selectedFolder.signalIds.filter((id) => bookmarks.includes(id));
+    filteredSignalIds = selectedFolder.signalIds.filter((id) =>
+      bookmarks.includes(id)
+    );
   } else {
     filteredSignalIds = bookmarks;
   }
@@ -334,13 +344,15 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
       <div className="mx-auto w-full max-w-7xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.3em] text-sky-400/90">Bookmarks</p>
+            <p className="text-sm uppercase tracking-[0.3em] text-sky-400/90">
+              Bookmarks
+            </p>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Saved signals
             </h1>
             <p className="max-w-2xl text-sm text-foreground-muted">
-              Signals you save from the main feed appear here. Organize them into folders
-              to track different strategies.
+              Signals you save from the main feed appear here. Organize them
+              into folders to track different strategies.
             </p>
           </div>
 
@@ -401,7 +413,9 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                           {signalFolders.map((f) => (
                             <button
                               key={f.id}
-                              onClick={() => removeSignalFromFolder(signal.id, f.id, f.name)}
+                              onClick={() =>
+                                removeSignalFromFolder(signal.id, f.id, f.name)
+                              }
                               className="inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2.5 py-0.5 text-xs text-sky-400 hover:bg-sky-400/20"
                               aria-label={`Remove from ${f.name}`}
                             >
@@ -416,9 +430,15 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                                 onChange={(e) => {
                                   const folderId = e.target.value;
                                   if (folderId) {
-                                    const folder = folders.find((f) => f.id === folderId);
+                                    const folder = folders.find(
+                                      (f) => f.id === folderId
+                                    );
                                     if (folder) {
-                                      assignSignalToFolder(signal.id, folderId, folder.name);
+                                      assignSignalToFolder(
+                                        signal.id,
+                                        folderId,
+                                        folder.name
+                                      );
                                     }
                                   }
                                   e.target.value = "";
@@ -429,7 +449,9 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                               >
                                 <option value="">+ Folder</option>
                                 {folders
-                                  .filter((f) => !f.signalIds.includes(signal.id))
+                                  .filter(
+                                    (f) => !f.signalIds.includes(signal.id)
+                                  )
                                   .map((f) => (
                                     <option key={f.id} value={f.id}>
                                       {f.name}

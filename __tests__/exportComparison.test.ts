@@ -5,7 +5,6 @@
  * correct number of data rows for a mocked comparison set.
  */
 
-import { describe, it, expect } from "vitest";
 import {
   buildComparisonCsv,
   COMPARISON_CSV_COLUMNS,
@@ -17,7 +16,6 @@ import type { Signal } from "@/lib/api-types.generated";
 // ---------------------------------------------------------------------------
 function makeSignal(overrides: Partial<Signal> & { id: string }): Signal {
   return {
-
     action: overrides.action ?? "BUY",
     confidence: overrides.confidence ?? 75,
     ticker: overrides.ticker ?? "XLM",
@@ -86,7 +84,12 @@ describe("buildComparisonCsv – row count", () => {
 describe("buildComparisonCsv – data values", () => {
   it("writes the signal id and asset into the correct columns", () => {
     const csv = buildComparisonCsv([
-      makeSignal({ id: "sig-42", ticker: "AQUA", action: "SELL", confidence: 88 }),
+      makeSignal({
+        id: "sig-42",
+        ticker: "AQUA",
+        action: "SELL",
+        confidence: 88,
+      }),
     ]);
     const lines = csv.split("\r\n").filter(Boolean);
     const dataRow = lines[1];
@@ -123,10 +126,7 @@ describe("buildComparisonCsv – data values", () => {
   });
 
   it("each data row has the same number of cells as the header", () => {
-    const signals = [
-      makeSignal({ id: "sig-1" }),
-      makeSignal({ id: "sig-2" }),
-    ];
+    const signals = [makeSignal({ id: "sig-1" }), makeSignal({ id: "sig-2" })];
     const csv = buildComparisonCsv(signals);
     const [headerRow, ...dataRows] = csv.split("\r\n").filter(Boolean);
     const headerCount = headerRow.split(",").length;

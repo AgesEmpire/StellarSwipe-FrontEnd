@@ -6,7 +6,9 @@ import { usePortfolioStore } from "@/store/usePortfolioStore";
 
 jest.mock("@/store/usePortfolioStore");
 
-const mockUsePortfolioStore = usePortfolioStore as jest.MockedFunction<typeof usePortfolioStore>;
+const mockUsePortfolioStore = usePortfolioStore as jest.MockedFunction<
+  typeof usePortfolioStore
+>;
 
 describe("PortfolioAllocationChart", () => {
   beforeEach(() => {
@@ -48,8 +50,20 @@ describe("PortfolioAllocationChart", () => {
   it("renders portfolio data with chart and labels", () => {
     mockUsePortfolioStore.mockReturnValue({
       assets: [
-        { symbol: "XLM", name: "Stellar", value: 1500, percentage: 50, color: "#0d1f2d" },
-        { symbol: "USDC", name: "USD Coin", value: 1500, percentage: 50, color: "#2775ca" },
+        {
+          symbol: "XLM",
+          name: "Stellar",
+          value: 1500,
+          percentage: 50,
+          color: "#0d1f2d",
+        },
+        {
+          symbol: "USDC",
+          name: "USD Coin",
+          value: 1500,
+          percentage: 50,
+          color: "#2775ca",
+        },
       ],
       totalValue: 3000,
       isLoading: false,

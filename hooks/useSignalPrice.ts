@@ -42,7 +42,12 @@ function mockFetchPrice(current: SignalPrice): SignalPrice {
   const newRoi = parseFloat((current.roi + roiDelta).toFixed(2));
   const confDelta = Math.floor((Math.random() - 0.5) * 3);
   const newConf = Math.min(100, Math.max(0, current.confidence + confDelta));
-  return { executionPrice: newPrice, roi: newRoi, confidence: newConf, updatedAt: new Date() };
+  return {
+    executionPrice: newPrice,
+    roi: newRoi,
+    confidence: newConf,
+    updatedAt: new Date(),
+  };
 }
 
 export interface UseSignalPriceOptions {
@@ -82,19 +87,41 @@ export function useSignalPrice(
       if (cancelled) return;
 
       traceWorker("worker:signalPrice:poll", async () => {
-        setPrice((prev) => {
-          const next = mockFetchPrice(prev);
-          const dir = next.executionPrice > prev.executionPrice ? "up" : next.executionPrice < prev.executionPrice ? "down" : null;
-          if (dir) {
-            setFlash(dir);
-            setTimeout(() => setFlash(null), 900);
+        const prev = prevRef.current;
+        const next = await fetchPriceRef.current(prev);
+
+        if (cancelled) return;
+
+        consecutiveFailures = 0;
+        setStale(false);
+        setPrice(next);
+
+        const dir =
+          next.executionPrice > prev.executionPrice
+            ? "up"
+            : next.executionPrice < prev.executionPrice
+            ? "down"
+            : null;
+        if (dir) {
+          setFlash(dir);
+          setTimeout(() => setFlash(null), 900);
+        }
+        prevRef.current = next;
+      })
+        .catch((err) => {
+          Sentry.captureException(err);
+          consecutiveFailures++;
+          setStale(true);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            const nextDelay = computePollDelayMs(
+              intervalMs,
+              consecutiveFailures
+            );
+            schedule(nextDelay);
           }
-          prevRef.current = next;
-          return next;
         });
-      }).catch((err) => Sentry.captureException(err)).finally(() => {
-        if (!cancelled) schedule(intervalMs);
-      });
     };
 
     schedule(intervalMs);

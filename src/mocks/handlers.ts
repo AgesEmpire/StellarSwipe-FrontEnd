@@ -85,8 +85,8 @@ export const mockSessions = [
 ];
 
 export const handlers = [
-  http.get("/api/signals", ({ request }) => {
-    const url = new URL(request.url);
+  http.get("*/api/signals", ({ request }) => {
+    const url = new URL(request.url, "http://localhost");
     const page = Number(url.searchParams.get("page") ?? "1");
     const pageSize = Number(url.searchParams.get("pageSize") ?? "10");
 
@@ -105,8 +105,8 @@ export const handlers = [
     });
   }),
 
-  http.get("/api/subscriptions", ({ request }) => {
-    const url = new URL(request.url);
+  http.get("*/api/subscriptions", ({ request }) => {
+    const url = new URL(request.url, "http://localhost");
     const status = url.searchParams.get("status");
 
     const filtered = status
@@ -116,8 +116,8 @@ export const handlers = [
     return HttpResponse.json({ subscriptions: filtered });
   }),
 
-  http.post("/api/trade", async ({ request }) => {
-    const body = await request.json() as Record<string, unknown>;
+  http.post("*/api/trade", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
     return HttpResponse.json({
       success: true,
       txHash: "mock-tx-hash-abc123",
@@ -128,11 +128,11 @@ export const handlers = [
 
   // ── Sessions ──────────────────────────────────────────────────────────────
 
-  http.get("/api/sessions", () => {
+  http.get("*/api/sessions", () => {
     return HttpResponse.json(mockSessions);
   }),
 
-  http.delete("/api/sessions/:sessionId", ({ params }) => {
+  http.delete("*/api/sessions/:sessionId", ({ params }) => {
     const { sessionId } = params as { sessionId: string };
     const exists = mockSessions.some((s) => s.id === sessionId);
     if (!exists) {
@@ -141,7 +141,7 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post("/api/sessions/revoke-others", () => {
+  http.post("*/api/sessions/revoke-others", () => {
     return new HttpResponse(null, { status: 204 });
   }),
 ];

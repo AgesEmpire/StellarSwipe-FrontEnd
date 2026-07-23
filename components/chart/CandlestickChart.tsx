@@ -37,7 +37,10 @@ export function CandlestickChart({
   height = 40,
   className = "",
 }: CandlestickChartProps) {
-  const candles = useMemo(() => (data.length ? deriveCandles(data) : []), [data]);
+  const candles = useMemo(
+    () => (data.length ? deriveCandles(data) : []),
+    [data]
+  );
 
   if (!candles.length) return null;
 
@@ -73,7 +76,14 @@ export function CandlestickChart({
 
         return (
           <g key={i}>
-            <line x1={cx} y1={toY(c.high)} x2={cx} y2={toY(c.low)} stroke={color} strokeWidth={1} />
+            <line
+              x1={cx}
+              y1={toY(c.high)}
+              x2={cx}
+              y2={toY(c.low)}
+              stroke={color}
+              strokeWidth={1}
+            />
             <rect
               x={cx - bodyW / 2}
               y={bodyTop}

@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 
 export function RecentlyViewedStrip() {
   const { recentlyViewedIds, clearHistory, addView } = useRecentlyViewedStore();
-  
-  // We fetch all signals to find the ones we need. 
+
+  // We fetch all signals to find the ones we need.
   // In a real app, we might have a specific batch API or just rely on the feed cache.
   const { data } = useInfiniteQuery<any>({
     queryKey: ["signals"],
@@ -24,7 +24,7 @@ export function RecentlyViewedStrip() {
 
   const allSignals = data?.pages.flatMap((page: any) => page.items) || [];
   const recentlyViewedSignals = recentlyViewedIds
-    .map(id => allSignals.find((s: Signal) => s.id === id))
+    .map((id) => allSignals.find((s: Signal) => s.id === id))
     .filter(Boolean) as Signal[];
 
   if (recentlyViewedIds.length === 0) return null;
@@ -34,11 +34,13 @@ export function RecentlyViewedStrip() {
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2 text-slate-400">
           <History size={14} className="text-sky-400" />
-          <h3 className="text-xs font-bold uppercase tracking-widest">Recently Viewed</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest">
+            Recently Viewed
+          </h3>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={clearHistory}
           className="h-6 px-2 text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-400/10"
         >
@@ -64,34 +66,46 @@ export function RecentlyViewedStrip() {
                 }}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={cn(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                    signal.action === "BUY" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                  )}>
+                  <span
+                    className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                      signal.action === "BUY"
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-red-500/10 text-red-400"
+                    )}
+                  >
                     {signal.action}
                   </span>
                   <span className="text-[10px] text-slate-500">
                     <RelativeTimestamp timestamp={new Date(signal.timestamp)} />
                   </span>
                 </div>
-                <h4 className="text-sm font-semibold text-white mb-1">{signal.ticker}</h4>
+                <h4 className="text-sm font-semibold text-white mb-1">
+                  {signal.ticker}
+                </h4>
                 <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-1">
-                     <div className="h-1 w-1 rounded-full bg-sky-500" />
-                     <span className="text-[10px] text-slate-400">{signal.confidence}%</span>
-                   </div>
-                   <ChevronRight size={12} className="text-slate-600 group-hover:text-sky-400 transition-colors" />
+                  <div className="flex items-center gap-1">
+                    <div className="h-1 w-1 rounded-full bg-sky-500" />
+                    <span className="text-[10px] text-slate-400">
+                      {signal.confidence}%
+                    </span>
+                  </div>
+                  <ChevronRight
+                    size={12}
+                    className="text-slate-600 group-hover:text-sky-400 transition-colors"
+                  />
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
-          
+
           {/* Empty state within the strip if we have IDs but no cached data yet */}
-          {recentlyViewedIds.length > 0 && recentlyViewedSignals.length === 0 && (
-            <div className="h-24 flex items-center justify-center gap-2 px-12 text-xs text-slate-500 italic">
-               Loading history...
-            </div>
-          )}
+          {recentlyViewedIds.length > 0 &&
+            recentlyViewedSignals.length === 0 && (
+              <div className="h-24 flex items-center justify-center gap-2 px-12 text-xs text-slate-500 italic">
+                Loading history...
+              </div>
+            )}
         </div>
       </div>
     </div>

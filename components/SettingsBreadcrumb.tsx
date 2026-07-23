@@ -3,14 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { BREADCRUMB_ROUTES, type BreadcrumbSegment } from "@/lib/breadcrumbRoutes";
+import {
+  BREADCRUMB_ROUTES,
+  type BreadcrumbSegment,
+} from "@/lib/breadcrumbRoutes";
 
 interface SettingsBreadcrumbProps {
   /** Override segments instead of deriving from the current pathname. */
   segments?: BreadcrumbSegment[];
 }
 
-export function SettingsBreadcrumb({ segments: segmentsProp }: SettingsBreadcrumbProps) {
+export function SettingsBreadcrumb({
+  segments: segmentsProp,
+}: SettingsBreadcrumbProps) {
   const pathname = usePathname();
   const segments = segmentsProp ?? BREADCRUMB_ROUTES[pathname];
 
@@ -31,7 +36,10 @@ export function SettingsBreadcrumb({ segments: segmentsProp }: SettingsBreadcrum
                 />
               )}
               {isCurrent ? (
-                <span aria-current="page" className="font-medium text-foreground">
+                <span
+                  aria-current="page"
+                  className="font-medium text-foreground"
+                >
                   {seg.label}
                 </span>
               ) : (

@@ -33,11 +33,15 @@ const SHORTCUTS = [
   },
   {
     key: "Enter",
-    description: "Confirm the trade inside the open trade modal when focus is not on a form control.",
+    description:
+      "Confirm the trade inside the open trade modal when focus is not on a form control.",
   },
 ];
 
-export function KeyboardShortcutsHelpModal({ open, onClose }: KeyboardShortcutsHelpModalProps) {
+export function KeyboardShortcutsHelpModal({
+  open,
+  onClose,
+}: KeyboardShortcutsHelpModalProps) {
   const focusTrapRef = useFocusTrap({
     isActive: open,
     initialFocus: 'button[data-initial-focus="true"]',
@@ -79,11 +83,18 @@ export function KeyboardShortcutsHelpModal({ open, onClose }: KeyboardShortcutsH
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 id="keyboard-shortcuts-title" className="text-xl font-semibold text-foreground">
+                <h2
+                  id="keyboard-shortcuts-title"
+                  className="text-xl font-semibold text-foreground"
+                >
                   Keyboard shortcuts
                 </h2>
-                <p id="keyboard-shortcuts-description" className="mt-2 text-sm leading-6 text-foreground-muted">
-                  A quick reference for the app&apos;s current keyboard controls.
+                <p
+                  id="keyboard-shortcuts-description"
+                  className="mt-2 text-sm leading-6 text-foreground-muted"
+                >
+                  A quick reference for the app&apos;s current keyboard
+                  controls.
                 </p>
               </div>
               <Button
@@ -100,9 +111,16 @@ export function KeyboardShortcutsHelpModal({ open, onClose }: KeyboardShortcutsH
             <div className="mt-6 overflow-hidden rounded-3xl border border-border bg-background">
               <dl className="divide-y divide-border">
                 {SHORTCUTS.map((shortcut) => (
-                  <div key={shortcut.key} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <dt className="text-sm font-semibold text-foreground">{shortcut.key}</dt>
-                    <dd className="text-sm text-foreground-muted">{shortcut.description}</dd>
+                  <div
+                    key={shortcut.key}
+                    className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <dt className="text-sm font-semibold text-foreground">
+                      {shortcut.key}
+                    </dt>
+                    <dd className="text-sm text-foreground-muted">
+                      {shortcut.description}
+                    </dd>
                   </div>
                 ))}
               </dl>

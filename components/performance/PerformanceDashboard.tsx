@@ -42,7 +42,9 @@ function StatCard({
         <Icon className="h-3.5 w-3.5 text-sky-400" aria-hidden="true" />
         {label}
       </div>
-      <div className="text-2xl font-bold tabular-nums text-foreground">{value}</div>
+      <div className="text-2xl font-bold tabular-nums text-foreground">
+        {value}
+      </div>
       {sub && <div className="mt-1 text-xs text-foreground-muted">{sub}</div>}
     </div>
   );
@@ -179,9 +181,7 @@ export function PerformanceDashboard() {
         <StatCard
           label="Memory usage"
           value={
-            latestMemory?.usedMb != null
-              ? `${latestMemory.usedMb} MB`
-              : "N/A"
+            latestMemory?.usedMb != null ? `${latestMemory.usedMb} MB` : "N/A"
           }
           icon={Cpu}
           sub={
@@ -193,9 +193,7 @@ export function PerformanceDashboard() {
         <StatCard
           label="Battery"
           value={
-            latestBattery?.level != null
-              ? `${latestBattery.level}%`
-              : "N/A"
+            latestBattery?.level != null ? `${latestBattery.level}%` : "N/A"
           }
           icon={Battery}
           sub={
@@ -256,7 +254,10 @@ export function PerformanceDashboard() {
                   key={r.route}
                   className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm"
                 >
-                  <Link href={r.route} className="font-mono text-sky-400 hover:underline">
+                  <Link
+                    href={r.route}
+                    className="font-mono text-sky-400 hover:underline"
+                  >
                     {r.route}
                   </Link>
                   <span className="tabular-nums text-foreground">
@@ -274,10 +275,12 @@ export function PerformanceDashboard() {
             Network type impact
           </h2>
           <div className="space-y-2">
-            {(Object.entries(summary.networkBreakdown) as [
-              NetworkConnectionType,
-              { count: number; avgApiMs: number },
-            ][])
+            {(
+              Object.entries(summary.networkBreakdown) as [
+                NetworkConnectionType,
+                { count: number; avgApiMs: number }
+              ][]
+            )
               .filter(([, v]) => v.count > 0)
               .map(([type, stats]) => (
                 <NetworkRow
@@ -328,9 +331,12 @@ export function PerformanceDashboard() {
                     key={crash.id}
                     className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs"
                   >
-                    <div className="font-semibold text-red-400">{crash.message}</div>
+                    <div className="font-semibold text-red-400">
+                      {crash.message}
+                    </div>
                     <div className="mt-1 text-foreground-muted">
-                      {crash.route} · {new Date(crash.timestamp).toLocaleString()}
+                      {crash.route} ·{" "}
+                      {new Date(crash.timestamp).toLocaleString()}
                     </div>
                     {crash.stack && (
                       <pre className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap text-[10px] text-foreground-muted">
@@ -340,7 +346,8 @@ export function PerformanceDashboard() {
                     {crash.sessionSnapshot.length > 0 && (
                       <details className="mt-2">
                         <summary className="cursor-pointer text-foreground-muted">
-                          Session recording ({crash.sessionSnapshot.length} events)
+                          Session recording ({crash.sessionSnapshot.length}{" "}
+                          events)
                         </summary>
                         <ol className="mt-1 list-inside list-decimal space-y-0.5 text-[10px] text-foreground-muted">
                           {crash.sessionSnapshot.slice(-10).map((e, i) => (

@@ -7,17 +7,20 @@ This document describes the pull-to-refresh gesture implementation for the signa
 ## Acceptance Criteria ✅
 
 - [x] **Implement a pull-to-refresh gesture at the top of the signal feed on touch devices**
+
   - Gesture detection via `usePullToRefresh` hook
   - Only activates on mobile (hidden on desktop via `sm:hidden`)
   - Listens for touch events only at scroll top
 
 - [x] **Show a refresh-in-progress indicator consistent with existing loading skeleton styles**
+
   - `PullToRefreshIndicator` component with skeleton-like styling
   - Uses `bg-slate-900/80` and `border border-white/10` (matches `SignalCardSkeleton`)
   - Animated spinner (`RefreshCw` icon) during refresh
   - Opacity ramps from 0 to 1 as user pulls
 
 - [x] **Debounce repeated pull gestures while a refresh is already in flight**
+
   - `PULL_TO_REFRESH_DEBOUNCE_MS = 1000` prevents duplicate refreshes
   - `isRefreshing` state blocks new gestures for 1 second after refetch
   - Disables pull-to-refresh during initial page load
@@ -60,6 +63,7 @@ components/
 **Purpose:** Detects touch gestures and manages pull-to-refresh state.
 
 **Key Features:**
+
 - **Gesture Detection:** Listens to `touchstart`, `touchmove`, `touchend` events
 - **Threshold:** 80px pull distance triggers refresh (configurable)
 - **Debouncing:** 1000ms timeout prevents rapid successive refreshes
@@ -67,16 +71,18 @@ components/
 - **Smart Activation:** Only works when container is at scroll top (scrollTop === 0)
 
 **API:**
+
 ```typescript
 const { pullDistance, isRefreshing } = usePullToRefresh({
   container: feedRef.current,
   onRefresh: () => refetch(),
-  disabled: isLoading,  // Disable during initial load
-  threshold: 80,        // Optional: custom threshold
+  disabled: isLoading, // Disable during initial load
+  threshold: 80, // Optional: custom threshold
 });
 ```
 
 **Returns:**
+
 - `pullDistance`: Current drag distance (0-120px with dampening)
 - `isRefreshing`: Boolean indicating if refresh is in flight
 
@@ -85,17 +91,20 @@ const { pullDistance, isRefreshing } = usePullToRefresh({
 **Purpose:** Renders visual feedback for pull-to-refresh gesture.
 
 **Styling:**
+
 - Skeleton-consistent: `bg-slate-900/80 border border-white/10` (matches `SignalCardSkeleton`)
 - Rounded: `rounded-3xl` (matches card styling)
 - Responsive: Mobile-only via `sm:hidden` class
 
 **Visual States:**
+
 1. **At Rest:** Opacity 0, message "Pull to refresh"
 2. **Pulling:** Opacity ramps (0 → 1), message stays "Pull to refresh"
 3. **At Threshold:** Message changes to "Release to refresh"
 4. **Refreshing:** Rotating spinner, message "Refreshing…"
 
 **Accessibility:**
+
 - `role="status"` for screen readers
 - `aria-live="polite"` for status updates
 - Dynamic `aria-label` reflects current state
@@ -104,24 +113,28 @@ const { pullDistance, isRefreshing } = usePullToRefresh({
 ### `SignalFeed` Integration
 
 **Hook Usage:**
+
 ```typescript
 const { pullDistance, isRefreshing } = usePullToRefresh({
   container: parentRef.current,
-  onRefresh: handlePullRefresh,  // Calls refetch() from React Query
+  onRefresh: handlePullRefresh, // Calls refetch() from React Query
   disabled: isLoading,
 });
 ```
 
 **Rendering:**
+
 ```tsx
-{/* Pull-to-refresh indicator — visible on touch devices only */}
+{
+  /* Pull-to-refresh indicator — visible on touch devices only */
+}
 <div className="sm:hidden">
   <PullToRefreshIndicator
     pullDistance={pullDistance}
     isRefreshing={isRefreshing}
     data-testid="pull-to-refresh-container"
   />
-</div>
+</div>;
 ```
 
 ## Configuration
@@ -131,11 +144,12 @@ const { pullDistance, isRefreshing } = usePullToRefresh({
 All configurable via exports from `hooks/usePullToRefresh.ts`:
 
 ```typescript
-export const PULL_TO_REFRESH_THRESHOLD = 80;        // px to trigger refresh
-export const PULL_TO_REFRESH_DEBOUNCE_MS = 1000;    // ms to wait between refreshes
+export const PULL_TO_REFRESH_THRESHOLD = 80; // px to trigger refresh
+export const PULL_TO_REFRESH_DEBOUNCE_MS = 1000; // ms to wait between refreshes
 ```
 
 To modify:
+
 1. Update the constant in `usePullToRefresh.ts`
 2. Pass `threshold` prop to `usePullToRefresh()` hook if overriding per-instance
 
@@ -144,6 +158,7 @@ To modify:
 ### Test Coverage
 
 **Unit Tests (hooks/\_\_tests\_\_/usePullToRefresh.test.ts):**
+
 1. ✅ Initializes with zero pull distance and not refreshing
 2. ✅ Does not track pull when container is not at scroll top
 3. ✅ Tracks pull distance when at scroll top
@@ -157,6 +172,7 @@ To modify:
 11. ✅ Cleans up event listeners on unmount
 
 **Component Tests (components/\_\_tests\_\_/PullToRefreshIndicator.test.tsx):**
+
 1. ✅ Renders with correct initial state
 2. ✅ Shows "Release to refresh" message when threshold reached
 3. ✅ Shows "Refreshing…" message during refresh
@@ -170,6 +186,7 @@ To modify:
 11. ✅ Respects custom threshold prop
 
 **Integration Tests (components/signal/\_\_tests\_\_/SignalFeed.pull-to-refresh.test.tsx):**
+
 1. ✅ Renders pull-to-refresh indicator on mobile
 2. ✅ Hides pull-to-refresh indicator on desktop
 3. ✅ Simulates pull-to-refresh gesture and triggers refetch
@@ -200,19 +217,23 @@ npm test -- --watch
 ### Interaction Flow
 
 1. **User pulls down** on mobile device at the top of signal feed
+
    - Indicator appears with "Pull to refresh" text
    - Opacity increases as pull distance increases
 
 2. **User reaches threshold** (80px)
+
    - Message changes to "Release to refresh"
    - Visual feedback indicates action will trigger
 
 3. **User releases**
+
    - Spinner animates with "Refreshing…" message
    - Feed refetches latest signals (page 1)
    - Spinner stops, message clears after response
 
 4. **Debounce period** (1 second)
+
    - Pull gestures are blocked
    - Prevents accidental multiple refreshes
 
@@ -262,12 +283,14 @@ npm test -- --watch
 ### Pull-to-refresh not triggering
 
 **Possible causes:**
+
 - Container not at scroll top (scrollTop !== 0)
 - `disabled` prop is true
 - Touch device/browser not supporting touch events
 - Container ref not properly connected
 
 **Debug steps:**
+
 1. Check `console.log(container.scrollTop)` in hook
 2. Verify touch events fire: `container.addEventListener('touchmove', (e) => console.log('touch'))`
 3. Ensure `parentRef` is attached to scrollable div
@@ -275,11 +298,13 @@ npm test -- --watch
 ### Refresh not happening
 
 **Possible causes:**
+
 - `onRefresh` callback not calling refetch
 - React Query refetch returning error
 - Debounce timeout still active
 
 **Debug steps:**
+
 1. Add console.log to `handlePullRefresh` function
 2. Check React Query network requests in DevTools
 3. Wait 1 second between pulls (debounce period)
@@ -287,11 +312,13 @@ npm test -- --watch
 ### Visual feedback not showing
 
 **Possible causes:**
+
 - Indicator hidden by `sm:hidden` on desktop
 - `pullDistance` or `isRefreshing` state not updating
 - Framer Motion not animating
 
 **Debug steps:**
+
 1. Check browser is mobile/touch device
 2. Add `console.log({ pullDistance, isRefreshing })` in indicator
 3. Verify Framer Motion is installed and imported

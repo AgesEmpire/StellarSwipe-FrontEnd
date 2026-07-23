@@ -10,11 +10,14 @@
 
 import { http, HttpResponse } from "msw";
 import { server } from "@/src/mocks/server";
-import { fetchSignals, fetchSubscriptions, NetworkError, ServerError } from "@/lib/api";
+import {
+  fetchSignals,
+  fetchSubscriptions,
+  NetworkError,
+  ServerError,
+} from "@/lib/api";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+// Server lifecycle is managed by jest.setup.ts
 
 describe("fetchSignals – MSW integration", () => {
   it("returns a SignalFeedPage with an items array", async () => {
@@ -27,9 +30,16 @@ describe("fetchSignals – MSW integration", () => {
   it("passes page / pageSize query params", async () => {
     let capturedUrl = "";
     server.use(
-      http.get("/api/signals", ({ request }) => {
+      http.get("*/api/signals", ({ request }) => {
         capturedUrl = request.url;
-        return HttpResponse.json({ signals: [], page: 2, pageSize: 5, total: 0, nextPage: null, hasMore: false });
+        return HttpResponse.json({
+          signals: [],
+          page: 2,
+          pageSize: 5,
+          total: 0,
+          nextPage: null,
+          hasMore: false,
+        });
       })
     );
     await fetchSignals({ page: 2, pageSize: 5 }).catch(() => {});
@@ -39,7 +49,7 @@ describe("fetchSignals – MSW integration", () => {
 
   it("throws ServerError when the endpoint responds with 500", async () => {
     server.use(
-      http.get("/api/signals", () =>
+      http.get("*/api/signals", () =>
         HttpResponse.json({ error: "Internal server error" }, { status: 500 })
       )
     );
@@ -48,16 +58,14 @@ describe("fetchSignals – MSW integration", () => {
   });
 
   it("throws NetworkError when fetch itself fails (network down)", async () => {
-    server.use(
-      http.get("/api/signals", () => HttpResponse.error())
-    );
+    server.use(http.get("*/api/signals", () => HttpResponse.error()));
 
     await expect(fetchSignals()).rejects.toThrow(NetworkError);
   });
 
   it("throws ServerError with correct status code on 404", async () => {
     server.use(
-      http.get("/api/signals", () =>
+      http.get("*/api/signals", () =>
         HttpResponse.json({ error: "Not found" }, { status: 404 })
       )
     );
@@ -77,7 +85,7 @@ describe("fetchSubscriptions – MSW integration", () => {
   it("passes status query param when provided", async () => {
     let capturedUrl = "";
     server.use(
-      http.get("/api/subscriptions", ({ request }) => {
+      http.get("*/api/subscriptions", ({ request }) => {
         capturedUrl = request.url;
         return HttpResponse.json({ subscriptions: [] });
       })
@@ -88,10 +96,12 @@ describe("fetchSubscriptions – MSW integration", () => {
 
   it("throws ServerError on non-ok response", async () => {
     server.use(
-      http.get("/api/subscriptions", () =>
+      http.get("*/api/subscriptions", () =>
         HttpResponse.json({ error: "Bad request" }, { status: 400 })
       )
     );
-    await expect(fetchSubscriptions({ status: "active" })).rejects.toThrow(ServerError);
+    await expect(fetchSubscriptions({ status: "active" })).rejects.toThrow(
+      ServerError
+    );
   });
 });

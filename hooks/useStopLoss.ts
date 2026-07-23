@@ -55,7 +55,9 @@ interface UseStopLossReturn {
  * high-water mark — and therefore the stop level — remains at its peak.
  * This lets profits run while protecting against reversals.
  */
-export function useStopLoss(options: UseStopLossOptions = {}): UseStopLossReturn {
+export function useStopLoss(
+  options: UseStopLossOptions = {}
+): UseStopLossReturn {
   const { initialValue = 5, entryPrice, initialMode = "fixed" } = options;
 
   const [stopLossPercent, setStopLossPercent] = useState<number>(initialValue);
@@ -72,9 +74,7 @@ export function useStopLoss(options: UseStopLossOptions = {}): UseStopLossReturn
         : null;
     }
     // fixed mode
-    return entryPrice != null
-      ? entryPrice * (1 - stopLossPercent / 100)
-      : null;
+    return entryPrice != null ? entryPrice * (1 - stopLossPercent / 100) : null;
   })();
 
   // Update the high-water mark only upward so the trailing stop never retreats.

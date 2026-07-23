@@ -51,7 +51,12 @@ export default function DataExportRequestPage() {
   }, []);
 
   const latestRequest = useMemo(
-    () => requests.slice().sort((a, b) => +new Date(b.requestedAt) - +new Date(a.requestedAt))[0] ?? null,
+    () =>
+      requests
+        .slice()
+        .sort(
+          (a, b) => +new Date(b.requestedAt) - +new Date(a.requestedAt)
+        )[0] ?? null,
     [requests]
   );
 
@@ -79,7 +84,8 @@ export default function DataExportRequestPage() {
           <CardHeader>
             <h2 className="text-sm font-semibold">What is included</h2>
             <p className="text-xs text-foreground-muted">
-              This export is prepared asynchronously and can take time depending on account activity.
+              This export is prepared asynchronously and can take time depending
+              on account activity.
             </p>
           </CardHeader>
           <CardContent className="px-5 pb-5">
@@ -95,7 +101,8 @@ export default function DataExportRequestPage() {
           <CardHeader>
             <h2 className="text-sm font-semibold">Request export</h2>
             <p className="text-xs text-foreground-muted">
-              You will receive a notification when your archive is ready. This is not an instant download.
+              You will receive a notification when your archive is ready. This
+              is not an instant download.
             </p>
           </CardHeader>
           <CardContent className="px-5 pb-5">
@@ -109,7 +116,9 @@ export default function DataExportRequestPage() {
         <Card>
           <CardHeader>
             <h2 className="text-sm font-semibold">Export status</h2>
-            <p className="text-xs text-foreground-muted">Track current and recent data export requests.</p>
+            <p className="text-xs text-foreground-muted">
+              Track current and recent data export requests.
+            </p>
           </CardHeader>
           <CardContent className="px-5 pb-5">
             {requests.length === 0 ? (
@@ -119,8 +128,13 @@ export default function DataExportRequestPage() {
             ) : (
               <ul className="space-y-2">
                 {requests.map((request) => (
-                  <li key={request.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm">
-                    <span>{new Date(request.requestedAt).toLocaleString()}</span>
+                  <li
+                    key={request.id}
+                    className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                  >
+                    <span>
+                      {new Date(request.requestedAt).toLocaleString()}
+                    </span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">
                       <FileClock className="h-3.5 w-3.5" />
                       {request.status}
@@ -132,7 +146,8 @@ export default function DataExportRequestPage() {
 
             {latestRequest?.status === "pending" && (
               <p className="mt-3 text-xs text-foreground-muted">
-                Your latest request is pending and will be processed asynchronously.
+                Your latest request is pending and will be processed
+                asynchronously.
               </p>
             )}
           </CardContent>

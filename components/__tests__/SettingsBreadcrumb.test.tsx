@@ -13,8 +13,14 @@ jest.mock("next/navigation", () => ({
 
 // Mock next/link so hrefs are accessible in jsdom
 jest.mock("next/link", () => {
-  const Link = ({ href, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...rest}>{children}</a>
+  const Link = ({
+    href,
+    children,
+    ...rest
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
   );
   Link.displayName = "Link";
   return Link;
@@ -83,7 +89,9 @@ describe("SettingsBreadcrumb", () => {
 
     it("renders nothing for a single-segment trail", () => {
       const { container } = render(
-        <SettingsBreadcrumb segments={[{ label: "Settings", href: "/settings" }]} />
+        <SettingsBreadcrumb
+          segments={[{ label: "Settings", href: "/settings" }]}
+        />
       );
       expect(container.firstChild).toBeNull();
     });

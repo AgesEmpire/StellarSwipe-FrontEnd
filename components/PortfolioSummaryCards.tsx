@@ -6,17 +6,22 @@ import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function PortfolioSummaryCards() {
-  const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL } = usePortfolioStore();
+  const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL } =
+    usePortfolioStore();
 
   const totalPnL = totalRealizedPnL + totalUnrealizedPnL;
-  const pnlPercent = totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
+  const pnlPercent =
+    totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
   const activePositions = assets.filter((a) => a.value > 0).length;
   const isPositive = totalPnL >= 0;
 
   const stats = [
     {
       label: "Balance",
-      value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: `$${totalValue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
       icon: Wallet,
       className: "text-sky-400",
     },
@@ -46,11 +51,23 @@ export function PortfolioSummaryCards() {
           {stats.map(({ label, value, sub, icon: Icon, className }) => (
             <div key={label} className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
-                <Icon size={13} className={cn("shrink-0", className)} aria-hidden="true" />
-                <span className="text-[11px] text-foreground-muted">{label}</span>
+                <Icon
+                  size={13}
+                  className={cn("shrink-0", className)}
+                  aria-hidden="true"
+                />
+                <span className="text-[11px] text-foreground-muted">
+                  {label}
+                </span>
               </div>
-              <p className={cn("text-sm font-semibold leading-tight", className)}>{value}</p>
-              {sub && <p className="text-[11px] text-foreground-subtle">{sub}</p>}
+              <p
+                className={cn("text-sm font-semibold leading-tight", className)}
+              >
+                {value}
+              </p>
+              {sub && (
+                <p className="text-[11px] text-foreground-subtle">{sub}</p>
+              )}
             </div>
           ))}
         </div>

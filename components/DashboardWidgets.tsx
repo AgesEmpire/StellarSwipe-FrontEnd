@@ -95,10 +95,12 @@ export function DashboardWidgets() {
               totalItems={order.length}
               onMove={moveItem}
             >
-{widgetId === "summary" && <PortfolioSummaryCards />}
-               {widgetId === "pnl" && <PnLWidget />}
-               {widgetId === "allocation" && <PortfolioAllocationChart />}
-               {widgetId === "performance" && <PortfolioPerformanceBenchmarkChart />}
+              {widgetId === "summary" && <PortfolioSummaryCards />}
+              {widgetId === "pnl" && <PnLWidget />}
+              {widgetId === "allocation" && <PortfolioAllocationChart />}
+              {widgetId === "performance" && (
+                <PortfolioPerformanceBenchmarkChart />
+              )}
             </WidgetWrapper>
           );
         })}
@@ -115,7 +117,13 @@ interface WidgetWrapperProps {
   children: React.ReactNode;
 }
 
-function WidgetWrapper({ widgetId, index, totalItems, onMove, children }: WidgetWrapperProps) {
+function WidgetWrapper({
+  widgetId,
+  index,
+  totalItems,
+  onMove,
+  children,
+}: WidgetWrapperProps) {
   const dragControls = useDragControls();
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

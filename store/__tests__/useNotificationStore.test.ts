@@ -17,8 +17,18 @@
 import { useNotificationStore } from "@/store/useNotificationStore";
 
 const INITIAL_NOTIFICATIONS = [
-  { id: "1", title: "XLM/USDC", message: "New BUY signal — high confidence", read: false },
-  { id: "2", title: "BTC/XLM", message: "New SELL signal — momentum reversal", read: false },
+  {
+    id: "1",
+    title: "XLM/USDC",
+    message: "New BUY signal — high confidence",
+    read: false,
+  },
+  {
+    id: "2",
+    title: "BTC/XLM",
+    message: "New SELL signal — momentum reversal",
+    read: false,
+  },
 ];
 
 /** Reset store state before each test to prevent cross-test pollution. */
@@ -89,7 +99,9 @@ describe("useNotificationStore — markAllAsRead (no persist callback)", () => {
     useNotificationStore.setState({
       notifications: INITIAL_NOTIFICATIONS.map((n) => ({ ...n, read: true })),
     });
-    await expect(useNotificationStore.getState().markAllAsRead()).resolves.toBeUndefined();
+    await expect(
+      useNotificationStore.getState().markAllAsRead()
+    ).resolves.toBeUndefined();
     expect(useNotificationStore.getState().unreadCount()).toBe(0);
   });
 });
@@ -104,7 +116,9 @@ describe("useNotificationStore — markAllAsRead with persist callback", () => {
   it("keeps all notifications read when persist succeeds", async () => {
     const persist = jest.fn().mockResolvedValue(undefined);
     await useNotificationStore.getState().markAllAsRead(persist);
-    expect(useNotificationStore.getState().notifications.every((n) => n.read)).toBe(true);
+    expect(
+      useNotificationStore.getState().notifications.every((n) => n.read)
+    ).toBe(true);
     expect(useNotificationStore.getState().unreadCount()).toBe(0);
   });
 
@@ -122,7 +136,10 @@ describe("useNotificationStore — markAllAsRead with persist callback", () => {
 
   it("resets isMarkingAllRead to false after rollback", async () => {
     const persist = jest.fn().mockRejectedValue(new Error("fail"));
-    await useNotificationStore.getState().markAllAsRead(persist).catch(() => {});
+    await useNotificationStore
+      .getState()
+      .markAllAsRead(persist)
+      .catch(() => {});
     expect(useNotificationStore.getState().isMarkingAllRead).toBe(false);
   });
 });
@@ -143,7 +160,8 @@ describe("useNotificationStore — badge state", () => {
     // Capture count right after the synchronous optimistic update.
     // Because markAllAsRead is async but the optimistic set() is synchronous,
     // we start the call and check state before it resolves.
-    const slowPersist = () => new Promise<void>((resolve) => setTimeout(resolve, 50));
+    const slowPersist = () =>
+      new Promise<void>((resolve) => setTimeout(resolve, 50));
     const promise = useNotificationStore.getState().markAllAsRead(slowPersist);
 
     // The optimistic update is synchronous — unreadCount is already 0.
@@ -171,7 +189,9 @@ describe("useNotificationStore — setNotifications", () => {
       { id: "99", title: "New", message: "Msg", read: false },
     ];
     useNotificationStore.getState().setNotifications(newNotifications);
-    expect(useNotificationStore.getState().notifications).toEqual(newNotifications);
+    expect(useNotificationStore.getState().notifications).toEqual(
+      newNotifications
+    );
   });
 
   it("updates unreadCount after replacement", () => {

@@ -26,7 +26,11 @@ export const useSnoozeStore = create<SnoozeState>()(
     (set, get) => ({
       snoozed: {},
 
-      snoozeSignal: (id, durationMs = DEFAULT_SNOOZE_DURATION_MS, now = Date.now()) =>
+      snoozeSignal: (
+        id,
+        durationMs = DEFAULT_SNOOZE_DURATION_MS,
+        now = Date.now()
+      ) =>
         set((state) => ({
           snoozed: { ...state.snoozed, [id]: now + Math.max(0, durationMs) },
         })),

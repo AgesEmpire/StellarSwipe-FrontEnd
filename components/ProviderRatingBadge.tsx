@@ -36,7 +36,8 @@ function scoreToStars(score: number): number {
  * Returns a colour class and label based on the trust score tier.
  */
 function scoreTier(score: number): { color: string; label: string } {
-  if (score >= 90) return { color: "text-emerald-400", label: "Highly Trusted" };
+  if (score >= 90)
+    return { color: "text-emerald-400", label: "Highly Trusted" };
   if (score >= 75) return { color: "text-sky-400", label: "Trusted" };
   if (score >= 60) return { color: "text-yellow-400", label: "Moderate" };
   if (score >= 40) return { color: "text-orange-400", label: "Caution" };
@@ -44,7 +45,10 @@ function scoreTier(score: number): { color: string; label: string } {
 }
 
 /** Contributing factors and their display weights for the trust score breakdown */
-const TRUST_FACTORS: Array<{ key: keyof typeof FACTOR_LABELS; weight: string }> = [
+const TRUST_FACTORS: Array<{
+  key: keyof typeof FACTOR_LABELS;
+  weight: string;
+}> = [
   { key: "trustScore", weight: "40%" },
   { key: "winRate", weight: "30%" },
   { key: "reputation", weight: "20%" },
@@ -118,7 +122,8 @@ export function ProviderRatingBadge({
   }, [popoverOpen]);
 
   // Nothing to show if no rating data is available
-  if (resolvedTrustScore === undefined && resolvedWinRate === undefined) return null;
+  if (resolvedTrustScore === undefined && resolvedWinRate === undefined)
+    return null;
 
   const score = resolvedTrustScore ?? resolvedWinRate ?? 0;
   const stars = scoreToStars(score);
@@ -143,7 +148,9 @@ export function ProviderRatingBadge({
       type="button"
       aria-controls={popoverId}
       aria-expanded={popoverOpen}
-      aria-label={`Provider rating: ${label}, ${stars} out of 5 stars${resolvedWinRate !== undefined ? `, ${resolvedWinRate}% win rate` : ""}. Click for breakdown.`}
+      aria-label={`Provider rating: ${label}, ${stars} out of 5 stars${
+        resolvedWinRate !== undefined ? `, ${resolvedWinRate}% win rate` : ""
+      }. Click for breakdown.`}
       className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium transition-colors hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
       onClick={togglePopover}
     >
@@ -154,14 +161,20 @@ export function ProviderRatingBadge({
           <Star
             key={i}
             size={10}
-            className={i < stars ? "fill-yellow-400 text-yellow-400" : "text-white/20"}
+            className={
+              i < stars ? "fill-yellow-400 text-yellow-400" : "text-white/20"
+            }
           />
         ))}
       </span>
       {resolvedWinRate !== undefined && (
         <>
           <span className="text-white/20">·</span>
-          <TrendingUp size={11} className="text-emerald-400" aria-hidden="true" />
+          <TrendingUp
+            size={11}
+            className="text-emerald-400"
+            aria-hidden="true"
+          />
           <span className="text-emerald-400">{resolvedWinRate}%</span>
         </>
       )}
@@ -198,7 +211,10 @@ export function ProviderRatingBadge({
                 : undefined;
               const val = typeof raw === "number" ? raw : undefined;
               return (
-                <div key={key} className="flex items-center justify-between gap-2">
+                <div
+                  key={key}
+                  className="flex items-center justify-between gap-2"
+                >
                   <span className="text-slate-400">
                     {FACTOR_LABELS[key]}
                     <span className="ml-1 text-slate-600">({weight})</span>
@@ -219,7 +235,9 @@ export function ProviderRatingBadge({
             {resolvedTotalSignals !== undefined && (
               <div className="flex items-center justify-between">
                 <span>Total signals</span>
-                <span className="font-medium text-white">{resolvedTotalSignals.toLocaleString()}</span>
+                <span className="font-medium text-white">
+                  {resolvedTotalSignals.toLocaleString()}
+                </span>
               </div>
             )}
             <div className="flex items-center justify-between">
@@ -229,7 +247,11 @@ export function ProviderRatingBadge({
                   <Star
                     key={i}
                     size={10}
-                    className={i < stars ? "fill-yellow-400 text-yellow-400" : "text-white/20"}
+                    className={
+                      i < stars
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-white/20"
+                    }
                   />
                 ))}
               </span>

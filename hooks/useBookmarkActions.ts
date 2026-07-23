@@ -38,8 +38,12 @@ export function useBookmarkActions() {
   const createFolder = useBookmarkStore((state) => state.createFolder);
   const renameFolder = useBookmarkStore((state) => state.renameFolder);
   const deleteFolder = useBookmarkStore((state) => state.deleteFolder);
-  const assignSignalToFolder = useBookmarkStore((state) => state.assignSignalToFolder);
-  const removeSignalFromFolder = useBookmarkStore((state) => state.removeSignalFromFolder);
+  const assignSignalToFolder = useBookmarkStore(
+    (state) => state.assignSignalToFolder
+  );
+  const removeSignalFromFolder = useBookmarkStore(
+    (state) => state.removeSignalFromFolder
+  );
 
   const bookmark = useCallback(
     (id: string) => {
@@ -136,7 +140,8 @@ export function useBookmarkActions() {
   return {
     addBookmark: bookmark,
     removeBookmark: unbookmark,
-    toggleBookmark: (id: string, label: string) => toggleBookmarkWithUndo(id, label),
+    toggleBookmark: (id: string, label: string) =>
+      toggleBookmarkWithUndo(id, label),
     hasBookmark,
     directToggleBookmark: toggleBookmark,
     createFolder: handleCreateFolder,

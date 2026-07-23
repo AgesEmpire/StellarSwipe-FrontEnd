@@ -10,7 +10,8 @@ self.addEventListener("push", (event) => {
     renotify: true,
   };
 
-  const showPromise = caches.open("notification-preferences")
+  const showPromise = caches
+    .open("notification-preferences")
     .then((cache) => cache.match("/preferences"))
     .then((response) => (response ? response.json() : null))
     .then((prefs) => {

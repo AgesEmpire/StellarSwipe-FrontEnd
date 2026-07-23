@@ -29,8 +29,8 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 }
 
 const CURRENT = makeSession({ id: "sess_current", isCurrent: true });
-const OTHER_A  = makeSession({ id: "sess_a", isCurrent: false });
-const OTHER_B  = makeSession({ id: "sess_b", isCurrent: false });
+const OTHER_A = makeSession({ id: "sess_a", isCurrent: false });
+const OTHER_B = makeSession({ id: "sess_b", isCurrent: false });
 
 // ---------------------------------------------------------------------------
 // formatLastActive

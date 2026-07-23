@@ -70,8 +70,8 @@ export function UnfollowDialog({
               {openPositionsCount} open copied {positionWord}
             </span>{" "}
             from this provider. Unfollowing will{" "}
-            <span className="font-semibold text-foreground">not</span> auto-close
-            them — they will remain open and unaffected.
+            <span className="font-semibold text-foreground">not</span>{" "}
+            auto-close them — they will remain open and unaffected.
           </Dialog.Description>
 
           {/* Actions */}
@@ -83,11 +83,7 @@ export function UnfollowDialog({
             >
               Unfollow
             </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onCancel}
-            >
+            <Button variant="outline" className="flex-1" onClick={onCancel}>
               Cancel
             </Button>
           </div>

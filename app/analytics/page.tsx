@@ -1,31 +1,40 @@
-"use client"
+"use client";
 
-import dynamic from "next/dynamic"
-import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator"
+import dynamic from "next/dynamic";
+import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator";
 
 const PortfolioAllocationChart = dynamic(
-  () => import("@/components/chart/PortfolioAllocationChart").then((mod) => ({ default: mod.PortfolioAllocationChart })),
+  () =>
+    import("@/components/chart/PortfolioAllocationChart").then((mod) => ({
+      default: mod.PortfolioAllocationChart,
+    })),
   {
     loading: () => <div className="animate-pulse h-48 bg-white/10 rounded" />,
     ssr: false,
   }
-)
+);
 
 const PnLWidget = dynamic(
-  () => import("@/components/chart/PnLWidget").then((mod) => ({ default: mod.PnLWidget })),
+  () =>
+    import("@/components/chart/PnLWidget").then((mod) => ({
+      default: mod.PnLWidget,
+    })),
   {
     loading: () => <div className="animate-pulse h-48 bg-white/10 rounded" />,
     ssr: false,
   }
-)
+);
 
 const PerformanceDashboard = dynamic(
-  () => import("@/components/performance/PerformanceDashboard").then((m) => m.PerformanceDashboard),
+  () =>
+    import("@/components/performance/PerformanceDashboard").then(
+      (m) => m.PerformanceDashboard
+    ),
   {
     loading: () => <div className="animate-pulse h-64 bg-white/10 rounded" />,
     ssr: false,
   }
-)
+);
 
 export default function AnalyticsPage() {
   return (
@@ -42,5 +51,5 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

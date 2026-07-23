@@ -66,7 +66,8 @@ export function SignalFilterBottomSheet({
       document.body.style.overflow = "";
     };
   }, [open]);
-  const isActive = direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
+  const isActive =
+    direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
 
   return (
     <AnimatePresence>

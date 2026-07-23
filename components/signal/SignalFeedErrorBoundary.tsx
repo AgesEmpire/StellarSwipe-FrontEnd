@@ -48,13 +48,18 @@ export class SignalFeedErrorBoundary extends Component<Props, State> {
           aria-live="assertive"
           className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center"
         >
-          <AlertTriangle className="h-10 w-10 text-destructive" aria-hidden="true" />
+          <AlertTriangle
+            className="h-10 w-10 text-destructive"
+            aria-hidden="true"
+          />
 
           <div>
-            <p className="font-semibold text-destructive">Signal feed unavailable</p>
+            <p className="font-semibold text-destructive">
+              Signal feed unavailable
+            </p>
             <p className="mt-2 text-sm text-foreground-muted">
-              Something went wrong while displaying the signal feed. The rest of the
-              dashboard is unaffected.
+              Something went wrong while displaying the signal feed. The rest of
+              the dashboard is unaffected.
             </p>
           </div>
 

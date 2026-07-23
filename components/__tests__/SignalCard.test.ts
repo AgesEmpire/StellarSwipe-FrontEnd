@@ -18,8 +18,10 @@ function classifySwipe(
   offset: number,
   velocity: number
 ): "execute" | "pass" | "none" {
-  if (offset > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD) return "execute";
-  if (offset < -SWIPE_THRESHOLD || velocity < -VELOCITY_THRESHOLD) return "pass";
+  if (offset > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD)
+    return "execute";
+  if (offset < -SWIPE_THRESHOLD || velocity < -VELOCITY_THRESHOLD)
+    return "pass";
   return "none";
 }
 
@@ -218,11 +220,15 @@ describe("sensitivity thresholds – getEffectiveSwipeThreshold", () => {
   });
 
   it("low sensitivity requires a longer drag than default", () => {
-    expect(getEffectiveSwipeThreshold("low")).toBeGreaterThan(getEffectiveSwipeThreshold("default"));
+    expect(getEffectiveSwipeThreshold("low")).toBeGreaterThan(
+      getEffectiveSwipeThreshold("default")
+    );
   });
 
   it("high sensitivity requires a shorter drag than default", () => {
-    expect(getEffectiveSwipeThreshold("high")).toBeLessThan(getEffectiveSwipeThreshold("default"));
+    expect(getEffectiveSwipeThreshold("high")).toBeLessThan(
+      getEffectiveSwipeThreshold("default")
+    );
   });
 
   it("low threshold equals BASE_SWIPE × low multiplier", () => {
@@ -268,7 +274,9 @@ describe("sensitivity threshold application – swipe classification", () => {
       return "none";
     }
     expect(classifyWithThreshold(offset, highThreshold)).toBe("execute");
-    expect(classifyWithThreshold(offset, getEffectiveSwipeThreshold("default"))).toBe("none");
+    expect(
+      classifyWithThreshold(offset, getEffectiveSwipeThreshold("default"))
+    ).toBe("none");
   });
 
   it("a drag that commits at default does NOT commit at low sensitivity", () => {
@@ -302,20 +310,27 @@ describe("swapped direction mapping – drag gestures", () => {
     rtl: boolean,
     swapDirections: boolean
   ): "execute" | "pass" | "none" {
-    const fastSwipe = Math.abs(velocityX) > velocityThreshold && Math.abs(offsetX) > 40;
+    const fastSwipe =
+      Math.abs(velocityX) > velocityThreshold && Math.abs(offsetX) > 40;
     const effectivelyFlipped = rtl !== swapDirections;
 
-    const tradeSwipe = effectivelyFlipped ? offsetX < -swipeThreshold : offsetX > swipeThreshold;
+    const tradeSwipe = effectivelyFlipped
+      ? offsetX < -swipeThreshold
+      : offsetX > swipeThreshold;
     const tradeVelocity = effectivelyFlipped
       ? offsetX < -swipeThreshold * 0.4 && velocityX < -velocityThreshold
       : offsetX > swipeThreshold * 0.4 && velocityX > velocityThreshold;
-    const tradeFast = fastSwipe && (effectivelyFlipped ? velocityX < 0 : velocityX > 0);
+    const tradeFast =
+      fastSwipe && (effectivelyFlipped ? velocityX < 0 : velocityX > 0);
 
-    const passSwipe = effectivelyFlipped ? offsetX > swipeThreshold : offsetX < -swipeThreshold;
+    const passSwipe = effectivelyFlipped
+      ? offsetX > swipeThreshold
+      : offsetX < -swipeThreshold;
     const passVelocity = effectivelyFlipped
       ? offsetX > swipeThreshold * 0.4 && velocityX > velocityThreshold
       : offsetX < -swipeThreshold * 0.4 && velocityX < -velocityThreshold;
-    const passFast = fastSwipe && (effectivelyFlipped ? velocityX > 0 : velocityX < 0);
+    const passFast =
+      fastSwipe && (effectivelyFlipped ? velocityX > 0 : velocityX < 0);
 
     if (tradeSwipe || tradeVelocity || tradeFast) return "execute";
     if (passSwipe || passVelocity || passFast) return "pass";
@@ -326,7 +341,9 @@ describe("swapped direction mapping – drag gestures", () => {
   const V = 780;
 
   it("default LTR: right swipe → execute", () => {
-    expect(classifyDragWithSettings(150, 0, T, V, false, false)).toBe("execute");
+    expect(classifyDragWithSettings(150, 0, T, V, false, false)).toBe(
+      "execute"
+    );
   });
 
   it("default LTR: left swipe → pass", () => {
@@ -338,7 +355,9 @@ describe("swapped direction mapping – drag gestures", () => {
   });
 
   it("swapDirections LTR: left swipe → execute", () => {
-    expect(classifyDragWithSettings(-150, 0, T, V, false, true)).toBe("execute");
+    expect(classifyDragWithSettings(-150, 0, T, V, false, true)).toBe(
+      "execute"
+    );
   });
 
   it("RTL default: right swipe → pass", () => {
@@ -346,7 +365,9 @@ describe("swapped direction mapping – drag gestures", () => {
   });
 
   it("RTL default: left swipe → execute", () => {
-    expect(classifyDragWithSettings(-150, 0, T, V, true, false)).toBe("execute");
+    expect(classifyDragWithSettings(-150, 0, T, V, true, false)).toBe(
+      "execute"
+    );
   });
 
   it("RTL + swapDirections: XOR cancels out → right swipe → execute (same as LTR default)", () => {
@@ -360,7 +381,9 @@ describe("swapped direction mapping – drag gestures", () => {
 
 describe("swapped direction mapping – keyboard arrow keys", () => {
   it("default: ArrowRight → trade, ArrowLeft → pass", () => {
-    expect(classifyArrowKeyWithSettings("ArrowRight", true, false)).toBe("trade");
+    expect(classifyArrowKeyWithSettings("ArrowRight", true, false)).toBe(
+      "trade"
+    );
     expect(classifyArrowKeyWithSettings("ArrowLeft", true, false)).toBe("pass");
   });
 
@@ -370,12 +393,20 @@ describe("swapped direction mapping – keyboard arrow keys", () => {
   });
 
   it("swapped + pass hidden: ArrowRight is none (pass disabled), ArrowLeft → trade", () => {
-    expect(classifyArrowKeyWithSettings("ArrowRight", false, true)).toBe("none");
-    expect(classifyArrowKeyWithSettings("ArrowLeft", false, true)).toBe("trade");
+    expect(classifyArrowKeyWithSettings("ArrowRight", false, true)).toBe(
+      "none"
+    );
+    expect(classifyArrowKeyWithSettings("ArrowLeft", false, true)).toBe(
+      "trade"
+    );
   });
 
   it("default + pass hidden: ArrowRight → trade, ArrowLeft → none", () => {
-    expect(classifyArrowKeyWithSettings("ArrowRight", false, false)).toBe("trade");
-    expect(classifyArrowKeyWithSettings("ArrowLeft", false, false)).toBe("none");
+    expect(classifyArrowKeyWithSettings("ArrowRight", false, false)).toBe(
+      "trade"
+    );
+    expect(classifyArrowKeyWithSettings("ArrowLeft", false, false)).toBe(
+      "none"
+    );
   });
 });

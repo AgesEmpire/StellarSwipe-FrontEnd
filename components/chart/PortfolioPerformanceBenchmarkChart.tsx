@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { useXLMPriceHistory, type PricePoint } from "@/hooks/usePriceHistory";
-import { computeBenchmarkSeries, type PortfolioValuePoint } from "@/lib/benchmark";
+import {
+  computeBenchmarkSeries,
+  type PortfolioValuePoint,
+} from "@/lib/benchmark";
 import { cn } from "@/lib/utils";
 
 interface PortfolioPerformanceBenchmarkChartProps {
@@ -45,7 +48,10 @@ export function PortfolioPerformanceBenchmarkChart({
 
   const xlmHistory = useXLMPriceHistory({ points: 30, interval: "day" });
   const portfolioHistory = useMemo(() => {
-    const initial = assets.reduce((sum, a) => sum + (a.value - (a.unrealizedPnL ?? 0)), 0);
+    const initial = assets.reduce(
+      (sum, a) => sum + (a.value - (a.unrealizedPnL ?? 0)),
+      0
+    );
     const history: PortfolioValuePoint[] = xlmHistory.map((point, i) => ({
       timestamp: point.timestamp,
       value: initial + Math.random() * 200,
@@ -54,10 +60,15 @@ export function PortfolioPerformanceBenchmarkChart({
     return history.sort((a, b) => a.timestamp - b.timestamp);
   }, [xlmHistory, totalValue, assets]);
 
-  const { portfolio: portfolioPoints, benchmark: benchmarkPoints } = useMemo(() => {
-    const initialPortfolioValue = portfolioHistory[0]?.value ?? totalValue;
-    return computeBenchmarkSeries(portfolioHistory, xlmHistory, initialPortfolioValue);
-  }, [portfolioHistory, xlmHistory, totalValue]);
+  const { portfolio: portfolioPoints, benchmark: benchmarkPoints } =
+    useMemo(() => {
+      const initialPortfolioValue = portfolioHistory[0]?.value ?? totalValue;
+      return computeBenchmarkSeries(
+        portfolioHistory,
+        xlmHistory,
+        initialPortfolioValue
+      );
+    }, [portfolioHistory, xlmHistory, totalValue]);
 
   const chartData = useMemo(() => {
     if (portfolioPoints.length === 0 || benchmarkPoints.length === 0) {
@@ -78,12 +89,18 @@ export function PortfolioPerformanceBenchmarkChart({
 
     const portfolioPts = portfolioPoints.map((point, i) => ({
       x: (i / (portfolioPoints.length - 1)) * (width - padding * 2) + padding,
-      y: height - ((point.value - minVal) / range) * (height - padding * 2) - padding,
+      y:
+        height -
+        ((point.value - minVal) / range) * (height - padding * 2) -
+        padding,
     }));
 
     const benchmarkPts = benchmarkPoints.map((point, i) => ({
       x: (i / (benchmarkPoints.length - 1)) * (width - padding * 2) + padding,
-      y: height - ((point.value - minVal) / range) * (height - padding * 2) - padding,
+      y:
+        height -
+        ((point.value - minVal) / range) * (height - padding * 2) -
+        padding,
     }));
 
     return {
@@ -97,20 +114,25 @@ export function PortfolioPerformanceBenchmarkChart({
   }, [portfolioPoints, benchmarkPoints]);
 
   const performanceDelta = useMemo(() => {
-    if (portfolioPoints.length === 0 || benchmarkPoints.length === 0) return null;
+    if (portfolioPoints.length === 0 || benchmarkPoints.length === 0)
+      return null;
 
     const startPortfolio = portfolioPoints[0].value;
     const endPortfolio = portfolioPoints[portfolioPoints.length - 1].value;
     const startBenchmark = benchmarkPoints[0].value;
     const endBenchmark = benchmarkPoints[benchmarkPoints.length - 1].value;
 
-    const portfolioReturn = ((endPortfolio - startPortfolio) / startPortfolio) * 100;
-    const benchmarkReturn = ((endBenchmark - startBenchmark) / startBenchmark) * 100;
+    const portfolioReturn =
+      ((endPortfolio - startPortfolio) / startPortfolio) * 100;
+    const benchmarkReturn =
+      ((endBenchmark - startBenchmark) / startBenchmark) * 100;
 
     return {
       portfolioReturn: parseFloat(portfolioReturn.toFixed(2)),
       benchmarkReturn: parseFloat(benchmarkReturn.toFixed(2)),
-      outperformance: parseFloat((portfolioReturn - benchmarkReturn).toFixed(2)),
+      outperformance: parseFloat(
+        (portfolioReturn - benchmarkReturn).toFixed(2)
+      ),
     };
   }, [portfolioPoints, benchmarkPoints]);
 
@@ -147,7 +169,8 @@ export function PortfolioPerformanceBenchmarkChart({
                 isOutperforming ? "text-green-400" : "text-red-400"
               )}
             >
-              {isOutperforming ? "+" : ""}{outperformance}%
+              {isOutperforming ? "+" : ""}
+              {outperformance}%
             </span>
           </p>
         )}

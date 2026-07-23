@@ -22,10 +22,9 @@ const CHECK_MODE = process.argv.includes("--check");
 const tmp = OUT + ".tmp";
 
 try {
-  execSync(
-    `npx --yes openapi-typescript@7 "${SPEC}" --output "${tmp}"`,
-    { stdio: "inherit" }
-  );
+  execSync(`npx --yes openapi-typescript@7 "${SPEC}" --output "${tmp}"`, {
+    stdio: "inherit",
+  });
 } catch {
   console.error("openapi-typescript failed. Ensure the spec is valid YAML.");
   process.exit(1);

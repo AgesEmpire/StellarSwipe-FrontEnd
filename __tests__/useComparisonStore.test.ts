@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach } from "vitest";
 import { useComparisonStore, MAX_COMPARISON } from "@/store/useComparisonStore";
 import type { Signal } from "@/lib/api-types.generated";
 
@@ -46,7 +45,9 @@ describe("useComparisonStore – addSignal", () => {
     for (let i = 1; i <= MAX_COMPARISON; i++) {
       useComparisonStore.getState().addSignal(makeSignal(i));
     }
-    const result = useComparisonStore.getState().addSignal(makeSignal(MAX_COMPARISON + 1));
+    const result = useComparisonStore
+      .getState()
+      .addSignal(makeSignal(MAX_COMPARISON + 1));
     expect(result).toBe(false);
     expect(useComparisonStore.getState().signals).toHaveLength(MAX_COMPARISON);
     expect(useComparisonStore.getState().limitReached).toBe(true);

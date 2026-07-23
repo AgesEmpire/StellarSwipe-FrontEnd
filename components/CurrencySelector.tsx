@@ -9,7 +9,14 @@ import {
   type DisplayCurrency,
 } from "@/store/useCurrencyStore";
 
-const CURRENCIES: DisplayCurrency[] = ["USD", "EUR", "GBP", "JPY", "BTC", "ETH"];
+const CURRENCIES: DisplayCurrency[] = [
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "BTC",
+  "ETH",
+];
 
 interface CurrencySelectorProps {
   className?: string;
@@ -31,7 +38,11 @@ export function CurrencySelector({ className }: CurrencySelectorProps) {
       >
         <DollarSign size={12} aria-hidden="true" />
         <span>{currency}</span>
-        <ChevronDown size={10} aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={10}
+          aria-hidden="true"
+          className={`transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -51,15 +62,22 @@ export function CurrencySelector({ className }: CurrencySelectorProps) {
                 key={c}
                 role="option"
                 aria-selected={currency === c}
-                onClick={() => { setCurrency(c); setOpen(false); }}
+                onClick={() => {
+                  setCurrency(c);
+                  setOpen(false);
+                }}
                 className={`flex w-full items-center justify-between rounded px-3 py-2 text-sm transition-colors ${
                   currency === c
                     ? "bg-blue-500/20 text-blue-400"
                     : "text-foreground hover:bg-muted"
                 }`}
               >
-                <span className="font-medium">{CURRENCY_SYMBOLS[c]} {c}</span>
-                <span className="text-xs text-muted-foreground">{CURRENCY_LABELS[c]}</span>
+                <span className="font-medium">
+                  {CURRENCY_SYMBOLS[c]} {c}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {CURRENCY_LABELS[c]}
+                </span>
               </button>
             ))}
           </div>

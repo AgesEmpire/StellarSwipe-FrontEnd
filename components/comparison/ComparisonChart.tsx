@@ -31,7 +31,9 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
                 const pct = Math.min((val / maxVal) * 100, 100);
                 return (
                   <div key={signal.id} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-300 w-16 truncate shrink-0">{signal.ticker}</span>
+                    <span className="text-xs text-gray-300 w-16 truncate shrink-0">
+                      {signal.ticker}
+                    </span>
                     <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
@@ -39,7 +41,8 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
                       />
                     </div>
                     <span className="text-xs font-mono text-gray-300 w-12 text-right shrink-0">
-                      {val.toFixed(1)}{label === "Confidence" ? "%" : ""}
+                      {val.toFixed(1)}
+                      {label === "Confidence" ? "%" : ""}
                     </span>
                   </div>
                 );

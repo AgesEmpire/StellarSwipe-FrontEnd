@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import dynamic from "next/dynamic"
+import dynamic from "next/dynamic";
 
 const BacktestTool = dynamic(() => import("../../components/BacktestTool"), {
   loading: () => (
@@ -10,7 +10,7 @@ const BacktestTool = dynamic(() => import("../../components/BacktestTool"), {
     </div>
   ),
   ssr: false,
-})
+});
 
 export default function BacktestPage() {
   return (
@@ -18,5 +18,5 @@ export default function BacktestPage() {
       <h1 className="text-2xl font-bold mb-4">Signal Backtesting Simulation</h1>
       <BacktestTool />
     </div>
-  )
+  );
 }

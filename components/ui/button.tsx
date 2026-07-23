@@ -8,11 +8,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90 forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
-        outline: "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground forced-colors:border-[ButtonText] forced-colors:text-[ButtonText]",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
-        ghost: "hover:bg-accent hover:text-accent-foreground forced-colors:text-[ButtonText] forced-colors:hover:border forced-colors:hover:border-[ButtonText]",
+        default:
+          "bg-primary text-primary-foreground shadow hover:bg-primary/90 forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
+        destructive:
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
+        outline:
+          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground forced-colors:border-[ButtonText] forced-colors:text-[ButtonText]",
+        secondary:
+          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
+        ghost:
+          "hover:bg-accent hover:text-accent-foreground forced-colors:text-[ButtonText] forced-colors:hover:border forced-colors:hover:border-[ButtonText]",
         link: "text-primary underline-offset-4 hover:underline forced-colors:text-[LinkText]",
       },
       size: {

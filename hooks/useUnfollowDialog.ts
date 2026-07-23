@@ -18,10 +18,7 @@ export interface UseUnfollowDialogReturn {
    * `onUnfollow` callback is invoked immediately. Otherwise the dialog is
    * shown so the user can confirm.
    */
-  requestUnfollow: (
-    providerName: string,
-    openPositionsCount: number
-  ) => void;
+  requestUnfollow: (providerName: string, openPositionsCount: number) => void;
   /** Called when the user confirms inside the dialog */
   handleConfirm: () => void;
   /** Called when the user cancels / closes the dialog */

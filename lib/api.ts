@@ -37,8 +37,9 @@ export class TimeoutError extends Error {
 async function apiFetch<T>(url: string): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url);
-  } catch {
+    const fetchUrl = url.startsWith("/") ? `http://localhost${url}` : url;
+    res = await fetch(fetchUrl);
+  } catch (error) {
     throw new NetworkError();
   }
   if (!res.ok) throw new ServerError(res.status);
@@ -55,10 +56,13 @@ async function apiFetch<T>(url: string): Promise<T> {
  * const feed = await fetchSignals({ page: 2, pageSize: 20 });
  * console.log(feed.items, feed.hasMore);
  */
-export async function fetchSignals(params: GetSignalsParams = {}): Promise<SignalFeedPage> {
+export async function fetchSignals(
+  params: GetSignalsParams = {}
+): Promise<SignalFeedPage> {
   const qs = new URLSearchParams();
   if (params.page !== undefined) qs.set("page", String(params.page));
-  if (params.pageSize !== undefined) qs.set("pageSize", String(params.pageSize));
+  if (params.pageSize !== undefined)
+    qs.set("pageSize", String(params.pageSize));
   const query = qs.toString();
   return apiFetch<SignalFeedPage>(`/api/signals${query ? `?${query}` : ""}`);
 }

@@ -19,8 +19,14 @@ export function DataSaverToggle() {
     <div className="flex items-center justify-between gap-4">
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
-          <Gauge size={13} className="text-foreground-muted" aria-hidden="true" />
-          <span className="text-sm font-medium text-foreground">Data Saver</span>
+          <Gauge
+            size={13}
+            className="text-foreground-muted"
+            aria-hidden="true"
+          />
+          <span className="text-sm font-medium text-foreground">
+            Data Saver
+          </span>
         </div>
         <p className="text-xs text-foreground-muted">
           Reduce data usage on limited or expensive plans. Hides mini sparkline

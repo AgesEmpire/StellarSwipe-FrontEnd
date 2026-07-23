@@ -11,9 +11,9 @@ import { SWIPE_THRESHOLD, VELOCITY_THRESHOLD } from "@/lib/signalGestures";
  * 1 = default (unchanged), < 1 = more sensitive, > 1 = less sensitive.
  */
 export const SENSITIVITY_MULTIPLIERS = {
-  low: 1.5,    // requires 50 % more drag — less sensitive / harder to trigger
-  default: 1,  // unchanged from original hard-coded constants
-  high: 0.6,   // requires 40 % less drag — more sensitive / easier to trigger
+  low: 1.5, // requires 50 % more drag — less sensitive / harder to trigger
+  default: 1, // unchanged from original hard-coded constants
+  high: 0.6, // requires 40 % less drag — more sensitive / easier to trigger
 } as const;
 
 export type SensitivityLevel = keyof typeof SENSITIVITY_MULTIPLIERS;
@@ -49,7 +49,9 @@ const DEFAULT_STATE: Omit<SwipeSettings, "_hasHydrated"> = {
   swapDirections: false,
 };
 
-export const useSwipeSettingsStore = create<SwipeSettings & SwipeSettingsActions>()(
+export const useSwipeSettingsStore = create<
+  SwipeSettings & SwipeSettingsActions
+>()(
   persist(
     (set) => ({
       ...DEFAULT_STATE,
@@ -72,13 +74,17 @@ export const useSwipeSettingsStore = create<SwipeSettings & SwipeSettingsActions
  * Returns the effective swipe threshold (px) for the current sensitivity level.
  * Multiply the base constant by the sensitivity multiplier.
  */
-export function getEffectiveSwipeThreshold(sensitivity: SensitivityLevel): number {
+export function getEffectiveSwipeThreshold(
+  sensitivity: SensitivityLevel
+): number {
   return Math.round(SWIPE_THRESHOLD * SENSITIVITY_MULTIPLIERS[sensitivity]);
 }
 
 /**
  * Returns the effective velocity threshold (px/s) for the current sensitivity level.
  */
-export function getEffectiveVelocityThreshold(sensitivity: SensitivityLevel): number {
+export function getEffectiveVelocityThreshold(
+  sensitivity: SensitivityLevel
+): number {
   return Math.round(VELOCITY_THRESHOLD * SENSITIVITY_MULTIPLIERS[sensitivity]);
 }

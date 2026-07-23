@@ -27,19 +27,19 @@ const POLL_MS = 2_000;
 
 export type QRPairingStatus =
   | "idle"
-  | "pending"   // code displayed, waiting for scan
-  | "scanning"  // mobile wallet opened the URI
-  | "paired"    // handshake complete, publicKey available
-  | "expired"   // TTL elapsed without pairing
-  | "rejected"  // mobile wallet explicitly rejected
-  | "error";    // unexpected error
+  | "pending" // code displayed, waiting for scan
+  | "scanning" // mobile wallet opened the URI
+  | "paired" // handshake complete, publicKey available
+  | "expired" // TTL elapsed without pairing
+  | "rejected" // mobile wallet explicitly rejected
+  | "error"; // unexpected error
 
 export interface QRPairingState {
   status: QRPairingStatus;
-  uri: string | null;         // the string encoded in the QR
-  sessionId: string | null;   // unique id for this pairing attempt
-  secondsLeft: number;        // countdown to expiry
-  publicKey: string | null;   // set on successful pairing
+  uri: string | null; // the string encoded in the QR
+  sessionId: string | null; // unique id for this pairing attempt
+  secondsLeft: number; // countdown to expiry
+  publicKey: string | null; // set on successful pairing
   errorMessage: string | null;
 }
 
@@ -54,7 +54,9 @@ function generateSessionId(): string {
 
 function buildPairingURI(sessionId: string): string {
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://stellarswipe.app";
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://stellarswipe.app";
   // stellarswipe://pair?session=<id>&origin=<origin>
   // Intentionally short to keep QR code small
   return `stellarswipe://pair?s=${sessionId}&o=${encodeURIComponent(origin)}`;
@@ -106,8 +108,14 @@ export function useQRPairing() {
   const sessionIdRef = useRef<string | null>(null);
 
   const clearTimers = useCallback(() => {
-    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   }, []);
 
   const startSession = useCallback(() => {
@@ -138,7 +146,11 @@ export function useQRPairing() {
         clearTimers();
         setState((prev) =>
           prev.status === "pending" || prev.status === "scanning"
-            ? { ...prev, status: "expired", errorMessage: "Pairing code expired. Generate a new one." }
+            ? {
+                ...prev,
+                status: "expired",
+                errorMessage: "Pairing code expired. Generate a new one.",
+              }
             : prev
         );
         analyticsService.track("qr_pairing_expired", { sessionId });
@@ -173,7 +185,10 @@ export function useQRPairing() {
         setConnected(true);
         walletToast.connected(publicKey);
         setState((prev) => ({ ...prev, status: "paired", publicKey }));
-        analyticsService.track("qr_pairing_success", { sessionId, wallet_type: "qr" });
+        analyticsService.track("qr_pairing_success", {
+          sessionId,
+          wallet_type: "qr",
+        });
         window.dispatchEvent(
           new CustomEvent("wallet-connected", { detail: { publicKey } })
         );

@@ -2,46 +2,86 @@
 
 /* ── Dialog / modal animations ─────────────────────────────────────────── */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fadeOut {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes slideUp {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideDown {
-  from { transform: translateY(0); }
-  to   { transform: translateY(100%); }
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
 }
 
 @keyframes zoomIn {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
-  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 @keyframes zoomOut {
-  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  to   { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
 }
 
-.dialog-overlay[data-state="open"]  { animation: fadeIn  200ms ease-out; }
-.dialog-overlay[data-state="closed"] { animation: fadeOut 200ms ease-in;  }
+.dialog-overlay[data-state="open"] {
+  animation: fadeIn 200ms ease-out;
+}
+.dialog-overlay[data-state="closed"] {
+  animation: fadeOut 200ms ease-in;
+}
 
 /* Mobile: slide up/down */
-.dialog-content[data-state="open"]  { animation: slideUp   300ms cubic-bezier(0.32, 0.72, 0, 1); }
-.dialog-content[data-state="closed"] { animation: slideDown 300ms cubic-bezier(0.32, 0.72, 0, 1); }
+.dialog-content[data-state="open"] {
+  animation: slideUp 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.dialog-content[data-state="closed"] {
+  animation: slideDown 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
 
 /* Desktop: zoom fade */
 @media (min-width: 640px) {
-  .dialog-content[data-state="open"]  { animation: zoomIn  200ms ease-out; }
-  .dialog-content[data-state="closed"] { animation: zoomOut 200ms ease-in; }
+  .dialog-content[data-state="open"] {
+    animation: zoomIn 200ms ease-out;
+  }
+  .dialog-content[data-state="closed"] {
+    animation: zoomOut 200ms ease-in;
+  }
 }
 
 @layer utilities {
@@ -235,28 +275,30 @@
 
   :root {
     color-scheme: light;
-    --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    --background:     0 0% 98%;
-    --surface:        0 0% 100%;
-    --surface-high:   220 14% 96%;
-    --overlay:        0 0% 0%;
+    --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", monospace;
+    --background: 0 0% 98%;
+    --surface: 0 0% 100%;
+    --surface-high: 220 14% 96%;
+    --overlay: 0 0% 0%;
 
-    --foreground:        222 47% 11%;
-    --foreground-muted:  215 16% 47%;
+    --foreground: 222 47% 11%;
+    --foreground-muted: 215 16% 47%;
     --foreground-subtle: 215 14% 65%;
 
-    --border:        220 13% 88%;
+    --border: 220 13% 88%;
     --border-strong: 220 13% 75%;
-    --input:         0 0% 100%;
-    --ring:          217 91% 60%;
+    --input: 0 0% 100%;
+    --ring: 217 91% 60%;
 
-    --accent-primary:  217 91% 45%;
-    --accent-sky:      199 89% 32%;
-    --accent-success:  160 84% 30%;
-    --accent-danger:   0  72% 44%;
-    --accent-warning:  25 95% 38%;
-    --accent-market:   239 84% 50%;
+    --accent-primary: 217 91% 45%;
+    --accent-sky: 199 89% 32%;
+    --accent-success: 160 84% 30%;
+    --accent-danger: 0 72% 44%;
+    --accent-warning: 25 95% 38%;
+    --accent-market: 239 84% 50%;
 
     --radius: 0.75rem;
 
@@ -267,119 +309,119 @@
      * always render in the correct order without conflicts.
      * Each layer is intentionally spaced to allow future additions.
      */
-    --z-dropdown:    100;
-    --z-sticky:      200;
-    --z-overlay:     300;
-    --z-modal:       400;
-    --z-toast:       500;
-    --z-loading:     600;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-overlay: 300;
+    --z-modal: 400;
+    --z-toast: 500;
+    --z-loading: 600;
 
     /* shadcn/ui compat aliases */
-    --card:                var(--surface);
-    --card-foreground:     var(--foreground);
-    --popover:             var(--surface);
-    --popover-foreground:  var(--foreground);
-    --primary:             var(--accent-primary);
-    --primary-foreground:  210 40% 98%;
-    --secondary:           var(--surface-high);
-    --secondary-foreground:var(--foreground);
-    --muted:               var(--surface-high);
-    --muted-foreground:    var(--foreground-muted);
-    --accent:              var(--surface-high);
-    --accent-foreground:   var(--foreground);
-    --destructive:         var(--accent-danger);
+    --card: var(--surface);
+    --card-foreground: var(--foreground);
+    --popover: var(--surface);
+    --popover-foreground: var(--foreground);
+    --primary: var(--accent-primary);
+    --primary-foreground: 210 40% 98%;
+    --secondary: var(--surface-high);
+    --secondary-foreground: var(--foreground);
+    --muted: var(--surface-high);
+    --muted-foreground: var(--foreground-muted);
+    --accent: var(--surface-high);
+    --accent-foreground: var(--foreground);
+    --destructive: var(--accent-danger);
     --destructive-foreground: 210 40% 98%;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
       color-scheme: dark;
-      --background:     222 47% 8%;
-      --surface:        222 40% 11%;
-      --surface-high:   222 35% 15%;
-      --overlay:        0 0% 0%;
+      --background: 222 47% 8%;
+      --surface: 222 40% 11%;
+      --surface-high: 222 35% 15%;
+      --overlay: 0 0% 0%;
 
-      --foreground:        210 40% 96%;
-      --foreground-muted:  215 20% 65%;
+      --foreground: 210 40% 96%;
+      --foreground-muted: 215 20% 65%;
       --foreground-subtle: 215 15% 52%;
 
-      --border:        217 30% 18%;
+      --border: 217 30% 18%;
       --border-strong: 217 30% 28%;
-      --input:         222 40% 11%;
-      --ring:          217 91% 60%;
+      --input: 222 40% 11%;
+      --ring: 217 91% 60%;
 
-      --accent-primary:  217 91% 60%;
-      --accent-sky:      199 89% 62%;
-      --accent-success:  160 84% 45%;
-      --accent-danger:   0  72% 57%;
-      --accent-warning:  25 95% 57%;
-      --accent-market:   239 84% 70%;
+      --accent-primary: 217 91% 60%;
+      --accent-sky: 199 89% 62%;
+      --accent-success: 160 84% 45%;
+      --accent-danger: 0 72% 57%;
+      --accent-warning: 25 95% 57%;
+      --accent-market: 239 84% 70%;
     }
   }
 
   /* Dark class kept for shadcn/ui compatibility — tokens are identical */
   .dark {
     color-scheme: dark;
-    --background:     222 47% 8%;
-    --surface:        222 40% 11%;
-    --surface-high:   222 35% 15%;
-    --overlay:        0 0% 0%;
+    --background: 222 47% 8%;
+    --surface: 222 40% 11%;
+    --surface-high: 222 35% 15%;
+    --overlay: 0 0% 0%;
 
-    --foreground:        210 40% 96%;
-    --foreground-muted:  215 20% 65%;
+    --foreground: 210 40% 96%;
+    --foreground-muted: 215 20% 65%;
     --foreground-subtle: 215 15% 52%;
 
-    --border:        217 30% 18%;
+    --border: 217 30% 18%;
     --border-strong: 217 30% 28%;
-    --input:         222 40% 11%;
-    --ring:          217 91% 60%;
+    --input: 222 40% 11%;
+    --ring: 217 91% 60%;
 
-    --accent-primary:  217 91% 60%;
-    --accent-sky:      199 89% 62%;
-    --accent-success:  160 84% 45%;
-    --accent-danger:   0  72% 57%;
-    --accent-warning:  25 95% 57%;
-    --accent-market:   239 84% 70%;
+    --accent-primary: 217 91% 60%;
+    --accent-sky: 199 89% 62%;
+    --accent-success: 160 84% 45%;
+    --accent-danger: 0 72% 57%;
+    --accent-warning: 25 95% 57%;
+    --accent-market: 239 84% 70%;
   }
 
   /* Light theme — applied when <html class="light"> */
   .light {
     color-scheme: light;
-    --background:     0 0% 98%;
-    --surface:        0 0% 100%;
-    --surface-high:   220 14% 96%;
-    --overlay:        0 0% 0%;
+    --background: 0 0% 98%;
+    --surface: 0 0% 100%;
+    --surface-high: 220 14% 96%;
+    --overlay: 0 0% 0%;
 
-    --foreground:        222 47% 11%;
-    --foreground-muted:  215 16% 47%;
+    --foreground: 222 47% 11%;
+    --foreground-muted: 215 16% 47%;
     --foreground-subtle: 215 14% 65%;
 
-    --border:        220 13% 88%;
+    --border: 220 13% 88%;
     --border-strong: 220 13% 75%;
-    --input:         0 0% 100%;
-    --ring:          217 91% 60%;
+    --input: 0 0% 100%;
+    --ring: 217 91% 60%;
 
-    --accent-primary:  217 91% 45%;
-    --accent-sky:      199 89% 32%;
-    --accent-success:  160 84% 30%;
-    --accent-danger:   0  72% 44%;
-    --accent-warning:  25 95% 38%;
-    --accent-market:   239 84% 50%;
+    --accent-primary: 217 91% 45%;
+    --accent-sky: 199 89% 32%;
+    --accent-success: 160 84% 30%;
+    --accent-danger: 0 72% 44%;
+    --accent-warning: 25 95% 38%;
+    --accent-market: 239 84% 50%;
 
     /* shadcn/ui compat aliases */
-    --card:                var(--surface);
-    --card-foreground:     var(--foreground);
-    --popover:             var(--surface);
-    --popover-foreground:  var(--foreground);
-    --primary:             var(--accent-primary);
-    --primary-foreground:  210 40% 98%;
-    --secondary:           var(--surface-high);
-    --secondary-foreground:var(--foreground);
-    --muted:               var(--surface-high);
-    --muted-foreground:    var(--foreground-muted);
-    --accent:              var(--surface-high);
-    --accent-foreground:   var(--foreground);
-    --destructive:         var(--accent-danger);
+    --card: var(--surface);
+    --card-foreground: var(--foreground);
+    --popover: var(--surface);
+    --popover-foreground: var(--foreground);
+    --primary: var(--accent-primary);
+    --primary-foreground: 210 40% 98%;
+    --secondary: var(--surface-high);
+    --secondary-foreground: var(--foreground);
+    --muted: var(--surface-high);
+    --muted-foreground: var(--foreground-muted);
+    --accent: var(--surface-high);
+    --accent-foreground: var(--foreground);
+    --destructive: var(--accent-danger);
     --destructive-foreground: 210 40% 98%;
   }
 }
@@ -401,44 +443,104 @@
 
 /* ── Utility classes for tokens not covered by Tailwind's default palette ── */
 @layer utilities {
-  .bg-surface        { background-color: hsl(var(--surface)); }
-  .bg-surface-high   { background-color: hsl(var(--surface-high)); }
-  .bg-overlay        { background-color: hsl(var(--overlay)); }
+  .bg-surface {
+    background-color: hsl(var(--surface));
+  }
+  .bg-surface-high {
+    background-color: hsl(var(--surface-high));
+  }
+  .bg-overlay {
+    background-color: hsl(var(--overlay));
+  }
 
-  .text-foreground-muted  { color: hsl(var(--foreground-muted)); }
-  .text-foreground-subtle { color: hsl(var(--foreground-subtle)); }
+  .text-foreground-muted {
+    color: hsl(var(--foreground-muted));
+  }
+  .text-foreground-subtle {
+    color: hsl(var(--foreground-subtle));
+  }
 
-  .border-strong { border-color: hsl(var(--border-strong)); }
+  .border-strong {
+    border-color: hsl(var(--border-strong));
+  }
 
-  .text-accent-sky     { color: hsl(var(--accent-sky)); }
-  .text-accent-success { color: hsl(var(--accent-success)); }
-  .text-accent-danger  { color: hsl(var(--accent-danger)); }
-  .text-accent-warning { color: hsl(var(--accent-warning)); }
-  .text-accent-market  { color: hsl(var(--accent-market)); }
+  .text-accent-sky {
+    color: hsl(var(--accent-sky));
+  }
+  .text-accent-success {
+    color: hsl(var(--accent-success));
+  }
+  .text-accent-danger {
+    color: hsl(var(--accent-danger));
+  }
+  .text-accent-warning {
+    color: hsl(var(--accent-warning));
+  }
+  .text-accent-market {
+    color: hsl(var(--accent-market));
+  }
 
-  .bg-accent-primary\/10  { background-color: hsl(var(--accent-primary) / 0.10); }
-  .bg-accent-success\/10  { background-color: hsl(var(--accent-success) / 0.10); }
-  .bg-accent-success\/20  { background-color: hsl(var(--accent-success) / 0.20); }
-  .bg-accent-danger\/10   { background-color: hsl(var(--accent-danger)  / 0.10); }
-  .bg-accent-danger\/20   { background-color: hsl(var(--accent-danger)  / 0.20); }
-  .bg-accent-market\/10   { background-color: hsl(var(--accent-market)  / 0.10); }
-  .bg-accent-market\/40   { background-color: hsl(var(--accent-market)  / 0.40); }
+  .bg-accent-primary\/10 {
+    background-color: hsl(var(--accent-primary) / 0.1);
+  }
+  .bg-accent-success\/10 {
+    background-color: hsl(var(--accent-success) / 0.1);
+  }
+  .bg-accent-success\/20 {
+    background-color: hsl(var(--accent-success) / 0.2);
+  }
+  .bg-accent-danger\/10 {
+    background-color: hsl(var(--accent-danger) / 0.1);
+  }
+  .bg-accent-danger\/20 {
+    background-color: hsl(var(--accent-danger) / 0.2);
+  }
+  .bg-accent-market\/10 {
+    background-color: hsl(var(--accent-market) / 0.1);
+  }
+  .bg-accent-market\/40 {
+    background-color: hsl(var(--accent-market) / 0.4);
+  }
 
-  .border-accent-success\/20 { border-color: hsl(var(--accent-success) / 0.20); }
-  .border-accent-danger\/20  { border-color: hsl(var(--accent-danger)  / 0.20); }
-  .border-accent-market\/30  { border-color: hsl(var(--accent-market)  / 0.30); }
-  .border-accent-danger\/10  { border-color: hsl(var(--accent-danger)  / 0.10); }
+  .border-accent-success\/20 {
+    border-color: hsl(var(--accent-success) / 0.2);
+  }
+  .border-accent-danger\/20 {
+    border-color: hsl(var(--accent-danger) / 0.2);
+  }
+  .border-accent-market\/30 {
+    border-color: hsl(var(--accent-market) / 0.3);
+  }
+  .border-accent-danger\/10 {
+    border-color: hsl(var(--accent-danger) / 0.1);
+  }
 
-  .ring-accent-sky    { --tw-ring-color: hsl(var(--accent-sky)); }
-  .ring-accent-warning { --tw-ring-color: hsl(var(--accent-warning)); }
+  .ring-accent-sky {
+    --tw-ring-color: hsl(var(--accent-sky));
+  }
+  .ring-accent-warning {
+    --tw-ring-color: hsl(var(--accent-warning));
+  }
 
   /* Z-index utility classes */
-  .z-dropdown  { z-index: var(--z-dropdown); }
-  .z-sticky    { z-index: var(--z-sticky); }
-  .z-overlay   { z-index: var(--z-overlay); }
-  .z-modal     { z-index: var(--z-modal); }
-  .z-toast     { z-index: var(--z-toast); }
-  .z-loading   { z-index: var(--z-loading); }
+  .z-dropdown {
+    z-index: var(--z-dropdown);
+  }
+  .z-sticky {
+    z-index: var(--z-sticky);
+  }
+  .z-overlay {
+    z-index: var(--z-overlay);
+  }
+  .z-modal {
+    z-index: var(--z-modal);
+  }
+  .z-toast {
+    z-index: var(--z-toast);
+  }
+  .z-loading {
+    z-index: var(--z-loading);
+  }
 }
 
 /* ── Reduced-motion overrides ───────────────────────────────────────────── */

@@ -18,7 +18,7 @@ import analyticsService from "@/services/analytics";
 import { useAnalyticsConsentStore } from "@/store/useAnalyticsConsentStore";
 
 // Sampling rate configuration (default: 10% of page loads)
-const SAMPLING_RATE = 
+const SAMPLING_RATE =
   typeof process.env.NEXT_PUBLIC_WEB_VITALS_SAMPLING_RATE === "string"
     ? parseFloat(process.env.NEXT_PUBLIC_WEB_VITALS_SAMPLING_RATE)
     : 0.1;

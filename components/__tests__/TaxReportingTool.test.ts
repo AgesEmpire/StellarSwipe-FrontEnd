@@ -142,7 +142,9 @@ describe("computeTaxReport", () => {
   it("computes estimated tax liability using jurisdiction rates", () => {
     const reportUS = computeTaxReport(SAMPLE_TRANSACTIONS, 2025, "US");
     const reportEU = computeTaxReport(SAMPLE_TRANSACTIONS, 2025, "EU");
-    expect(reportUS.estimatedTaxLiability).not.toBe(reportEU.estimatedTaxLiability);
+    expect(reportUS.estimatedTaxLiability).not.toBe(
+      reportEU.estimatedTaxLiability
+    );
   });
 
   it("returns zero liability when there are no taxable events", () => {
@@ -165,7 +167,9 @@ describe("computeTaxReport", () => {
       },
     ];
     const report = computeTaxReport(shortOnlyTx, 2025, "US");
-    expect(report.estimatedTaxLiability).toBeCloseTo(100 * TAX_RATES.US.shortTerm);
+    expect(report.estimatedTaxLiability).toBeCloseTo(
+      100 * TAX_RATES.US.shortTerm
+    );
   });
 });
 
@@ -257,7 +261,9 @@ describe("exportToCsvWithPreset", () => {
 
   it("different presets produce different column layouts", () => {
     const generic = exportToCsvWithPreset(report, "generic").split("\n")[0];
-    const cointracker = exportToCsvWithPreset(report, "cointracker").split("\n")[0];
+    const cointracker = exportToCsvWithPreset(report, "cointracker").split(
+      "\n"
+    )[0];
     const koinly = exportToCsvWithPreset(report, "koinly").split("\n")[0];
     expect(generic).not.toBe(cointracker);
     expect(generic).not.toBe(koinly);
@@ -272,11 +278,20 @@ describe("exportToCsvWithPreset", () => {
 
   it("underlying transaction data is unchanged across presets", () => {
     const parseProceeds = (csv: string, colIndex: number) =>
-      csv.split("\n").slice(1).map((row) => row.split(",")[colIndex].replace(/"/g, ""));
+      csv
+        .split("\n")
+        .slice(1)
+        .map((row) => row.split(",")[colIndex].replace(/"/g, ""));
 
     // generic: proceeds at index 4, cointracker: received quantity at index 1
-    const genericProceeds = parseProceeds(exportToCsvWithPreset(report, "generic"), 4);
-    const cointrackerProceeds = parseProceeds(exportToCsvWithPreset(report, "cointracker"), 1);
+    const genericProceeds = parseProceeds(
+      exportToCsvWithPreset(report, "generic"),
+      4
+    );
+    const cointrackerProceeds = parseProceeds(
+      exportToCsvWithPreset(report, "cointracker"),
+      1
+    );
     expect(genericProceeds).toEqual(cointrackerProceeds);
   });
 });

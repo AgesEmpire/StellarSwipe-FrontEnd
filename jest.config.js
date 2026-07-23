@@ -3,7 +3,7 @@ const config = {
   preset: "ts-jest",
   testEnvironment: "node",
   transform: {
-    "^.+\\.(ts|tsx)$": [
+    "^.+\\.(ts|tsx|js|mjs)$": [
       "ts-jest",
       {
         tsconfig: {
@@ -21,7 +21,10 @@ const config = {
   // MSW lifecycle (listen/reset/close) is wired up for all tests below.
   setupFilesAfterEnv: ["<rootDir>/src/mocks/jest.setup.ts"],
   // Allow Jest to transform MSW and @mswjs ESM packages
-  transformIgnorePatterns: ["node_modules/(?!(msw|@mswjs)/)"],
+  // Allow Jest to transform MSW and @mswjs and rettime ESM packages
+  transformIgnorePatterns: [
+    "node_modules/(?!(msw|@mswjs|rettime|until-async|@open-draft)/)",
+  ],
   // Coverage configuration — used only by the test:coverage script.
   // Thresholds are set conservatively so existing code passes;
   // raise them as coverage improves.

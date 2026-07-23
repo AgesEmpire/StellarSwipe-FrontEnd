@@ -29,7 +29,9 @@ describe("DataSaverToggle", () => {
     render(<DataSaverToggle />);
     fireEvent.click(screen.getByRole("switch", SWITCH));
 
-    expect(screen.getByRole("switch", SWITCH).getAttribute("aria-checked")).toBe("true");
+    expect(
+      screen.getByRole("switch", SWITCH).getAttribute("aria-checked")
+    ).toBe("true");
     expect(useDataSaverStore.getState().dataSaverEnabled).toBe(true);
   });
 
@@ -40,12 +42,16 @@ describe("DataSaverToggle", () => {
     fireEvent.click(sw);
 
     expect(useDataSaverStore.getState().dataSaverEnabled).toBe(false);
-    expect(screen.getByRole("switch", SWITCH).getAttribute("aria-checked")).toBe("false");
+    expect(
+      screen.getByRole("switch", SWITCH).getAttribute("aria-checked")
+    ).toBe("false");
   });
 
   it("reflects an already-enabled store state on mount", () => {
     useDataSaverStore.getState().setDataSaverEnabled(true);
     render(<DataSaverToggle />);
-    expect(screen.getByRole("switch", SWITCH).getAttribute("aria-checked")).toBe("true");
+    expect(
+      screen.getByRole("switch", SWITCH).getAttribute("aria-checked")
+    ).toBe("true");
   });
 });

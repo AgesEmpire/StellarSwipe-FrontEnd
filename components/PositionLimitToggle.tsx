@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Info, Shield, SlidersHorizontal } from "lucide-react";
-import { usePositionLimitStore, usePositionLimitHydrated } from "@/store/usePositionLimitStore";
+import {
+  usePositionLimitStore,
+  usePositionLimitHydrated,
+} from "@/store/usePositionLimitStore";
 
 interface PositionLimitToggleProps {
   /** Total portfolio balance in XLM (or base asset) */
@@ -17,10 +20,12 @@ export function PositionLimitToggle({
   isLoading = false,
 }: PositionLimitToggleProps) {
   const [tooltipOpen, setTooltipOpen] = useState(false);
-  const { enabled, percentage, toggle, setPercentage } = usePositionLimitStore();
+  const { enabled, percentage, toggle, setPercentage } =
+    usePositionLimitStore();
   const isHydrated = usePositionLimitHydrated();
 
-  const portfolioAvailable = portfolioBalance !== null && portfolioBalance !== undefined && !isLoading;
+  const portfolioAvailable =
+    portfolioBalance !== null && portfolioBalance !== undefined && !isLoading;
 
   const calculatedLimit = useMemo(() => {
     if (!portfolioAvailable || !enabled) return null;
@@ -50,7 +55,9 @@ export function PositionLimitToggle({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-foreground-muted" />
-          <span className="text-sm font-medium text-foreground">Position Limit</span>
+          <span className="text-sm font-medium text-foreground">
+            Position Limit
+          </span>
           <div className="relative">
             <button
               type="button"
@@ -77,9 +84,9 @@ export function PositionLimitToggle({
                 </p>
                 <div className="space-y-1 text-foreground-muted">
                   <p>
-                    Limits each trade to a percentage of your total portfolio. When
-                    enabled, trades exceeding this limit will be automatically
-                    reduced.
+                    Limits each trade to a percentage of your total portfolio.
+                    When enabled, trades exceeding this limit will be
+                    automatically reduced.
                   </p>
                   <p>
                     <span className="font-medium text-foreground">Max:</span>{" "}
@@ -106,8 +113,8 @@ export function PositionLimitToggle({
             !portfolioAvailable
               ? "cursor-not-allowed opacity-40"
               : enabled
-                ? "bg-primary"
-                : "bg-foreground/20"
+              ? "bg-primary"
+              : "bg-foreground/20"
           }`}
         >
           <motion.span
@@ -132,10 +139,16 @@ export function PositionLimitToggle({
       >
         <div className="mt-3 space-y-3">
           <p className="text-xs text-foreground-subtle">
-            Cap trade at <span className="font-medium text-foreground">{percentage}%</span> of portfolio
+            Cap trade at{" "}
+            <span className="font-medium text-foreground">{percentage}%</span>{" "}
+            of portfolio
             {calculatedLimit && (
               <span className="text-foreground-muted">
-                {" "}· Max trade: <span className="font-mono text-foreground">{calculatedLimit} XLM</span>
+                {" "}
+                · Max trade:{" "}
+                <span className="font-mono text-foreground">
+                  {calculatedLimit} XLM
+                </span>
               </span>
             )}
           </p>

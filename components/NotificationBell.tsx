@@ -29,7 +29,9 @@ export function NotificationBell() {
       <button
         aria-label={
           hasUnread
-            ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+            ? `${unreadCount} unread notification${
+                unreadCount === 1 ? "" : "s"
+              }`
             : "Notifications, none unread"
         }
         onClick={() => setOpen((v) => !v)}
@@ -132,7 +134,9 @@ export function NotificationBell() {
                       )}
                       <div className={n.read ? "pl-5" : ""}>
                         <p className="text-sm font-medium">{n.title}</p>
-                        <p className="text-xs text-muted-foreground">{n.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {n.message}
+                        </p>
                       </div>
                     </li>
                   ))

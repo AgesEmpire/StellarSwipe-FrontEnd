@@ -59,12 +59,15 @@ export function PullToRefreshIndicator({
       aria-label={
         isRefreshing
           ? "Refreshing signals"
-          : `Pull to refresh${pullDistance >= threshold ? " — release to refresh" : ""}`
+          : `Pull to refresh${
+              pullDistance >= threshold ? " — release to refresh" : ""
+            }`
       }
       data-testid="pull-to-refresh-indicator"
     >
       <div className="flex flex-col items-center gap-2">
         <motion.div
+          data-testid="refresh-spinner"
           animate={{ rotate: isRefreshing ? 360 : 0 }}
           transition={{
             duration: isRefreshing ? 1 : 0,
@@ -72,11 +75,7 @@ export function PullToRefreshIndicator({
             ease: "linear",
           }}
         >
-          <RefreshCw
-            size={20}
-            className="text-sky-400"
-            aria-hidden="true"
-          />
+          <RefreshCw size={20} className="text-sky-400" aria-hidden="true" />
         </motion.div>
         <div className="text-xs font-medium text-slate-300">
           {isRefreshing
