@@ -3,7 +3,9 @@
 import { KeyRound } from "lucide-react";
 import { ApiKeyManager } from "@/components/ApiKeyManager";
 
-export default function ApiKeysPage() {
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
+function ApiKeysPageInner() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
       <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -29,5 +31,13 @@ export default function ApiKeysPage() {
         <ApiKeyManager />
       </div>
     </main>
+  );
+}
+
+export default function ApiKeysPage() {
+  return (
+    <RouteErrorBoundary featureName="API Keys">
+      <ApiKeysPageInner />
+    </RouteErrorBoundary>
   );
 }

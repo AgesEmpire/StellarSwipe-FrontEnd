@@ -20,12 +20,22 @@ const TaxReportingTool = dynamic(
   }
 );
 
-export default function TaxReportPage() {
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
+function TaxReportPageInner() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
       <div className="mx-auto w-full max-w-4xl">
         <TaxReportingTool />
       </div>
     </main>
+  );
+}
+
+export default function TaxReportPage() {
+  return (
+    <RouteErrorBoundary featureName="Tax Report">
+      <TaxReportPageInner />
+    </RouteErrorBoundary>
   );
 }
