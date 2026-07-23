@@ -21,6 +21,27 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "StellarSwipe",
   description: "Stellar-powered swipe app",
+  openGraph: {
+    title: "StellarSwipe",
+    description: "Stellar-powered swipe app — discover top signal providers, trade tokens, and track performance on the Stellar network.",
+    url: "/",
+    siteName: "StellarSwipe",
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "StellarSwipe",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "StellarSwipe",
+    description: "Stellar-powered swipe app — discover top signal providers, trade tokens, and track performance on the Stellar network.",
+  },
 };
 
 export default function RootLayout({
