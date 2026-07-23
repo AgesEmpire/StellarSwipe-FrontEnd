@@ -30,7 +30,9 @@ function buildReferralLink(baseUrl: string, channel: ChannelKey): string {
   return `${baseUrl}?${params.toString()}`;
 }
 
-export default function ReferralPage() {
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
+function ReferralPageInner() {
   const [copied, setCopied] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<ChannelKey>("twitter");
   const referrals = [
@@ -167,5 +169,13 @@ export default function ReferralPage() {
         .
       </div>
     </div>
+  );
+}
+
+export default function ReferralPage() {
+  return (
+    <RouteErrorBoundary featureName="Referrals">
+      <ReferralPageInner />
+    </RouteErrorBoundary>
   );
 }

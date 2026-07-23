@@ -36,7 +36,9 @@ const PerformanceDashboard = dynamic(
   }
 );
 
-export default function AnalyticsPage() {
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
+function AnalyticsPageInner() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Portfolio Analytics</h1>
@@ -51,5 +53,13 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <RouteErrorBoundary featureName="Analytics">
+      <AnalyticsPageInner />
+    </RouteErrorBoundary>
   );
 }
