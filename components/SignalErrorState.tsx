@@ -1,6 +1,12 @@
 "use client";
 
-import { WifiOff, ServerCrash, RefreshCw, AlertTriangle, Clock } from "lucide-react";
+import {
+  WifiOff,
+  ServerCrash,
+  RefreshCw,
+  AlertTriangle,
+  Clock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NetworkError, ServerError } from "@/lib/api";
 import { useState } from "react";
@@ -56,8 +62,13 @@ function getErrorDetails(error: Error): {
   return {
     icon: <AlertTriangle className="h-10 w-10 text-destructive" />,
     title: "Failed to Load Signals",
-    description: message || "An unexpected error occurred while loading signals.",
-    suggestions: ["Try refreshing the page", "Clear your browser cache", "Contact support"],
+    description:
+      message || "An unexpected error occurred while loading signals.",
+    suggestions: [
+      "Try refreshing the page",
+      "Clear your browser cache",
+      "Contact support",
+    ],
     severity: "warning",
   };
 }
@@ -88,14 +99,24 @@ export function SignalErrorState({ error, onRetry }: SignalErrorStateProps) {
       {details.icon}
 
       <div>
-        <p className={details.severity === "critical" ? "font-semibold text-destructive" : "font-semibold text-yellow-600"}>
+        <p
+          className={
+            details.severity === "critical"
+              ? "font-semibold text-destructive"
+              : "font-semibold text-yellow-600"
+          }
+        >
           {details.title}
         </p>
-        <p className="mt-2 text-sm text-foreground-muted">{details.description}</p>
+        <p className="mt-2 text-sm text-foreground-muted">
+          {details.description}
+        </p>
 
         {/* Suggestions */}
         <div className="mt-4 rounded-lg bg-white/3 border border-white/10 p-3 text-left">
-          <p className="text-xs font-medium text-foreground-subtle mb-2">What you can try:</p>
+          <p className="text-xs font-medium text-foreground-subtle mb-2">
+            What you can try:
+          </p>
           <ul className="space-y-1 text-xs text-foreground-muted">
             {details.suggestions.map((suggestion, idx) => (
               <li key={idx} className="flex items-start gap-2">

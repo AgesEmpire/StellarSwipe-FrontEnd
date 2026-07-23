@@ -14,13 +14,19 @@ beforeEach(() => {
 
 describe("useSnoozeStore – snoozing a signal", () => {
   it("records an expiry timestamp at now + duration", () => {
-    useSnoozeStore.getState().snoozeSignal("sig-1", DEFAULT_SNOOZE_DURATION_MS, NOW);
-    expect(useSnoozeStore.getState().snoozed["sig-1"]).toBe(NOW + DEFAULT_SNOOZE_DURATION_MS);
+    useSnoozeStore
+      .getState()
+      .snoozeSignal("sig-1", DEFAULT_SNOOZE_DURATION_MS, NOW);
+    expect(useSnoozeStore.getState().snoozed["sig-1"]).toBe(
+      NOW + DEFAULT_SNOOZE_DURATION_MS
+    );
   });
 
   it("uses the default duration when none is provided", () => {
     useSnoozeStore.getState().snoozeSignal("sig-1", undefined, NOW);
-    expect(useSnoozeStore.getState().snoozed["sig-1"]).toBe(NOW + DEFAULT_SNOOZE_DURATION_MS);
+    expect(useSnoozeStore.getState().snoozed["sig-1"]).toBe(
+      NOW + DEFAULT_SNOOZE_DURATION_MS
+    );
   });
 
   it("supports a configurable duration", () => {
@@ -30,7 +36,9 @@ describe("useSnoozeStore – snoozing a signal", () => {
   });
 
   it("reports a freshly snoozed signal as snoozed", () => {
-    useSnoozeStore.getState().snoozeSignal("sig-1", DEFAULT_SNOOZE_DURATION_MS, NOW);
+    useSnoozeStore
+      .getState()
+      .snoozeSignal("sig-1", DEFAULT_SNOOZE_DURATION_MS, NOW);
     expect(useSnoozeStore.getState().isSnoozed("sig-1", NOW)).toBe(true);
   });
 
@@ -42,7 +50,10 @@ describe("useSnoozeStore – snoozing a signal", () => {
     const s = useSnoozeStore.getState();
     s.snoozeSignal("sig-1", DEFAULT_SNOOZE_DURATION_MS, NOW);
     s.snoozeSignal("sig-2", DEFAULT_SNOOZE_DURATION_MS, NOW);
-    expect(useSnoozeStore.getState().getActiveSnoozes(NOW).sort()).toEqual(["sig-1", "sig-2"]);
+    expect(useSnoozeStore.getState().getActiveSnoozes(NOW).sort()).toEqual([
+      "sig-1",
+      "sig-2",
+    ]);
   });
 
   it("unsnoozeSignal returns a signal early", () => {
@@ -63,15 +74,21 @@ describe("useSnoozeStore – snooze expiry", () => {
 
   it("reports the signal as no longer snoozed at/after expiry", () => {
     useSnoozeStore.getState().snoozeSignal("sig-1", 1000, NOW);
-    expect(useSnoozeStore.getState().isSnoozed("sig-1", NOW + 1000)).toBe(false);
-    expect(useSnoozeStore.getState().isSnoozed("sig-1", NOW + 5000)).toBe(false);
+    expect(useSnoozeStore.getState().isSnoozed("sig-1", NOW + 1000)).toBe(
+      false
+    );
+    expect(useSnoozeStore.getState().isSnoozed("sig-1", NOW + 5000)).toBe(
+      false
+    );
   });
 
   it("excludes expired entries from the active list", () => {
     const s = useSnoozeStore.getState();
     s.snoozeSignal("fresh", 5000, NOW);
     s.snoozeSignal("stale", 1000, NOW);
-    expect(useSnoozeStore.getState().getActiveSnoozes(NOW + 2000)).toEqual(["fresh"]);
+    expect(useSnoozeStore.getState().getActiveSnoozes(NOW + 2000)).toEqual([
+      "fresh",
+    ]);
   });
 
   it("pruneExpired drops only entries whose expiry has passed", () => {
@@ -96,7 +113,11 @@ describe("selectVisibleSignals – snoozed signals leave and re-enter the feed",
 
   it("hides a snoozed signal from the feed", () => {
     useSnoozeStore.getState().snoozeSignal("b", 1000, NOW);
-    const visible = selectVisibleSignals(feed, useSnoozeStore.getState().snoozed, NOW);
+    const visible = selectVisibleSignals(
+      feed,
+      useSnoozeStore.getState().snoozed,
+      NOW
+    );
     expect(visible.map((s) => s.id)).toEqual(["a", "c"]);
   });
 
@@ -105,12 +126,20 @@ describe("selectVisibleSignals – snoozed signals leave and re-enter the feed",
 
     // While snoozed: hidden.
     expect(
-      selectVisibleSignals(feed, useSnoozeStore.getState().snoozed, NOW + 500).map((s) => s.id)
+      selectVisibleSignals(
+        feed,
+        useSnoozeStore.getState().snoozed,
+        NOW + 500
+      ).map((s) => s.id)
     ).toEqual(["a", "c"]);
 
     // After expiry: back in the feed in its original position.
     expect(
-      selectVisibleSignals(feed, useSnoozeStore.getState().snoozed, NOW + 1500).map((s) => s.id)
+      selectVisibleSignals(
+        feed,
+        useSnoozeStore.getState().snoozed,
+        NOW + 1500
+      ).map((s) => s.id)
     ).toEqual(["a", "b", "c"]);
   });
 
@@ -119,7 +148,9 @@ describe("selectVisibleSignals – snoozed signals leave and re-enter the feed",
     s.snoozeSignal("b", DEFAULT_SNOOZE_DURATION_MS, NOW);
     s.unsnoozeSignal("b");
     expect(
-      selectVisibleSignals(feed, useSnoozeStore.getState().snoozed, NOW).map((s) => s.id)
+      selectVisibleSignals(feed, useSnoozeStore.getState().snoozed, NOW).map(
+        (s) => s.id
+      )
     ).toEqual(["a", "b", "c"]);
   });
 });

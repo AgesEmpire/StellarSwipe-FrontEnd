@@ -11,9 +11,13 @@ export default function ForcedColorsDemoPage() {
           <p className="text-sm uppercase tracking-[0.3em] text-foreground-muted">
             Accessibility QA
           </p>
-          <h1 className="text-2xl font-semibold">Forced-colors / high-contrast demo</h1>
+          <h1 className="text-2xl font-semibold">
+            Forced-colors / high-contrast demo
+          </h1>
           <p className="max-w-2xl text-sm text-foreground-muted">
-            This page renders the same badge, toggle, and control patterns that should remain legible under Windows High Contrast and forced-colors media queries.
+            This page renders the same badge, toggle, and control patterns that
+            should remain legible under Windows High Contrast and forced-colors
+            media queries.
           </p>
         </header>
 

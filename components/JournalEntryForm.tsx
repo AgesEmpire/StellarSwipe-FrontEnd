@@ -81,7 +81,10 @@ export function JournalEntryForm() {
         </Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+      >
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-400">Date</label>
           <input
@@ -90,19 +93,27 @@ export function JournalEntryForm() {
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {errors.date && <p className="text-[10px] text-red-400">{errors.date}</p>}
+          {errors.date && (
+            <p className="text-[10px] text-red-400">{errors.date}</p>
+          )}
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Asset Pair</label>
+          <label className="text-xs font-medium text-slate-400">
+            Asset Pair
+          </label>
           <input
             type="text"
             placeholder="e.g. XLM/USDC"
             value={formData.assetPair || ""}
-            onChange={(e) => setFormData({ ...formData, assetPair: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, assetPair: e.target.value })
+            }
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {errors.assetPair && <p className="text-[10px] text-red-400">{errors.assetPair}</p>}
+          {errors.assetPair && (
+            <p className="text-[10px] text-red-400">{errors.assetPair}</p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -111,10 +122,14 @@ export function JournalEntryForm() {
             type="text"
             placeholder="0.00"
             value={formData.amount || ""}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, amount: e.target.value })
+            }
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {errors.amount && <p className="text-[10px] text-red-400">{errors.amount}</p>}
+          {errors.amount && (
+            <p className="text-[10px] text-red-400">{errors.amount}</p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -123,10 +138,14 @@ export function JournalEntryForm() {
             type="text"
             placeholder="0.00"
             value={formData.price || ""}
-            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, price: e.target.value })
+            }
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {errors.price && <p className="text-[10px] text-red-400">{errors.price}</p>}
+          {errors.price && (
+            <p className="text-[10px] text-red-400">{errors.price}</p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -135,10 +154,14 @@ export function JournalEntryForm() {
             type="text"
             placeholder="e.g. XLM"
             value={formData.token || ""}
-            onChange={(e) => setFormData({ ...formData, token: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, token: e.target.value })
+            }
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {errors.token && <p className="text-[10px] text-red-400">{errors.token}</p>}
+          {errors.token && (
+            <p className="text-[10px] text-red-400">{errors.token}</p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -150,14 +173,18 @@ export function JournalEntryForm() {
             onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {errors.fee && <p className="text-[10px] text-red-400">{errors.fee}</p>}
+          {errors.fee && (
+            <p className="text-[10px] text-red-400">{errors.fee}</p>
+          )}
         </div>
 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-400">Status</label>
           <select
             value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+            onChange={(e) =>
+              setFormData({ ...formData, status: e.target.value as any })
+            }
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="PENDING">Pending</option>
@@ -170,7 +197,9 @@ export function JournalEntryForm() {
           <label className="text-xs font-medium text-slate-400">Outcome</label>
           <select
             value={formData.outcome}
-            onChange={(e) => setFormData({ ...formData, outcome: e.target.value as any })}
+            onChange={(e) =>
+              setFormData({ ...formData, outcome: e.target.value as any })
+            }
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="PENDING">Pending</option>

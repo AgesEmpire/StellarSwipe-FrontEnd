@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { useWallet } from "@/hooks/useWallet";
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { fadeInVariants, fadeInVariantsReduced, useScrollViewport } from "@/hooks/useScrollAnimation";
+import {
+  fadeInVariants,
+  fadeInVariantsReduced,
+  useScrollViewport,
+} from "@/hooks/useScrollAnimation";
 
 export function CTABanner() {
   const { connected, connect } = useWallet();
@@ -39,7 +43,8 @@ export function CTABanner() {
         Start trading smarter on the SDEX
       </h2>
       <p className="mt-3 text-sm sm:text-base text-sky-100 max-w-md mx-auto">
-        Connect your Freighter wallet to access live signals, follow top providers, and execute trades in one swipe.
+        Connect your Freighter wallet to access live signals, follow top
+        providers, and execute trades in one swipe.
       </p>
       <Button
         size="lg"

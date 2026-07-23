@@ -21,12 +21,10 @@ export function DemoModeCallout({ className }: { className?: string }) {
           <Link size={16} className="text-blue-400" aria-hidden="true" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-medium text-blue-300">
-            Demo Mode Active
-          </p>
+          <p className="text-sm font-medium text-blue-300">Demo Mode Active</p>
           <p className="mt-1 text-xs text-blue-400/80">
-            You are viewing sample signals with $10,000 virtual funds.
-            Connect a wallet and disable demo mode to trade with real assets.
+            You are viewing sample signals with $10,000 virtual funds. Connect a
+            wallet and disable demo mode to trade with real assets.
           </p>
           <button
             onClick={() => setDemoMode(false)}

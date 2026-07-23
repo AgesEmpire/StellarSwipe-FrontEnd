@@ -117,7 +117,7 @@ export const handlers = [
   }),
 
   http.post("*/api/trade", async ({ request }) => {
-    const body = await request.json() as Record<string, unknown>;
+    const body = (await request.json()) as Record<string, unknown>;
     return HttpResponse.json({
       success: true,
       txHash: "mock-tx-hash-abc123",

@@ -47,11 +47,15 @@ export function CSVImportModal() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<CSVColumn, string>>({} as any);
-  const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
+  const [validationResults, setValidationResults] = useState<
+    ValidationResult[]
+  >([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [summary, setSummary] = useState({ imported: 0, skipped: 0 });
 
-  const bulkAddTransactions = useTransactionStore((state) => state.bulkAddTransactions);
+  const bulkAddTransactions = useTransactionStore(
+    (state) => state.bulkAddTransactions
+  );
 
   const reset = useCallback(() => {
     setStep("upload");
@@ -86,7 +90,8 @@ export function CSVImportModal() {
             const match = results.meta.fields?.find(
               (f) =>
                 f.toLowerCase() === col.toLowerCase() ||
-                f.toLowerCase().replace(/ /g, "") === col.toLowerCase().replace(/ /g, "")
+                f.toLowerCase().replace(/ /g, "") ===
+                  col.toLowerCase().replace(/ /g, "")
             );
             if (match) newMapping[col] = match;
           });
@@ -103,16 +108,17 @@ export function CSVImportModal() {
   const validateRows = useCallback(async () => {
     setIsProcessing(true);
     const results: ValidationResult[] = [];
-    
+
     // Process in chunks to keep UI responsive
     const chunkSize = 100;
     for (let i = 0; i < csvData.length; i += chunkSize) {
       const chunk = csvData.slice(i, i + chunkSize);
-      
+
       const chunkResults = chunk.map((row) => {
         const mappedRow: any = {};
         Object.entries(mapping).forEach(([target, source]) => {
-          if (source) mappedRow[target.toLowerCase().replace(" ", "")] = row[source];
+          if (source)
+            mappedRow[target.toLowerCase().replace(" ", "")] = row[source];
         });
 
         // Special handling for date and default values
@@ -128,7 +134,9 @@ export function CSVImportModal() {
         return {
           row,
           data: parsed.success ? parsed.data : undefined,
-          errors: !parsed.success ? parsed.error.issues.map((msg) => msg.message) : undefined,
+          errors: !parsed.success
+            ? parsed.error.issues.map((msg) => msg.message)
+            : undefined,
           isValid: parsed.success,
         };
       });
@@ -168,12 +176,24 @@ export function CSVImportModal() {
   };
 
   const hasUnmappedRequired = useMemo(() => {
-    const required: CSVColumn[] = ["Date", "Asset Pair", "Amount", "Price", "Token"];
+    const required: CSVColumn[] = [
+      "Date",
+      "Asset Pair",
+      "Amount",
+      "Price",
+      "Token",
+    ];
     return required.some((col) => !mapping[col]);
   }, [mapping]);
 
   return (
-    <Dialog open={open} onOpenChange={(val: boolean) => { setOpen(val); if (!val) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(val: boolean) => {
+        setOpen(val);
+        if (!val) reset();
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Upload size={16} /> Import CSV
@@ -187,13 +207,21 @@ export function CSVImportModal() {
           </DialogTitle>
           {/* Stepper */}
           <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-500">
-            <span className={cn(step === "upload" && "text-blue-400")}>1. Upload</span>
+            <span className={cn(step === "upload" && "text-blue-400")}>
+              1. Upload
+            </span>
             <ChevronRight size={12} />
-            <span className={cn(step === "mapping" && "text-blue-400")}>2. Mapping</span>
+            <span className={cn(step === "mapping" && "text-blue-400")}>
+              2. Mapping
+            </span>
             <ChevronRight size={12} />
-            <span className={cn(step === "preview" && "text-blue-400")}>3. Preview</span>
+            <span className={cn(step === "preview" && "text-blue-400")}>
+              3. Preview
+            </span>
             <ChevronRight size={12} />
-            <span className={cn(step === "summary" && "text-blue-400")}>4. Summary</span>
+            <span className={cn(step === "summary" && "text-blue-400")}>
+              4. Summary
+            </span>
           </div>
         </DialogHeader>
 
@@ -201,9 +229,12 @@ export function CSVImportModal() {
           {step === "upload" && (
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-3xl bg-white/5 p-12 text-center">
               <Upload className="h-12 w-12 text-slate-500 mb-4" />
-              <h3 className="text-lg font-medium mb-1">Select your trading history file</h3>
+              <h3 className="text-lg font-medium mb-1">
+                Select your trading history file
+              </h3>
               <p className="text-sm text-slate-400 mb-6 max-w-sm">
-                Upload a .csv file exported from your exchange or tracker. We&apos;ll help you map the columns.
+                Upload a .csv file exported from your exchange or tracker.
+                We&apos;ll help you map the columns.
               </p>
               <input
                 type="file"
@@ -230,13 +261,23 @@ export function CSVImportModal() {
                   <div key={col} className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-500 flex items-center justify-between">
                       {col}
-                      {["Date", "Asset Pair", "Amount", "Price", "Token"].includes(col) && (
-                        <span className="text-red-400 text-[10px] uppercase font-bold">Required</span>
+                      {[
+                        "Date",
+                        "Asset Pair",
+                        "Amount",
+                        "Price",
+                        "Token",
+                      ].includes(col) && (
+                        <span className="text-red-400 text-[10px] uppercase font-bold">
+                          Required
+                        </span>
                       )}
                     </label>
                     <select
                       value={mapping[col] || ""}
-                      onChange={(e) => setMapping({ ...mapping, [col]: e.target.value })}
+                      onChange={(e) =>
+                        setMapping({ ...mapping, [col]: e.target.value })
+                      }
                       className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select column...</option>
@@ -260,10 +301,12 @@ export function CSVImportModal() {
                 </p>
                 <div className="flex gap-4 text-xs">
                   <span className="flex items-center gap-1 text-emerald-400">
-                    <CheckCircle2 size={12} /> {validationResults.filter(r => r.isValid).length} Valid
+                    <CheckCircle2 size={12} />{" "}
+                    {validationResults.filter((r) => r.isValid).length} Valid
                   </span>
                   <span className="flex items-center gap-1 text-red-400">
-                    <AlertCircle size={12} /> {validationResults.filter(r => !r.isValid).length} Error
+                    <AlertCircle size={12} />{" "}
+                    {validationResults.filter((r) => !r.isValid).length} Error
                   </span>
                 </div>
               </div>
@@ -281,40 +324,64 @@ export function CSVImportModal() {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {validationResults.slice(0, 50).map((res, i) => (
-                      <tr key={i} className={cn(!res.isValid && "bg-red-400/5")}>
+                      <tr
+                        key={i}
+                        className={cn(!res.isValid && "bg-red-400/5")}
+                      >
                         <td className="px-3 py-2">
                           {res.isValid ? (
-                            <CheckCircle2 size={14} className="text-emerald-400" />
+                            <CheckCircle2
+                              size={14}
+                              className="text-emerald-400"
+                            />
                           ) : (
                             <div className="group relative">
-                              <AlertCircle size={14} className="text-red-400 cursor-help" />
+                              <AlertCircle
+                                size={14}
+                                className="text-red-400 cursor-help"
+                              />
                               <div className="absolute left-6 top-0 hidden group-hover:block z-10 w-48 rounded-lg bg-red-950 p-2 text-[10px] shadow-xl border border-red-400/20">
-                                {res.errors?.map((err, j) => <p key={j}>• {err}</p>)}
+                                {res.errors?.map((err, j) => (
+                                  <p key={j}>• {err}</p>
+                                ))}
                               </div>
                             </div>
                           )}
                         </td>
                         <td className="px-3 py-2 text-slate-300">
-                          {res.isValid ? res.data?.date : (res.row[mapping["Date"] || ""] || "—")}
+                          {res.isValid
+                            ? res.data?.date
+                            : res.row[mapping["Date"] || ""] || "—"}
                         </td>
                         <td className="px-3 py-2 font-medium">
-                          {res.isValid ? res.data?.assetPair : (res.row[mapping["Asset Pair"] || ""] || "—")}
+                          {res.isValid
+                            ? res.data?.assetPair
+                            : res.row[mapping["Asset Pair"] || ""] || "—"}
                         </td>
                         <td className="px-3 py-2">
-                          {res.isValid ? res.data?.amount : (res.row[mapping["Amount"] || ""] || "—")}
+                          {res.isValid
+                            ? res.data?.amount
+                            : res.row[mapping["Amount"] || ""] || "—"}
                         </td>
                         <td className="px-3 py-2 text-right">
-                           {res.isValid ? (
-                             <span className="text-emerald-400 opacity-50">Importing</span>
-                           ) : (
-                             <span className="text-red-400 opacity-50">Skipping</span>
-                           )}
+                          {res.isValid ? (
+                            <span className="text-emerald-400 opacity-50">
+                              Importing
+                            </span>
+                          ) : (
+                            <span className="text-red-400 opacity-50">
+                              Skipping
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
                     {validationResults.length > 50 && (
                       <tr>
-                        <td colSpan={5} className="px-3 py-4 text-center text-slate-500">
+                        <td
+                          colSpan={5}
+                          className="px-3 py-4 text-center text-slate-500"
+                        >
                           + {validationResults.length - 50} more rows
                         </td>
                       </tr>
@@ -332,10 +399,18 @@ export function CSVImportModal() {
               </div>
               <h3 className="text-xl font-semibold mb-2">Import Complete!</h3>
               <p className="text-slate-400 mb-6 max-w-sm">
-                Successfully imported <strong>{summary.imported}</strong> entries. 
-                {summary.skipped > 0 && ` ${summary.skipped} rows were skipped due to validation errors.`}
+                Successfully imported <strong>{summary.imported}</strong>{" "}
+                entries.
+                {summary.skipped > 0 &&
+                  ` ${summary.skipped} rows were skipped due to validation errors.`}
               </p>
-              <Button onClick={() => { setOpen(false); reset(); }} className="w-full max-w-xs">
+              <Button
+                onClick={() => {
+                  setOpen(false);
+                  reset();
+                }}
+                className="w-full max-w-xs"
+              >
                 Back to Journal
               </Button>
             </div>
@@ -352,9 +427,13 @@ export function CSVImportModal() {
             >
               <ChevronLeft size={16} /> Back
             </Button>
-            
+
             {step === "mapping" && (
-              <Button onClick={validateRows} disabled={hasUnmappedRequired || isProcessing} className="gap-2">
+              <Button
+                onClick={validateRows}
+                disabled={hasUnmappedRequired || isProcessing}
+                className="gap-2"
+              >
                 {isProcessing ? (
                   <>
                     <Loader2 size={16} className="animate-spin" /> Processing...
@@ -370,7 +449,7 @@ export function CSVImportModal() {
             {step === "preview" && (
               <Button
                 onClick={handleImport}
-                disabled={validationResults.every(r => !r.isValid)}
+                disabled={validationResults.every((r) => !r.isValid)}
                 className="gap-2 bg-emerald-500 hover:bg-emerald-600"
               >
                 Confirm Import <ArrowRight size={16} />

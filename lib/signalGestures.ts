@@ -44,7 +44,9 @@ export function computeTintOpacity(
 ): TintOpacity {
   if (threshold <= 0 || offset === 0) return { green: 0, red: 0 };
   const magnitude = Math.min(Math.abs(offset) / threshold, 1) * max;
-  return offset > 0 ? { green: magnitude, red: 0 } : { green: 0, red: magnitude };
+  return offset > 0
+    ? { green: magnitude, red: 0 }
+    : { green: 0, red: magnitude };
 }
 
 export type SwipeAction = "trade" | "pass" | "none";
@@ -55,7 +57,10 @@ export type SwipeAction = "trade" | "pass" | "none";
  * left). Left-arrow is a no-op when the pass action is hidden. Returns the
  * direction the matching tint feedback should flash toward (+1 trade, -1 pass).
  */
-export function classifyArrowKey(key: string, showPassAction: boolean): SwipeAction {
+export function classifyArrowKey(
+  key: string,
+  showPassAction: boolean
+): SwipeAction {
   if (key === "ArrowRight") return "trade";
   if (key === "ArrowLeft") return showPassAction ? "pass" : "none";
   return "none";

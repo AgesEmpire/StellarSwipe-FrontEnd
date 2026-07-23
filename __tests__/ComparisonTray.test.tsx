@@ -15,20 +15,32 @@ jest.mock("framer-motion", () => {
   const passThrough =
     (tag: string) =>
     // eslint-disable-next-line react/display-name
-    ({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) => {
+    ({
+      children,
+      ...rest
+    }: React.PropsWithChildren<Record<string, unknown>>) => {
       const {
-        initial, animate, exit, transition, whileHover, whileTap, layout,
+        initial,
+        animate,
+        exit,
+        transition,
+        whileHover,
+        whileTap,
+        layout,
         ...htmlProps
       } = rest;
-      void initial; void animate; void exit; void transition;
-      void whileHover; void whileTap; void layout;
+      void initial;
+      void animate;
+      void exit;
+      void transition;
+      void whileHover;
+      void whileTap;
+      void layout;
       return React.createElement(tag, htmlProps, children);
     };
 
   return {
-    AnimatePresence: ({ children }: React.PropsWithChildren) => (
-      <>{children}</>
-    ),
+    AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
     motion: new Proxy(
       {},
       {
@@ -87,7 +99,10 @@ describe("ComparisonTray – rendering", () => {
 
 describe("ComparisonTray – limit-reached banner", () => {
   it("shows the limit message when limitReached is true", () => {
-    useComparisonStore.setState({ limitReached: true, signals: [makeSignal(1)] });
+    useComparisonStore.setState({
+      limitReached: true,
+      signals: [makeSignal(1)],
+    });
     render(<ComparisonTray />);
     expect(screen.getByRole("alert")).toHaveTextContent(
       `up to ${MAX_COMPARISON} signals`

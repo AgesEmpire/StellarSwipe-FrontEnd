@@ -1,12 +1,19 @@
 /** @jest-environment jsdom */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DemoModeToggle } from "@/components/DemoModeToggle";
-import { useDemoModeStore, useDemoModeHydrated } from "@/store/useDemoModeStore";
+import {
+  useDemoModeStore,
+  useDemoModeHydrated,
+} from "@/store/useDemoModeStore";
 
 jest.mock("@/store/useDemoModeStore");
 
-const mockUseDemoModeStore = useDemoModeStore as jest.MockedFunction<typeof useDemoModeStore>;
-const mockUseDemoModeHydrated = useDemoModeHydrated as jest.MockedFunction<typeof useDemoModeHydrated>;
+const mockUseDemoModeStore = useDemoModeStore as jest.MockedFunction<
+  typeof useDemoModeStore
+>;
+const mockUseDemoModeHydrated = useDemoModeHydrated as jest.MockedFunction<
+  typeof useDemoModeHydrated
+>;
 
 describe("DemoModeToggle", () => {
   beforeEach(() => {

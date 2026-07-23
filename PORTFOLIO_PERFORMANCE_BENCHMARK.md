@@ -20,23 +20,29 @@ This PR implements a portfolio performance-vs-benchmark overlay chart that allow
 ## Features Implemented
 
 ### 1. Overlay Chart Comparing Portfolio Value vs XLM Hold
+
 The `PortfolioPerformanceBenchmarkChart` component displays:
+
 - Green line showing portfolio value over time
 - Dashed blue line showing equivalent XLM hold value when benchmark is enabled
 - Performance delta calculation showing outperformance/underperformance percentage
 
 ### 2. XLM Price History Sourcing
+
 - Uses the existing `useXLMPriceHistory` hook which follows the same pattern as `useSignalPrice` for price polling
 - Currently generates mock data but structured for real Horizon/Soroban RPC integration
 - Uses the same price data patterns already established in the codebase
 
 ### 3. Toggleable Benchmark Overlay
+
 - Checkbox control to show/hide the XLM benchmark line
 - When disabled, only the portfolio performance line is shown
 - Clear visual distinction between portfolio and benchmark with colors and line styles
 
 ### 4. Unit Tests
+
 Comprehensive tests covering:
+
 - `computeBenchmarkSeries`: Correctly scales XLM prices relative to initial portfolio value
 - `generateMockPortfolioHistory`: Generates correct number of points with proper timestamps
 - `computePerformanceDelta`: Calculates accurate returns and outperformance metrics
@@ -47,6 +53,7 @@ Comprehensive tests covering:
 ### Benchmark Calculation Logic
 
 The benchmark series is computed by:
+
 1. Taking the initial portfolio value
 2. Scaling it by the XLM price ratio relative to the XLM price at the start of the period
 3. This ensures the benchmark starts at the same value as the portfolio and tracks XLM performance

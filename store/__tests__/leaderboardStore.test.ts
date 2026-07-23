@@ -1,4 +1,7 @@
-import { useLeaderboardStore, type LeaderboardEntry } from "@/store/leaderboardStore";
+import {
+  useLeaderboardStore,
+  type LeaderboardEntry,
+} from "@/store/leaderboardStore";
 
 const MOCK_RANKINGS: LeaderboardEntry[] = [
   {
@@ -90,7 +93,9 @@ describe("leaderboardStore – currentUserId / sticky row rank", () => {
 
   it("sticky row is hidden (no rank) when currentUserId is null", () => {
     const { rankings, currentUserId } = useLeaderboardStore.getState();
-    const entry = currentUserId ? rankings.find((e) => e.id === currentUserId) : null;
+    const entry = currentUserId
+      ? rankings.find((e) => e.id === currentUserId)
+      : null;
     expect(entry).toBeNull();
   });
 

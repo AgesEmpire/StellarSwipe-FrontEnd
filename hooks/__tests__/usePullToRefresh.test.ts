@@ -324,8 +324,8 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
 
   it("handles async refresh callback", async () => {
     jest.useFakeTimers();
-    const onRefresh = jest.fn(() =>
-      new Promise<void>((resolve) => setTimeout(resolve, 100))
+    const onRefresh = jest.fn(
+      () => new Promise<void>((resolve) => setTimeout(resolve, 100))
     );
 
     const { result } = renderHook(() =>
@@ -374,10 +374,7 @@ describe("usePullToRefresh – pull-to-refresh gesture detection", () => {
   });
 
   it("cleans up event listeners on unmount", () => {
-    const removeEventListenerSpy = jest.spyOn(
-      container,
-      "removeEventListener"
-    );
+    const removeEventListenerSpy = jest.spyOn(container, "removeEventListener");
 
     const { unmount } = renderHook(() =>
       usePullToRefresh({

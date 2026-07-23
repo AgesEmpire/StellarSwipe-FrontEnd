@@ -15,7 +15,11 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Shield, ChevronLeft } from "lucide-react";
 import { ActiveSessionsPanel } from "@/components/ActiveSessionsPanel";
-import { fetchSessions, revokeSession, revokeAllOtherSessions } from "@/lib/sessionApi";
+import {
+  fetchSessions,
+  revokeSession,
+  revokeAllOtherSessions,
+} from "@/lib/sessionApi";
 import type { Session } from "@/lib/sessionUtils";
 
 // ---------------------------------------------------------------------------
@@ -111,14 +115,15 @@ export default function ActiveSessionsPage() {
         {/* Page header */}
         <div className="flex items-center gap-2">
           <Shield size={20} className="text-blue-400" aria-hidden="true" />
-          <h1 className="text-xl font-semibold text-foreground">Active Sessions</h1>
+          <h1 className="text-xl font-semibold text-foreground">
+            Active Sessions
+          </h1>
         </div>
 
         <p className="text-sm text-foreground-muted -mt-2">
-          Review every device and browser that is currently signed in.
-          Revoke access for any session you don&apos;t recognise, or after
-          losing a device. To end your current session, use the normal
-          sign-out flow.
+          Review every device and browser that is currently signed in. Revoke
+          access for any session you don&apos;t recognise, or after losing a
+          device. To end your current session, use the normal sign-out flow.
         </p>
 
         {/* Main panel — passes sessions + handlers down; owns no fetch state */}

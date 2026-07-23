@@ -86,7 +86,7 @@ describe("SecuritySettingsPage", () => {
 
     const links = screen.getAllByRole("link", { name: /view report/i });
     expect(links.length).toBe(2);
-    
+
     expect(links[0].getAttribute("href")).toBe("https://github.com/new");
     expect(links[1].getAttribute("href")).toBe("https://github.com/old");
 
@@ -96,4 +96,3 @@ describe("SecuritySettingsPage", () => {
     expect(newIdx).toBeLessThan(oldIdx);
   });
 });
-

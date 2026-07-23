@@ -11,7 +11,7 @@ export function useSignalsFeed() {
 
   const fetchLiveSignals = async (): Promise<Signal[]> => {
     let response: Response;
-    
+
     try {
       response = await fetch("/api/signals", {
         headers: {
@@ -52,12 +52,19 @@ export function useSignalsFeed() {
     return page.items;
   };
 
-  const { data: signals, isLoading, error, refetch, isRefetching } = useQuery({
+  const {
+    data: signals,
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ["signals", isDemoMode ? "demo" : "live"],
     queryFn: isDemoMode ? fetchDemoSignals : fetchLiveSignals,
     ...queryOptions.signal,
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 10000),
+    retryDelay: (attemptIndex) =>
+      Math.min(1000 * Math.pow(2, attemptIndex), 10000),
   });
 
   return {

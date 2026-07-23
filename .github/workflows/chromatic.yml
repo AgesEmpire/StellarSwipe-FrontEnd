@@ -6,12 +6,12 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/components/**'
-      - 'src/app/**'
-      - 'stories/**'
-      - '.storybook/**'
-      - 'package.json'
-      - 'package-lock.json'
+      - "src/components/**"
+      - "src/app/**"
+      - "stories/**"
+      - ".storybook/**"
+      - "package.json"
+      - "package-lock.json"
 
 # ── Baseline approval process ─────────────────────────────────────────────────
 # 1. On the FIRST run after adding new stories, Chromatic captures baselines.
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # required for Chromatic TurboSnap
+          fetch-depth: 0 # required for Chromatic TurboSnap
 
       - uses: actions/setup-node@v4
         with:

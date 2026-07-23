@@ -2,8 +2,17 @@
 
 import { useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useProviderProfile, useProviderSignals } from "@/hooks/useProviderProfile";
-import { ArrowLeft, Loader2, TrendingUp, TrendingDown, UserMinus } from "lucide-react";
+import {
+  useProviderProfile,
+  useProviderSignals,
+} from "@/hooks/useProviderProfile";
+import {
+  ArrowLeft,
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  UserMinus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/PageTransition";
 import { UnfollowDialog } from "@/components/UnfollowDialog";
@@ -16,7 +25,8 @@ export default function ProviderProfilePage() {
   const params = useParams();
   const providerId = params?.providerId as string;
 
-  const { data: provider, isLoading: providerLoading } = useProviderProfile(providerId);
+  const { data: provider, isLoading: providerLoading } =
+    useProviderProfile(providerId);
   const { data: signals = [] } = useProviderSignals(providerId);
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -24,7 +34,9 @@ export default function ProviderProfilePage() {
   const [isFollowing, setIsFollowing] = useState(true);
 
   // Open positions copied from this provider — in a real app fetched from portfolio store
-  const openCopiedPositions = signals.filter((s) => s.outcome === "PENDING").length;
+  const openCopiedPositions = signals.filter(
+    (s) => s.outcome === "PENDING"
+  ).length;
 
   const handleUnfollow = useCallback(() => {
     setIsFollowing(false);
@@ -78,7 +90,9 @@ export default function ProviderProfilePage() {
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               {provider.name && (
-                <h1 className="text-2xl font-bold text-white mb-2">{provider.name}</h1>
+                <h1 className="text-2xl font-bold text-white mb-2">
+                  {provider.name}
+                </h1>
               )}
               <p className="text-sm text-muted-foreground font-mono">
                 {provider.address.slice(0, 12)}...{provider.address.slice(-8)}
@@ -87,7 +101,9 @@ export default function ProviderProfilePage() {
             <div className="flex flex-col items-end gap-2">
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Rank</p>
-                <p className="text-3xl font-bold text-green-600">#{provider.rank}</p>
+                <p className="text-3xl font-bold text-green-600">
+                  #{provider.rank}
+                </p>
               </div>
               {isFollowing ? (
                 <Button
@@ -95,7 +111,10 @@ export default function ProviderProfilePage() {
                   size="sm"
                   className="gap-1.5 text-muted-foreground"
                   onClick={() =>
-                    requestUnfollow(provider.name ?? provider.address, openCopiedPositions)
+                    requestUnfollow(
+                      provider.name ?? provider.address,
+                      openCopiedPositions
+                    )
                   }
                   aria-label={`Unfollow ${provider.name ?? "this provider"}`}
                 >
@@ -115,38 +134,56 @@ export default function ProviderProfilePage() {
           </div>
 
           {provider.bio && (
-            <p className="text-sm text-foreground mb-6 leading-relaxed">{provider.bio}</p>
+            <p className="text-sm text-foreground mb-6 leading-relaxed">
+              {provider.bio}
+            </p>
           )}
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
-              <p className="font-semibold text-green-600">{provider.winRate}%</p>
+              <p className="font-semibold text-green-600">
+                {provider.winRate}%
+              </p>
             </div>
             <div className="rounded bg-muted/50 p-3">
-              <p className="text-xs text-muted-foreground mb-1">Total Signals</p>
-              <p className="font-semibold text-foreground">{provider.totalSignals}</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Total Signals
+              </p>
+              <p className="font-semibold text-foreground">
+                {provider.totalSignals}
+              </p>
             </div>
             <div className="rounded bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground mb-1">Reputation</p>
-              <p className="font-semibold text-blue-600">{provider.reputation}%</p>
+              <p className="font-semibold text-blue-600">
+                {provider.reputation}%
+              </p>
             </div>
             <div className="rounded bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground mb-1">Trust Score</p>
-              <p className="font-semibold text-purple-600">{provider.trustScore}%</p>
+              <p className="font-semibold text-purple-600">
+                {provider.trustScore}%
+              </p>
             </div>
           </div>
         </header>
 
         {/* Stake information */}
         <div className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Stake & Trust</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">
+            Stake & Trust
+          </h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground mb-2">Staked Amount</p>
+              <p className="text-sm text-muted-foreground mb-2">
+                Staked Amount
+              </p>
               <p className="text-2xl font-bold text-foreground">
-                {provider.staked ? `$${provider.staked.toLocaleString()}` : "N/A"}
+                {provider.staked
+                  ? `$${provider.staked.toLocaleString()}`
+                  : "N/A"}
               </p>
             </div>
             <div>
@@ -160,10 +197,14 @@ export default function ProviderProfilePage() {
 
         {/* Recent signals */}
         <div className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Recent Signals</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">
+            Recent Signals
+          </h2>
 
           {paginatedSignals.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No signals available</p>
+            <p className="text-center text-muted-foreground py-8">
+              No signals available
+            </p>
           ) : (
             <div className="space-y-3">
               {paginatedSignals.map((signal) => (
@@ -179,7 +220,9 @@ export default function ProviderProfilePage() {
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground">{signal.asset}</span>
+                      <span className="font-semibold text-foreground">
+                        {signal.asset}
+                      </span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded font-medium ${
                           signal.direction === "BUY"
@@ -195,10 +238,18 @@ export default function ProviderProfilePage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {signal.outcome === "WIN" && (
-                        <TrendingUp size={16} className="text-green-600" aria-label="Won" />
+                        <TrendingUp
+                          size={16}
+                          className="text-green-600"
+                          aria-label="Won"
+                        />
                       )}
                       {signal.outcome === "LOSS" && (
-                        <TrendingDown size={16} className="text-red-600" aria-label="Lost" />
+                        <TrendingDown
+                          size={16}
+                          className="text-red-600"
+                          aria-label="Lost"
+                        />
                       )}
                       <span
                         className={`text-xs font-medium ${
@@ -239,7 +290,9 @@ export default function ProviderProfilePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
+                onClick={() =>
+                  setCurrentPage(Math.min(totalPages - 1, currentPage + 1))
+                }
                 disabled={currentPage === totalPages - 1}
                 aria-label="Next page"
               >
@@ -253,7 +306,9 @@ export default function ProviderProfilePage() {
       {/* Unfollow confirmation dialog */}
       <UnfollowDialog
         open={dialogState.isOpen}
-        onOpenChange={(open) => { if (!open) handleCancel(); }}
+        onOpenChange={(open) => {
+          if (!open) handleCancel();
+        }}
         providerName={dialogState.providerName}
         openPositionsCount={dialogState.openPositionsCount}
         onConfirm={handleConfirm}

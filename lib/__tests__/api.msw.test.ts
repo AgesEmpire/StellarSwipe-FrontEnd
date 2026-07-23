@@ -10,7 +10,12 @@
 
 import { http, HttpResponse } from "msw";
 import { server } from "@/src/mocks/server";
-import { fetchSignals, fetchSubscriptions, NetworkError, ServerError } from "@/lib/api";
+import {
+  fetchSignals,
+  fetchSubscriptions,
+  NetworkError,
+  ServerError,
+} from "@/lib/api";
 
 // Server lifecycle is managed by jest.setup.ts
 
@@ -27,7 +32,14 @@ describe("fetchSignals – MSW integration", () => {
     server.use(
       http.get("*/api/signals", ({ request }) => {
         capturedUrl = request.url;
-        return HttpResponse.json({ signals: [], page: 2, pageSize: 5, total: 0, nextPage: null, hasMore: false });
+        return HttpResponse.json({
+          signals: [],
+          page: 2,
+          pageSize: 5,
+          total: 0,
+          nextPage: null,
+          hasMore: false,
+        });
       })
     );
     await fetchSignals({ page: 2, pageSize: 5 }).catch(() => {});
@@ -46,9 +58,7 @@ describe("fetchSignals – MSW integration", () => {
   });
 
   it("throws NetworkError when fetch itself fails (network down)", async () => {
-    server.use(
-      http.get("*/api/signals", () => HttpResponse.error())
-    );
+    server.use(http.get("*/api/signals", () => HttpResponse.error()));
 
     await expect(fetchSignals()).rejects.toThrow(NetworkError);
   });
@@ -90,6 +100,8 @@ describe("fetchSubscriptions – MSW integration", () => {
         HttpResponse.json({ error: "Bad request" }, { status: 400 })
       )
     );
-    await expect(fetchSubscriptions({ status: "active" })).rejects.toThrow(ServerError);
+    await expect(fetchSubscriptions({ status: "active" })).rejects.toThrow(
+      ServerError
+    );
   });
 });

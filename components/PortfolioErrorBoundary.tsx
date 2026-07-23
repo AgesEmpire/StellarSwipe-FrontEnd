@@ -40,14 +40,25 @@ export class PortfolioErrorBoundary extends Component<Props, State> {
           aria-live="assertive"
           className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center"
         >
-          <AlertTriangle className="h-10 w-10 text-destructive" aria-hidden="true" />
+          <AlertTriangle
+            className="h-10 w-10 text-destructive"
+            aria-hidden="true"
+          />
           <div>
-            <p className="font-semibold text-destructive">Portfolio unavailable</p>
+            <p className="font-semibold text-destructive">
+              Portfolio unavailable
+            </p>
             <p className="mt-2 text-sm text-foreground-muted">
-              Something went wrong loading your portfolio. Other sections are unaffected.
+              Something went wrong loading your portfolio. Other sections are
+              unaffected.
             </p>
           </div>
-          <Button variant="default" size="sm" onClick={this.handleRetry} className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={this.handleRetry}
+            className="flex items-center gap-2"
+          >
             <RefreshCw size={16} aria-hidden="true" />
             Retry
           </Button>

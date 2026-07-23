@@ -95,8 +95,12 @@ describe("SENSITIVITY_MULTIPLIERS – ordering", () => {
   });
 
   it("ordering: high < default < low", () => {
-    expect(SENSITIVITY_MULTIPLIERS.high).toBeLessThan(SENSITIVITY_MULTIPLIERS.default);
-    expect(SENSITIVITY_MULTIPLIERS.default).toBeLessThan(SENSITIVITY_MULTIPLIERS.low);
+    expect(SENSITIVITY_MULTIPLIERS.high).toBeLessThan(
+      SENSITIVITY_MULTIPLIERS.default
+    );
+    expect(SENSITIVITY_MULTIPLIERS.default).toBeLessThan(
+      SENSITIVITY_MULTIPLIERS.low
+    );
   });
 });
 
@@ -142,11 +146,15 @@ describe("getEffectiveVelocityThreshold", () => {
   });
 
   it("low returns a higher velocity threshold (harder fast-swipe)", () => {
-    expect(getEffectiveVelocityThreshold("low")).toBeGreaterThan(VELOCITY_THRESHOLD);
+    expect(getEffectiveVelocityThreshold("low")).toBeGreaterThan(
+      VELOCITY_THRESHOLD
+    );
   });
 
   it("high returns a lower velocity threshold (easier fast-swipe)", () => {
-    expect(getEffectiveVelocityThreshold("high")).toBeLessThan(VELOCITY_THRESHOLD);
+    expect(getEffectiveVelocityThreshold("high")).toBeLessThan(
+      VELOCITY_THRESHOLD
+    );
   });
 
   it("computed value is Math.round(base × multiplier)", () => {

@@ -16,7 +16,9 @@ export const useRecentlyViewedStore = create<RecentlyViewedState>()(
       addView: (id: string) =>
         set((state) => {
           // Remove existing instance if any
-          const filtered = state.recentlyViewedIds.filter((existingId) => existingId !== id);
+          const filtered = state.recentlyViewedIds.filter(
+            (existingId) => existingId !== id
+          );
           // Add to front and cap at limit
           return {
             recentlyViewedIds: [id, ...filtered].slice(0, MAX_RECENT_COUNT),

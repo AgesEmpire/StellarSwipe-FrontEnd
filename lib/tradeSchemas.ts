@@ -30,7 +30,9 @@ export const limitPriceSchema = z
   .trim()
   .min(1, "Limit price is required")
   .refine((v) => !isNaN(Number(v)), { message: "Limit price must be a number" })
-  .refine((v) => Number(v) > 0, { message: "Limit price must be greater than 0" });
+  .refine((v) => Number(v) > 0, {
+    message: "Limit price must be greater than 0",
+  });
 
 // ── Order-type-specific schemas ───────────────────────────────────────────────
 
@@ -78,7 +80,8 @@ export type TradeOrder = z.infer<typeof tradeOrderSchema>;
  */
 export function validateTradeField(value: string, label: string): string {
   const schema =
-    label.toLowerCase().includes("limit price") || label.toLowerCase().includes("limit")
+    label.toLowerCase().includes("limit price") ||
+    label.toLowerCase().includes("limit")
       ? limitPriceSchema
       : amountSchema;
 
@@ -87,7 +90,5 @@ export function validateTradeField(value: string, label: string): string {
 
   // Replace the generic field name with the caller-supplied label
   const firstMessage = result.error.issues[0]?.message ?? "";
-  return firstMessage
-    .replace(/^Amount/, label)
-    .replace(/^Limit price/, label);
+  return firstMessage.replace(/^Amount/, label).replace(/^Limit price/, label);
 }

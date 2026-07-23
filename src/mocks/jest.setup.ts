@@ -7,10 +7,22 @@ Object.assign(globalThis, {
   TextEncoder,
   ReadableStream,
   TransformStream,
-  WritableStream: typeof WritableStream !== 'undefined' ? WritableStream : require('stream/web').WritableStream,
-  BroadcastChannel: typeof BroadcastChannel !== 'undefined' ? BroadcastChannel : require('worker_threads').BroadcastChannel,
-  MessagePort: typeof MessagePort !== 'undefined' ? MessagePort : require('worker_threads').MessagePort,
-  MessageChannel: typeof MessageChannel !== 'undefined' ? MessageChannel : require('worker_threads').MessageChannel,
+  WritableStream:
+    typeof WritableStream !== "undefined"
+      ? WritableStream
+      : require("stream/web").WritableStream,
+  BroadcastChannel:
+    typeof BroadcastChannel !== "undefined"
+      ? BroadcastChannel
+      : require("worker_threads").BroadcastChannel,
+  MessagePort:
+    typeof MessagePort !== "undefined"
+      ? MessagePort
+      : require("worker_threads").MessagePort,
+  MessageChannel:
+    typeof MessageChannel !== "undefined"
+      ? MessageChannel
+      : require("worker_threads").MessageChannel,
 });
 
 // Only polyfill if they don't exist natively.
@@ -25,13 +37,11 @@ if (typeof fetch === "undefined") {
   });
 }
 
-let server:
-  | {
-      listen: (options: { onUnhandledRequest: "warn" }) => void;
-      resetHandlers: () => void;
-      close: () => void;
-    }
-  | null = null;
+let server: {
+  listen: (options: { onUnhandledRequest: "warn" }) => void;
+  resetHandlers: () => void;
+  close: () => void;
+} | null = null;
 
 try {
   server = require("./server").server;

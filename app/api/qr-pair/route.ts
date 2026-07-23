@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
   const session = req.nextUrl.searchParams.get("session");
 
   if (!session) {
-    return NextResponse.json({ error: "Missing session parameter" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing session parameter" },
+      { status: 400 }
+    );
   }
 
   // TODO: look up session in your signalling store (e.g. Redis / Upstash)

@@ -18,7 +18,14 @@
  */
 
 import { useState, useCallback } from "react";
-import { Laptop, MapPin, Clock, ShieldAlert, LogOut, Loader2 } from "lucide-react";
+import {
+  Laptop,
+  MapPin,
+  Clock,
+  ShieldAlert,
+  LogOut,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -99,12 +106,22 @@ function SessionRow({ session, revoking, onRevoke }: SessionRowProps) {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <MapPin size={12} className="shrink-0 text-foreground-muted" aria-hidden="true" />
-          <span className="text-xs text-foreground-muted truncate">{session.location}</span>
+          <MapPin
+            size={12}
+            className="shrink-0 text-foreground-muted"
+            aria-hidden="true"
+          />
+          <span className="text-xs text-foreground-muted truncate">
+            {session.location}
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Clock size={12} className="shrink-0 text-foreground-muted" aria-hidden="true" />
+          <Clock
+            size={12}
+            className="shrink-0 text-foreground-muted"
+            aria-hidden="true"
+          />
           <span className="text-xs text-foreground-muted">
             Last active: {formatLastActive(session.lastActiveAt)}
           </span>
@@ -203,7 +220,9 @@ export function ActiveSessionsPanel({
       <CardHeader>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-sm font-semibold text-foreground">Active Sessions</h2>
+            <h2 className="text-sm font-semibold text-foreground">
+              Active Sessions
+            </h2>
             <p className="text-xs text-foreground-muted mt-0.5">
               Devices and browsers currently signed in to your account.
             </p>
@@ -215,12 +234,18 @@ export function ActiveSessionsPanel({
               size="sm"
               disabled={revokingAll}
               onClick={handleRevokeAll}
-              aria-label={`Revoke all ${otherCount} other session${otherCount === 1 ? "" : "s"}`}
+              aria-label={`Revoke all ${otherCount} other session${
+                otherCount === 1 ? "" : "s"
+              }`}
               className="shrink-0 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/60 disabled:opacity-50"
             >
               {revokingAll ? (
                 <>
-                  <Loader2 size={13} className="animate-spin mr-1" aria-hidden="true" />
+                  <Loader2
+                    size={13}
+                    className="animate-spin mr-1"
+                    aria-hidden="true"
+                  />
                   Revoking…
                 </>
               ) : (

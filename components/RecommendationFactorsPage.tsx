@@ -12,8 +12,10 @@ export function RecommendationFactorsPage() {
       <div>
         <h2 className="text-base font-semibold">Why Am I Seeing This?</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Recommendations are scored locally using these factors. Your current risk profile is{" "}
-          <span className="font-medium capitalize">{settings.riskProfile}</span>.
+          Recommendations are scored locally using these factors. Your current
+          risk profile is{" "}
+          <span className="font-medium capitalize">{settings.riskProfile}</span>
+          .
         </p>
       </div>
 
@@ -29,16 +31,22 @@ export function RecommendationFactorsPage() {
                 {factor.weight}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">{factor.description}</p>
+            <p className="text-xs text-muted-foreground">
+              {factor.description}
+            </p>
           </li>
         ))}
       </ul>
 
       <div className="flex gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-muted-foreground">
-        <Info size={13} className="mt-0.5 shrink-0 text-blue-400" aria-hidden="true" />
+        <Info
+          size={13}
+          className="mt-0.5 shrink-0 text-blue-400"
+          aria-hidden="true"
+        />
         <span>
-          All scoring happens in your browser. No personal data leaves your device. You can adjust
-          your risk profile in{" "}
+          All scoring happens in your browser. No personal data leaves your
+          device. You can adjust your risk profile in{" "}
           <a href="/app" className="text-blue-500 hover:underline">
             Recommendation Settings
           </a>

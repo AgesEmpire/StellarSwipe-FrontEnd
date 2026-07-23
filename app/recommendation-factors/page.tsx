@@ -2,7 +2,8 @@ import { RecommendationFactorsPage } from "@/components/RecommendationFactorsPag
 
 export const metadata = {
   title: "Why Am I Seeing This? — StellarSwipe",
-  description: "The factors and weights the recommendation engine uses to personalise your signal feed.",
+  description:
+    "The factors and weights the recommendation engine uses to personalise your signal feed.",
 };
 
 export default function RecommendationFactorsRoute() {

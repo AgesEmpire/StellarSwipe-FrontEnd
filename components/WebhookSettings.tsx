@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useWebhookStore, type WebhookEventType } from "@/store/useWebhookStore";
+import {
+  useWebhookStore,
+  type WebhookEventType,
+} from "@/store/useWebhookStore";
 import { sendTestWebhook } from "@/services/webhookService";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus, Send, Copy } from "lucide-react";
@@ -14,10 +17,20 @@ const EVENT_OPTIONS: { value: WebhookEventType; label: string }[] = [
 ];
 
 export function WebhookSettings() {
-  const { webhooks, addWebhook, removeWebhook, updateEvents, updateRetryConfig } = useWebhookStore();
+  const {
+    webhooks,
+    addWebhook,
+    removeWebhook,
+    updateEvents,
+    updateRetryConfig,
+  } = useWebhookStore();
   const [url, setUrl] = useState("");
-  const [selectedEvents, setSelectedEvents] = useState<WebhookEventType[]>(["new_signal"]);
-  const [testStatus, setTestStatus] = useState<Record<string, { state: "sending" | "success" | "failed"; message: string }>>({});
+  const [selectedEvents, setSelectedEvents] = useState<WebhookEventType[]>([
+    "new_signal",
+  ]);
+  const [testStatus, setTestStatus] = useState<
+    Record<string, { state: "sending" | "success" | "failed"; message: string }>
+  >({});
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleAdd = () => {
@@ -37,15 +50,22 @@ export function WebhookSettings() {
         ...s,
         [webhookId]:
           delivery.status === "success"
-            ? { state: "success", message: `Test delivered successfully (${delivery.statusCode})` }
-            : { state: "failed", message: delivery.error ?? "Test delivery failed" },
+            ? {
+                state: "success",
+                message: `Test delivered successfully (${delivery.statusCode})`,
+              }
+            : {
+                state: "failed",
+                message: delivery.error ?? "Test delivery failed",
+              },
       }));
     } catch (error) {
       setTestStatus((s) => ({
         ...s,
         [webhookId]: {
           state: "failed",
-          message: error instanceof Error ? error.message : "Test delivery failed",
+          message:
+            error instanceof Error ? error.message : "Test delivery failed",
         },
       }));
     }
@@ -58,7 +78,9 @@ export function WebhookSettings() {
   };
 
   const toggleEvent = (current: WebhookEventType[], event: WebhookEventType) =>
-    current.includes(event) ? current.filter((e) => e !== event) : [...current, event];
+    current.includes(event)
+      ? current.filter((e) => e !== event)
+      : [...current, event];
 
   return (
     <section className="space-y-6">
@@ -79,7 +101,9 @@ export function WebhookSettings() {
           {EVENT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setSelectedEvents((ev) => toggleEvent(ev, opt.value))}
+              onClick={() =>
+                setSelectedEvents((ev) => toggleEvent(ev, opt.value))
+              }
               className={`rounded-full px-3 py-1 text-xs border transition-colors ${
                 selectedEvents.includes(opt.value)
                   ? "bg-blue-500 text-white border-blue-500"
@@ -91,7 +115,12 @@ export function WebhookSettings() {
             </button>
           ))}
         </div>
-        <Button size="sm" onClick={handleAdd} disabled={!url.trim()} className="gap-1">
+        <Button
+          size="sm"
+          onClick={handleAdd}
+          disabled={!url.trim()}
+          className="gap-1"
+        >
           <Plus size={14} /> Add Webhook
         </Button>
       </div>
@@ -103,19 +132,37 @@ export function WebhookSettings() {
           description="Add a webhook URL before sending a test payload."
           className="rounded-lg border-dashed bg-card py-8"
           action={
-            <Button size="sm" variant="outline" className="gap-1" disabled aria-describedby="webhook-test-disabled">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              disabled
+              aria-describedby="webhook-test-disabled"
+            >
               <Send size={12} />
               Send test webhook
             </Button>
           }
-          secondaryAction={<span id="webhook-test-disabled" className="text-xs text-muted-foreground">Waiting for a webhook URL</span>}
+          secondaryAction={
+            <span
+              id="webhook-test-disabled"
+              className="text-xs text-muted-foreground"
+            >
+              Waiting for a webhook URL
+            </span>
+          }
         />
       )}
 
       {webhooks.map((wh) => (
         <div key={wh.id} className="rounded-lg border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-mono truncate max-w-xs" title={wh.url}>{wh.url}</span>
+            <span
+              className="text-sm font-mono truncate max-w-xs"
+              title={wh.url}
+            >
+              {wh.url}
+            </span>
             <div className="flex items-center gap-1 shrink-0">
               <Button
                 variant="ghost"
@@ -126,7 +173,9 @@ export function WebhookSettings() {
                 className="gap-1 text-xs"
               >
                 <Send size={12} />
-                {testStatus[wh.id]?.state === "sending" ? "Sending..." : "Send test webhook"}
+                {testStatus[wh.id]?.state === "sending"
+                  ? "Sending..."
+                  : "Send test webhook"}
               </Button>
               <Button
                 variant="ghost"
@@ -160,7 +209,9 @@ export function WebhookSettings() {
             {EVENT_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => updateEvents(wh.id, toggleEvent(wh.events, opt.value))}
+                onClick={() =>
+                  updateEvents(wh.id, toggleEvent(wh.events, opt.value))
+                }
                 className={`rounded-full px-3 py-1 text-xs border transition-colors ${
                   wh.events.includes(opt.value)
                     ? "bg-blue-500 text-white border-blue-500"
@@ -186,12 +237,20 @@ export function WebhookSettings() {
             >
               <Copy size={12} />
             </button>
-            {copied === wh.id && <span className="text-green-500">Copied!</span>}
+            {copied === wh.id && (
+              <span className="text-green-500">Copied!</span>
+            )}
           </div>
 
           {/* Rate limit */}
           <div className="text-xs text-muted-foreground">
-            Rate limit: <span className={wh.rateLimit < 10 ? "text-yellow-500 font-medium" : ""}>{wh.rateLimit}/60</span> remaining this minute
+            Rate limit:{" "}
+            <span
+              className={wh.rateLimit < 10 ? "text-yellow-500 font-medium" : ""}
+            >
+              {wh.rateLimit}/60
+            </span>{" "}
+            remaining this minute
           </div>
 
           {/* Retry configuration */}
@@ -204,7 +263,13 @@ export function WebhookSettings() {
                 min={0}
                 max={10}
                 value={wh.maxRetries}
-                onChange={(e) => updateRetryConfig(wh.id, Number(e.target.value), wh.backoffInterval)}
+                onChange={(e) =>
+                  updateRetryConfig(
+                    wh.id,
+                    Number(e.target.value),
+                    wh.backoffInterval
+                  )
+                }
                 className="ml-1 w-14 rounded border bg-background px-2 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 aria-label={`Max retries for ${wh.url}`}
               />
@@ -217,7 +282,13 @@ export function WebhookSettings() {
                 max={60000}
                 step={100}
                 value={wh.backoffInterval}
-                onChange={(e) => updateRetryConfig(wh.id, wh.maxRetries, Number(e.target.value))}
+                onChange={(e) =>
+                  updateRetryConfig(
+                    wh.id,
+                    wh.maxRetries,
+                    Number(e.target.value)
+                  )
+                }
                 className="ml-1 w-20 rounded border bg-background px-2 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 aria-label={`Backoff interval for ${wh.url}`}
               />
@@ -232,9 +303,20 @@ export function WebhookSettings() {
               </summary>
               <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
                 {wh.deliveries.map((d) => (
-                  <div key={d.id} className={`flex justify-between px-2 py-1 rounded ${d.status === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-500"}`}>
+                  <div
+                    key={d.id}
+                    className={`flex justify-between px-2 py-1 rounded ${
+                      d.status === "success"
+                        ? "bg-green-500/10 text-green-600"
+                        : "bg-red-500/10 text-red-500"
+                    }`}
+                  >
                     <span>{new Date(d.timestamp).toLocaleTimeString()}</span>
-                    <span>{d.status === "success" ? `✓ ${d.statusCode}` : `✗ ${d.error}`}</span>
+                    <span>
+                      {d.status === "success"
+                        ? `✓ ${d.statusCode}`
+                        : `✗ ${d.error}`}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -245,9 +327,14 @@ export function WebhookSettings() {
           {wh.deliveries.filter((d) => d.status === "failed").length > 0 && (
             <details className="text-xs">
               <summary className="cursor-pointer text-red-500 hover:text-red-600">
-                Failure history ({wh.deliveries.filter((d) => d.status === "failed").length})
+                Failure history (
+                {wh.deliveries.filter((d) => d.status === "failed").length})
               </summary>
-              <div className="mt-2 space-y-1 max-h-48 overflow-y-auto" role="log" aria-label="Webhook failure history">
+              <div
+                className="mt-2 space-y-1 max-h-48 overflow-y-auto"
+                role="log"
+                aria-label="Webhook failure history"
+              >
                 {wh.deliveries
                   .filter((d) => d.status === "failed")
                   .map((d) => (
@@ -255,11 +342,16 @@ export function WebhookSettings() {
                       key={d.id}
                       className="grid grid-cols-3 gap-2 px-2 py-1.5 rounded bg-red-500/10 text-red-500"
                     >
-                      <span title={d.timestamp}>{new Date(d.timestamp).toLocaleTimeString()}</span>
+                      <span title={d.timestamp}>
+                        {new Date(d.timestamp).toLocaleTimeString()}
+                      </span>
                       <span>Status: {d.statusCode ?? "N/A"}</span>
                       <span>Attempt #{d.attemptNumber ?? "?"}</span>
                       {d.error && (
-                        <span className="col-span-3 truncate text-red-400" title={d.error}>
+                        <span
+                          className="col-span-3 truncate text-red-400"
+                          title={d.error}
+                        >
                           {d.error}
                         </span>
                       )}

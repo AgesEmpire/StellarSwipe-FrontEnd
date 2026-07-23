@@ -103,7 +103,9 @@ function AnalyticsDebugConsoleInner() {
         type="button"
         onClick={() => setMinimised((v) => !v)}
         aria-expanded={!minimised}
-        aria-label={minimised ? "Expand analytics console" : "Minimise analytics console"}
+        aria-label={
+          minimised ? "Expand analytics console" : "Minimise analytics console"
+        }
         className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
       >
         <span className="flex items-center gap-1.5 font-semibold text-slate-300">
@@ -121,7 +123,11 @@ function AnalyticsDebugConsoleInner() {
         {minimised ? (
           <ChevronUp size={11} className="text-slate-500" aria-hidden="true" />
         ) : (
-          <ChevronDown size={11} className="text-slate-500" aria-hidden="true" />
+          <ChevronDown
+            size={11}
+            className="text-slate-500"
+            aria-hidden="true"
+          />
         )}
       </button>
 
@@ -178,7 +184,13 @@ function AnalyticsDebugConsoleInner() {
                       ? "Try a broader filter to include more events."
                       : "Events will appear here as they fire."
                   }
-                  icon={<Activity size={16} className="opacity-40 text-slate-500" aria-hidden="true" />}
+                  icon={
+                    <Activity
+                      size={16}
+                      className="opacity-40 text-slate-500"
+                      aria-hidden="true"
+                    />
+                  }
                   className="rounded-lg border-white/5 bg-transparent py-6"
                 />
               </div>

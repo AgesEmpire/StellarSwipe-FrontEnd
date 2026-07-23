@@ -76,7 +76,9 @@ function ApiKeyRow({
   return (
     <li className="flex flex-col gap-1 rounded-lg border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 space-y-1">
-        <p className="font-medium text-sm text-foreground truncate">{apiKey.name}</p>
+        <p className="font-medium text-sm text-foreground truncate">
+          {apiKey.name}
+        </p>
         <p className="text-xs font-mono text-muted-foreground">
           {apiKey.maskedToken}
         </p>
@@ -200,10 +202,12 @@ export function ApiKeyManager() {
       {/* Keys list */}
       <Card>
         <CardHeader>
-          <h2 className="text-sm font-semibold text-foreground">Your API keys</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Your API keys
+          </h2>
           <p className="text-xs text-muted-foreground">
-            Full token values are never shown after initial creation — only masked
-            references.
+            Full token values are never shown after initial creation — only
+            masked references.
           </p>
         </CardHeader>
         <CardContent>

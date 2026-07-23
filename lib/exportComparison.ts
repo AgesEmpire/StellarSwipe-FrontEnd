@@ -23,16 +23,16 @@ export const COMPARISON_CSV_COLUMNS: Array<{
   header: string;
   getValue: (signal: Signal) => string;
 }> = [
-  { header: "ID",           getValue: (s) => s.id },
-  { header: "Asset",        getValue: (s) => s.ticker ?? "" },
-  { header: "Action",       getValue: (s) => s.action ?? "" },
-  { header: "Confidence",   getValue: (s) => s.confidence?.toString() ?? "" },
-  { header: "Entry Price",  getValue: (s) => "" },
+  { header: "ID", getValue: (s) => s.id },
+  { header: "Asset", getValue: (s) => s.ticker ?? "" },
+  { header: "Action", getValue: (s) => s.action ?? "" },
+  { header: "Confidence", getValue: (s) => s.confidence?.toString() ?? "" },
+  { header: "Entry Price", getValue: (s) => "" },
   { header: "Target Price", getValue: (s) => "" },
-  { header: "Stop Loss",    getValue: (s) => "" },
-  { header: "Risk/Reward",  getValue: (s) => "" },
-  { header: "Provider",     getValue: (s) => s.provider ?? "" },
-  { header: "Timestamp",    getValue: (s) => s.timestamp ?? "" },
+  { header: "Stop Loss", getValue: (s) => "" },
+  { header: "Risk/Reward", getValue: (s) => "" },
+  { header: "Provider", getValue: (s) => s.provider ?? "" },
+  { header: "Timestamp", getValue: (s) => s.timestamp ?? "" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -58,9 +58,13 @@ function escapeCsvCell(value: string): string {
  * @returns A UTF-8 CSV string with a header row followed by one row per signal.
  */
 export function buildComparisonCsv(signals: Signal[]): string {
-  const headers = COMPARISON_CSV_COLUMNS.map((col) => escapeCsvCell(col.header));
+  const headers = COMPARISON_CSV_COLUMNS.map((col) =>
+    escapeCsvCell(col.header)
+  );
   const rows = signals.map((signal) =>
-    COMPARISON_CSV_COLUMNS.map((col) => escapeCsvCell(col.getValue(signal))).join(",")
+    COMPARISON_CSV_COLUMNS.map((col) =>
+      escapeCsvCell(col.getValue(signal))
+    ).join(",")
   );
   return [headers.join(","), ...rows].join("\r\n");
 }
@@ -124,7 +128,7 @@ export async function downloadComparisonImage(
     const { default: html2canvas } = await import("html2canvas");
     canvas = await html2canvas(element, {
       backgroundColor: "#030712", // matches bg-gray-950
-      scale: 2,                   // retina-quality output
+      scale: 2, // retina-quality output
       useCORS: true,
       logging: false,
     });

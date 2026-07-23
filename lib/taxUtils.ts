@@ -8,7 +8,7 @@ export interface TaxRate {
 
 export const TAX_RATES: Record<TaxJurisdiction, TaxRate> = {
   US: { shortTerm: 0.22, longTerm: 0.15, label: "United States" },
-  UK: { shortTerm: 0.20, longTerm: 0.20, label: "United Kingdom" },
+  UK: { shortTerm: 0.2, longTerm: 0.2, label: "United Kingdom" },
   EU: { shortTerm: 0.25, longTerm: 0.25, label: "European Union" },
   CA: { shortTerm: 0.265, longTerm: 0.1325, label: "Canada" },
 };
@@ -89,7 +89,12 @@ export function computeTaxReport(
   );
 
   const entries: TaxEntry[] = yearTransactions.map((tx) => {
-    const gainLoss = computeGainLoss(tx.buyPrice, tx.sellPrice, tx.amount, tx.fee);
+    const gainLoss = computeGainLoss(
+      tx.buyPrice,
+      tx.sellPrice,
+      tx.amount,
+      tx.fee
+    );
     const longTerm = tx.acquisitionDate
       ? isLongTermHolding(tx.acquisitionDate, tx.timestamp)
       : false;
@@ -185,7 +190,16 @@ export const CSV_PRESETS: Record<CsvPreset, CsvPresetDefinition> = {
   },
   cointracker: {
     label: "CoinTracker",
-    headers: ["Date", "Received Quantity", "Received Currency", "Sent Quantity", "Sent Currency", "Fee Amount", "Fee Currency", "Tag"],
+    headers: [
+      "Date",
+      "Received Quantity",
+      "Received Currency",
+      "Sent Quantity",
+      "Sent Currency",
+      "Fee Amount",
+      "Fee Currency",
+      "Tag",
+    ],
     row: (e) => {
       const [base, quote] = e.assetPair.split("/");
       return [
@@ -202,7 +216,20 @@ export const CSV_PRESETS: Record<CsvPreset, CsvPresetDefinition> = {
   },
   koinly: {
     label: "Koinly",
-    headers: ["Date", "Sent Amount", "Sent Currency", "Received Amount", "Received Currency", "Fee Amount", "Fee Currency", "Net Worth Amount", "Net Worth Currency", "Label", "Description", "TxHash"],
+    headers: [
+      "Date",
+      "Sent Amount",
+      "Sent Currency",
+      "Received Amount",
+      "Received Currency",
+      "Fee Amount",
+      "Fee Currency",
+      "Net Worth Amount",
+      "Net Worth Currency",
+      "Label",
+      "Description",
+      "TxHash",
+    ],
     row: (e) => {
       const [base, quote] = e.assetPair.split("/");
       return [
@@ -223,10 +250,15 @@ export const CSV_PRESETS: Record<CsvPreset, CsvPresetDefinition> = {
   },
 };
 
-export function exportToCsvWithPreset(report: TaxReport, preset: CsvPreset = "generic"): string {
+export function exportToCsvWithPreset(
+  report: TaxReport,
+  preset: CsvPreset = "generic"
+): string {
   const { headers, row } = CSV_PRESETS[preset];
   const rows = report.entries.map(row);
-  return [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+  return [headers, ...rows]
+    .map((r) => r.map((v) => `"${v}"`).join(","))
+    .join("\n");
 }
 
 export function exportToCsv(report: TaxReport): string {
@@ -270,10 +302,16 @@ export function formatForTaxAct(report: TaxReport): string {
     e.costBasis.toFixed(2),
     e.gainLoss.toFixed(2),
   ]);
-  return [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+  return [headers, ...rows]
+    .map((r) => r.map((v) => `"${v}"`).join(","))
+    .join("\n");
 }
 
-export function triggerDownload(content: string, filename: string, mimeType: string): void {
+export function triggerDownload(
+  content: string,
+  filename: string,
+  mimeType: string
+): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

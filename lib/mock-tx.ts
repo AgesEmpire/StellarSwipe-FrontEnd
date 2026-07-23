@@ -8,5 +8,5 @@ interface MockTxParams {
 
 export async function mockBuildTx(params: MockTxParams): Promise<void> {
   // Simulate transaction building delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  await new Promise((resolve) => setTimeout(resolve, 1500));
 }

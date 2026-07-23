@@ -35,9 +35,13 @@ const outcomeLabels = {
 
 export function TransactionActivityFeed() {
   const history = useTransactionStore((state) => state.history);
-  const updateTransactionStatus = useTransactionStore((state) => state.updateTransactionStatus);
-  const [typeFilter, setTypeFilter] = useState<typeof TYPE_OPTIONS[number]["value"]>("ALL");
-  const [statusFilter, setStatusFilter] = useState<typeof OUTCOME_OPTIONS[number]["value"]>("ALL");
+  const updateTransactionStatus = useTransactionStore(
+    (state) => state.updateTransactionStatus
+  );
+  const [typeFilter, setTypeFilter] =
+    useState<(typeof TYPE_OPTIONS)[number]["value"]>("ALL");
+  const [statusFilter, setStatusFilter] =
+    useState<(typeof OUTCOME_OPTIONS)[number]["value"]>("ALL");
 
   useEffect(() => {
     const pending = history.filter((item) => item.status === "PENDING");
@@ -64,14 +68,24 @@ export function TransactionActivityFeed() {
     <section className="rounded-3xl border border-white/10 bg-card p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-foreground">Transaction Activity</p>
-          <p className="text-xs text-muted-foreground">Recent copy trades, status updates, and history in one place.</p>
+          <p className="text-sm font-semibold text-foreground">
+            Transaction Activity
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Recent copy trades, status updates, and history in one place.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Type</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            Type
+          </label>
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as typeof TYPE_OPTIONS[number]["value"])}
+            onChange={(e) =>
+              setTypeFilter(
+                e.target.value as (typeof TYPE_OPTIONS)[number]["value"]
+              )
+            }
             className="rounded-full border border-white/10 bg-background/80 px-3 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-blue-500"
           >
             {TYPE_OPTIONS.map((option) => (
@@ -80,10 +94,16 @@ export function TransactionActivityFeed() {
               </option>
             ))}
           </select>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Status</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            Status
+          </label>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as typeof OUTCOME_OPTIONS[number]["value"])}
+            onChange={(e) =>
+              setStatusFilter(
+                e.target.value as (typeof OUTCOME_OPTIONS)[number]["value"]
+              )
+            }
             className="rounded-full border border-white/10 bg-background/80 px-3 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-blue-500"
           >
             {OUTCOME_OPTIONS.map((option) => (
@@ -110,14 +130,20 @@ export function TransactionActivityFeed() {
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{item.assetPair}</p>
-                  <p className="text-xs text-muted-foreground">{item.type.replace("_", " ")}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {item.assetPair}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.type.replace("_", " ")}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(
-                    "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]",
-                    statusStyles[item.status]
-                  )}>
+                  <span
+                    className={cn(
+                      "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]",
+                      statusStyles[item.status]
+                    )}
+                  >
                     {item.status}
                   </span>
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">
@@ -129,15 +155,25 @@ export function TransactionActivityFeed() {
               <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div className="grid gap-2 sm:grid-cols-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Amount</p>
-                    <p className="text-sm font-medium text-foreground">{item.amount} {item.token}</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Amount
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      {item.amount} {item.token}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Price</p>
-                    <p className="text-sm font-medium text-foreground">${item.price}</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Price
+                    </p>
+                    <p className="text-sm font-medium text-foreground">
+                      ${item.price}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Time</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Time
+                    </p>
                     <RelativeTimestamp timestamp={new Date(item.timestamp)} />
                   </div>
                 </div>

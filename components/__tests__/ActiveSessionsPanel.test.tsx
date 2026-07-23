@@ -16,7 +16,13 @@
  *  - Empty state renders when sessions list is empty
  */
 
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { ActiveSessionsPanel } from "@/components/ActiveSessionsPanel";
 import type { Session } from "@/lib/sessionUtils";
 
@@ -119,9 +125,7 @@ describe("ActiveSessionsPanel – list rendering", () => {
     );
 
     // aria-label is on the badge span
-    expect(
-      screen.getByLabelText("This is your current session")
-    ).toBeTruthy();
+    expect(screen.getByLabelText("This is your current session")).toBeTruthy();
   });
 
   it("does not show a Revoke button for the current session", () => {
@@ -168,7 +172,9 @@ describe("ActiveSessionsPanel – list rendering", () => {
       />
     );
 
-    expect(screen.getByRole("list", { name: /active sessions list/i })).toBeTruthy();
+    expect(
+      screen.getByRole("list", { name: /active sessions list/i })
+    ).toBeTruthy();
   });
 });
 
@@ -265,9 +271,7 @@ describe("ActiveSessionsPanel – single revoke", () => {
       // Session should be restored
       expect(screen.getByTestId("session-row-sess_a")).toBeTruthy();
       // Error message should appear
-      expect(
-        screen.getByRole("alert", { hidden: false })
-      ).toBeTruthy();
+      expect(screen.getByRole("alert", { hidden: false })).toBeTruthy();
     });
   });
 
@@ -391,9 +395,7 @@ describe("ActiveSessionsPanel – bulk revoke", () => {
       />
     );
 
-    expect(
-      screen.queryByRole("button", { name: /revoke all/i })
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /revoke all/i })).toBeNull();
   });
 
   it("hides the bulk revoke button after all other sessions have been revoked", async () => {
@@ -412,9 +414,7 @@ describe("ActiveSessionsPanel – bulk revoke", () => {
     });
 
     await waitFor(() => {
-      expect(
-        screen.queryByRole("button", { name: /revoke all/i })
-      ).toBeNull();
+      expect(screen.queryByRole("button", { name: /revoke all/i })).toBeNull();
     });
   });
 });
@@ -483,11 +483,7 @@ describe("ActiveSessionsPanel – states", () => {
 
   it("renders the empty state when sessions is an empty array", () => {
     render(
-      <ActiveSessionsPanel
-        sessions={[]}
-        onRevoke={noop}
-        onRevokeAll={noop}
-      />
+      <ActiveSessionsPanel sessions={[]} onRevoke={noop} onRevokeAll={noop} />
     );
 
     expect(screen.getByTestId("sessions-empty")).toBeTruthy();

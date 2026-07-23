@@ -7,6 +7,7 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
 ## Files Created
 
 ### Hooks
+
 - **`hooks/usePullToRefresh.ts`** (195 lines)
   - Custom React hook for pull-to-refresh gesture detection
   - Manages touch events (touchstart, touchmove, touchend)
@@ -16,6 +17,7 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
   - TypeScript interfaces: `UsePullToRefreshOptions`, `UsePullToRefreshState`
 
 ### Components
+
 - **`components/PullToRefreshIndicator.tsx`** (88 lines)
   - Visual feedback component for pull-to-refresh gesture
   - Uses Framer Motion for smooth animations
@@ -27,7 +29,9 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
   - Full accessibility support (role, aria-live, aria-label)
 
 ### Tests
+
 - **`hooks/__tests__/usePullToRefresh.test.ts`** (286 lines)
+
   - 11 unit tests for `usePullToRefresh` hook
   - Tests: initialization, scroll detection, pull tracking, dampening, threshold, debouncing, cleanup
   - Uses Jest with `@testing-library/react` for realistic testing
@@ -35,6 +39,7 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
   - Tests both sync and async refresh callbacks
 
 - **`components/__tests__/PullToRefreshIndicator.test.tsx`** (168 lines)
+
   - 11 component tests for `PullToRefreshIndicator`
   - Tests: rendering, state messages, accessibility, styling, animations
   - Verifies aria-label updates and dynamic state rendering
@@ -48,7 +53,9 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
   - Simulates complete user interaction flow
 
 ### Documentation
+
 - **`PULL_TO_REFRESH_IMPLEMENTATION.md`** (380+ lines)
+
   - Comprehensive implementation guide
   - Acceptance criteria verification
   - Architecture overview
@@ -67,10 +74,13 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
 ## Files Modified
 
 ### `components/signal/SignalFeed.tsx`
+
 **Changes:**
+
 1. Line 25: Added import `import { usePullToRefresh } from "@/hooks/usePullToRefresh";`
 2. Line 26: Added import `import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";`
 3. Lines 193-198: Integrated pull-to-refresh hook
+
    ```typescript
    const handlePullRefresh = useCallback(() => {
      refetch();
@@ -82,19 +92,23 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
      disabled: isLoading,
    });
    ```
+
 4. Lines 378-384: Rendered indicator component
    ```tsx
-   {/* Pull-to-refresh indicator — visible on touch devices only */}
+   {
+     /* Pull-to-refresh indicator — visible on touch devices only */
+   }
    <div className="sm:hidden">
      <PullToRefreshIndicator
        pullDistance={pullDistance}
        isRefreshing={isRefreshing}
        data-testid="pull-to-refresh-container"
      />
-   </div>
+   </div>;
    ```
 
 **Impact:**
+
 - Minimal changes to existing logic
 - No breaking changes to existing props or behavior
 - Indicator only visible on mobile (`sm:hidden`)
@@ -106,23 +120,27 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
 ### Pull-to-Refresh Behavior
 
 **Gesture Detection:**
+
 - Listens for touch events on the scrollable feed container
 - Only activates when container is at scroll top (scrollTop === 0)
 - Tracks vertical drag distance from touchstart to touchmove
 - Computes dampened distance for spring-like feel
 
 **Threshold & Debouncing:**
+
 - Threshold: 80px (configurable)
 - Debounce: 1000ms between refreshes
 - Visual feedback: opacity increases from 0 to 1 as threshold approaches
 - Prevents rapid successive refreshes
 
 **Responsive Design:**
+
 - Mobile (< 640px): Pull-to-refresh visible and active
 - Desktop (≥ 640px): Indicator hidden, gestures disabled
 - Uses Tailwind `sm:hidden` for responsive visibility
 
 **Accessibility:**
+
 - ARIA role: `status`
 - ARIA live region: `polite`
 - Dynamic aria-label for state changes
@@ -132,6 +150,7 @@ Implemented pull-to-refresh gesture functionality for the signal feed on touch d
 ### Styling Consistency
 
 The indicator matches existing loading skeleton styling:
+
 - Background: `bg-slate-900/80` (matches SignalCardSkeleton)
 - Border: `border border-white/10` (matches cards)
 - Border radius: `rounded-3xl` (matches card styling)
@@ -150,22 +169,26 @@ The indicator matches existing loading skeleton styling:
 ## Acceptance Criteria Verification
 
 ✅ **Implement pull-to-refresh gesture on touch devices**
+
 - `usePullToRefresh` hook detects touch gestures
 - Only activates on mobile and at scroll top
 - Triggers React Query `refetch()` on threshold
 
 ✅ **Show refresh indicator consistent with loading skeleton styles**
+
 - `PullToRefreshIndicator` component with skeleton-like styling
 - Uses same color scheme as `SignalCardSkeleton`
 - Animated spinner during refresh
 - Opacity ramps with pull distance
 
 ✅ **Debounce repeated pulls while refresh in flight**
+
 - `PULL_TO_REFRESH_DEBOUNCE_MS = 1000` blocks new gestures
 - `isRefreshing` state prevents concurrent refreshes
 - Disabled during initial load
 
 ✅ **Add interaction test simulating pull gesture**
+
 - 8 integration tests in `SignalFeed.pull-to-refresh.test.tsx`
 - Tests simulate touch events and verify refetch
 - Tests verify debouncing and threshold detection
@@ -174,6 +197,7 @@ The indicator matches existing loading skeleton styling:
 ## Test Coverage Summary
 
 ### Total Tests: 30+
+
 - Unit tests (Hook): 11
 - Component tests (Indicator): 11
 - Integration tests (SignalFeed): 8
@@ -182,36 +206,42 @@ The indicator matches existing loading skeleton styling:
 ### Test Categories
 
 **Gesture Detection:**
+
 - ✅ Pull distance tracking
 - ✅ Threshold detection
 - ✅ Dampening beyond threshold
 - ✅ Scroll position validation
 
 **Callback Management:**
+
 - ✅ Refresh triggering at threshold
 - ✅ No trigger below threshold
 - ✅ Async callback handling
 - ✅ Error handling
 
 **Debouncing:**
+
 - ✅ Single refresh in flight blocks new attempts
 - ✅ 1000ms debounce timeout respected
 - ✅ Disabled state respected
 - ✅ Cleanup on unmount
 
 **Visual Feedback:**
+
 - ✅ Opacity ramping
 - ✅ Position translation
 - ✅ Message state changes
 - ✅ Spinner animation
 
 **Accessibility:**
+
 - ✅ ARIA attributes present
 - ✅ aria-label updates
 - ✅ Status role
 - ✅ Live region announcements
 
 **Responsive Design:**
+
 - ✅ Mobile visibility
 - ✅ Desktop hidden
 - ✅ Touch events only
@@ -220,6 +250,7 @@ The indicator matches existing loading skeleton styling:
 ## Dependencies
 
 ### Existing (No new dependencies added)
+
 - React (hooks: useCallback, useEffect, useRef, useState)
 - Framer Motion (already in project)
 - lucide-react (RefreshCw icon)
@@ -229,6 +260,7 @@ The indicator matches existing loading skeleton styling:
 - MSW (tests)
 
 ### No Breaking Changes
+
 - All new code is additive
 - Existing APIs unchanged
 - Backward compatible
@@ -242,18 +274,21 @@ The indicator matches existing loading skeleton styling:
 ## Migration & Rollout
 
 ### For Existing Installations
+
 1. No database migrations needed
 2. No config file updates needed
 3. Feature activates automatically on mobile
 4. Desktop unaffected (desktop-only apps see no change)
 
 ### Feature Flags (if needed)
+
 Can be disabled per-instance via `disabled` prop:
+
 ```tsx
 const { pullDistance, isRefreshing } = usePullToRefresh({
   container: parentRef.current,
   onRefresh: handlePullRefresh,
-  disabled: userPreference.pullToRefreshDisabled,  // Configurable
+  disabled: userPreference.pullToRefreshDisabled, // Configurable
 });
 ```
 
@@ -273,6 +308,7 @@ const { pullDistance, isRefreshing } = usePullToRefresh({
 ## Future Enhancements
 
 See `PULL_TO_REFRESH_IMPLEMENTATION.md` for detailed enhancement suggestions:
+
 - Haptic feedback on threshold
 - Customizable messages
 - Success animation
@@ -290,11 +326,13 @@ See `PULL_TO_REFRESH_IMPLEMENTATION.md` for detailed enhancement suggestions:
 ## Support & Maintenance
 
 ### Known Limitations
+
 - Only works on touch-enabled devices
 - Requires container at scroll top
 - Debounce timeout is fixed (1000ms)
 
 ### Future Optimization Opportunities
+
 - Performance profiling on low-end devices
 - Battery impact analysis
 - Network retry logic for failed refreshes

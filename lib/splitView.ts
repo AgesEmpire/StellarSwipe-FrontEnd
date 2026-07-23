@@ -19,7 +19,10 @@ export function computeSplitRatioFromClientX(
   if (containerWidth <= 0) return DEFAULT_RATIO;
 
   const minLeft = Math.max(0, minLeftWidth);
-  const maxLeft = Math.max(minLeft, containerWidth - Math.max(0, minRightWidth));
+  const maxLeft = Math.max(
+    minLeft,
+    containerWidth - Math.max(0, minRightWidth)
+  );
 
   const desiredLeft = clientX - containerLeft;
   const clampedLeft = Math.max(minLeft, Math.min(maxLeft, desiredLeft));

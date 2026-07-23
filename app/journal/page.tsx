@@ -3,7 +3,8 @@ import { JournalPage } from "@/components/JournalPage";
 
 export const metadata: Metadata = {
   title: "Trading Journal | StellarSwipe",
-  description: "Manage your trading history and backfill entries via CSV import.",
+  description:
+    "Manage your trading history and backfill entries via CSV import.",
 };
 
 export default function JournalRoute() {

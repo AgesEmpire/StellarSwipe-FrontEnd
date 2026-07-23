@@ -7,7 +7,8 @@ interface SignalBadgeProps {
 const styles: Record<SignalType, string> = {
   BUY: "bg-green-500 text-white forced-colors:bg-[Highlight] forced-colors:text-[HighlightText] forced-colors:border forced-colors:border-[HighlightText]",
   SELL: "bg-red-500 text-white forced-colors:bg-[Mark] forced-colors:text-[MarkText] forced-colors:border forced-colors:border-[MarkText]",
-  NEUTRAL: "bg-slate-500 text-white forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
+  NEUTRAL:
+    "bg-slate-500 text-white forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
 };
 
 export function SignalBadge({ signal }: SignalBadgeProps) {

@@ -1,8 +1,18 @@
 "use client";
 
-import { useOnboardingStore, useOnboardingHydrated, ONBOARDING_TOTAL_STEPS } from "@/store/useOnboardingStore";
+import {
+  useOnboardingStore,
+  useOnboardingHydrated,
+  ONBOARDING_TOTAL_STEPS,
+} from "@/store/useOnboardingStore";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Wallet, LayoutList, ArrowLeftRight, X } from "lucide-react";
+import {
+  ChevronRight,
+  Wallet,
+  LayoutList,
+  ArrowLeftRight,
+  X,
+} from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface OnboardingStep {
@@ -33,7 +43,8 @@ const STEPS: OnboardingStep[] = [
 ];
 
 export function OnboardingFlow() {
-  const { dismissed, currentStep, setCompleted, setDismissed, setCurrentStep } = useOnboardingStore();
+  const { dismissed, currentStep, setCompleted, setDismissed, setCurrentStep } =
+    useOnboardingStore();
   const isHydrated = useOnboardingHydrated();
   const focusTrapRef = useFocusTrap({ isActive: true });
 
@@ -61,7 +72,10 @@ export function OnboardingFlow() {
       aria-label="Welcome to StellarSwipe"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
     >
-      <div ref={focusTrapRef} className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-black/50">
+      <div
+        ref={focusTrapRef}
+        className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-black/50"
+      >
         <button
           type="button"
           onClick={setDismissed}
@@ -71,7 +85,10 @@ export function OnboardingFlow() {
           <X size={16} aria-hidden="true" />
         </button>
 
-        <div className="mb-4 flex items-center gap-1.5" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+        <div
+          className="mb-4 flex items-center gap-1.5"
+          aria-label={`Step ${step + 1} of ${STEPS.length}`}
+        >
           {STEPS.map((_, i) => (
             <div
               key={i}
@@ -90,8 +107,12 @@ export function OnboardingFlow() {
           <Icon size={28} aria-hidden="true" />
         </div>
 
-        <h2 className="mb-2 text-lg font-semibold text-white">{current.title}</h2>
-        <p className="mb-6 text-sm leading-relaxed text-slate-400">{current.description}</p>
+        <h2 className="mb-2 text-lg font-semibold text-white">
+          {current.title}
+        </h2>
+        <p className="mb-6 text-sm leading-relaxed text-slate-400">
+          {current.description}
+        </p>
 
         <div className="flex items-center justify-between gap-3">
           <button
@@ -105,7 +126,9 @@ export function OnboardingFlow() {
             onClick={handleNext}
             size="sm"
             className="flex items-center gap-1.5"
-            aria-label={isLast ? "Finish onboarding" : `Next: ${STEPS[step + 1]?.title}`}
+            aria-label={
+              isLast ? "Finish onboarding" : `Next: ${STEPS[step + 1]?.title}`
+            }
           >
             {isLast ? "Get started" : "Next"}
             <ChevronRight size={14} aria-hidden="true" />

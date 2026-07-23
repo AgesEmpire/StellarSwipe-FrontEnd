@@ -2,8 +2,14 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { SignalCard } from "@/components/SignalCard";
 
 const ROI = [
-  { value: 0 }, { value: 1.2 }, { value: 0.8 }, { value: 2.1 },
-  { value: 1.9 }, { value: 3.4 }, { value: 2.8 }, { value: 4.2 },
+  { value: 0 },
+  { value: 1.2 },
+  { value: 0.8 },
+  { value: 2.1 },
+  { value: 1.9 },
+  { value: 3.4 },
+  { value: 2.8 },
+  { value: 4.2 },
 ];
 
 const base = {
@@ -12,7 +18,8 @@ const base = {
   confidence: 82,
   projectedTarget: 0.15,
   roiHistory: ROI,
-  analysis: "Strong bullish momentum with support at 0.12. RSI shows oversold conditions.",
+  analysis:
+    "Strong bullish momentum with support at 0.12. RSI shows oversold conditions.",
   action: "BUY" as const,
   timestamp: new Date("2024-01-15T10:00:00Z"),
   providerName: "Alpha Signals",

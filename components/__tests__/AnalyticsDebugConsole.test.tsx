@@ -11,11 +11,17 @@ const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 describe("AnalyticsDebugConsole", () => {
   afterEach(() => {
-    process.env.NODE_ENV = ORIGINAL_NODE_ENV as string;
+    Object.defineProperty(process.env, "NODE_ENV", {
+      value: ORIGINAL_NODE_ENV,
+      configurable: true,
+    });
   });
 
   it("does not render when the build environment is production", () => {
-    process.env.NODE_ENV = "production";
+    Object.defineProperty(process.env, "NODE_ENV", {
+      value: "production",
+      configurable: true,
+    });
 
     const { container } = render(<AnalyticsDebugConsole />);
     expect(container.firstChild).toBeNull();
@@ -28,6 +34,8 @@ describe("AnalyticsDebugConsole", () => {
     });
 
     render(<AnalyticsDebugConsole />);
-    expect(screen.getByLabelText("Analytics debug console (dev mode only)")).toBeTruthy();
+    expect(
+      screen.getByLabelText("Analytics debug console (dev mode only)")
+    ).toBeTruthy();
   });
 });

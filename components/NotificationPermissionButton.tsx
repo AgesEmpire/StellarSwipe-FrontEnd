@@ -9,8 +9,12 @@ import { usePushSubscription } from "@/hooks/usePushSubscription";
 
 export function NotificationPermissionButton() {
   const [isRequesting, setIsRequesting] = useState(false);
-  const { permissionStatus, setPermissionStatus, deniedMessage, showDeniedMessage } =
-    useNotificationPreference();
+  const {
+    permissionStatus,
+    setPermissionStatus,
+    deniedMessage,
+    showDeniedMessage,
+  } = useNotificationPreference();
   const { pushState, loading, subscribe, unsubscribe } = usePushSubscription();
 
   // Permission denied banner
@@ -18,8 +22,14 @@ export function NotificationPermissionButton() {
     return (
       <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-600">
         <Bell size={14} />
-        <span>Notifications are disabled. Check your browser settings to enable.</span>
-        <button onClick={() => showDeniedMessage()} className="ml-auto" aria-label="Dismiss">
+        <span>
+          Notifications are disabled. Check your browser settings to enable.
+        </span>
+        <button
+          onClick={() => showDeniedMessage()}
+          className="ml-auto"
+          aria-label="Dismiss"
+        >
           <X size={14} />
         </button>
       </div>

@@ -16,6 +16,7 @@ This PR adds comprehensive unit test coverage for `useLeaderboard.ts` and `usePr
 ### useLeaderboard Test Coverage
 
 Tests cover the following leaderboard data scenarios:
+
 - `computeTopRanked`: Returns correctly ranked providers, limited to top 10
 - `computeWinRateAverage`: Calculates average win rate correctly with edge cases for empty arrays
 - `computeTotalSignals`: Sums total signals across all providers
@@ -24,6 +25,7 @@ Tests cover the following leaderboard data scenarios:
 ### useProviderProfile Test Coverage
 
 Tests cover the following provider profile data scenarios:
+
 - `computeAverageConfidence`: Calculates average confidence from signals array
 - `computeWinRate`: Computes win rate percentage (WIN outcomes / total)
 - `computePendingSignals`: Filters signals by PENDING outcome
@@ -34,6 +36,7 @@ Tests cover the following provider profile data scenarios:
 ### Testing Pattern
 
 Following the existing pattern from `hooks/__tests__/hooks.test.ts`, tests target pure-logic functions extracted from the hooks:
+
 - No React hooks in bare Node environment
 - Test the business logic that the hook enables via React Query
 - Deterministic tests using static mock data
@@ -41,6 +44,7 @@ Following the existing pattern from `hooks/__tests__/hooks.test.ts`, tests targe
 ### Mock Data
 
 Uses realistic mock data matching the `SignalProvider` and `ProviderSignal` types:
+
 - Multiple providers with varying scores, ranks, and performance
 - Signals with WIN, LOSS, and PENDING outcomes
 - Edge cases: empty arrays, missing providers, single items

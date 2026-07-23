@@ -18,7 +18,8 @@ function formatCountdown(ms: number): string {
 }
 
 export function DemoModeToggle({ className }: { className?: string }) {
-  const { isDemoMode, toggleDemoMode, sessionStartedAt, resetDemoData } = useDemoModeStore();
+  const { isDemoMode, toggleDemoMode, sessionStartedAt, resetDemoData } =
+    useDemoModeStore();
   const isHydrated = useDemoModeHydrated();
   const [remaining, setRemaining] = useState<number | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -39,7 +40,8 @@ export function DemoModeToggle({ className }: { className?: string }) {
     return () => clearInterval(id);
   }, [isDemoMode, sessionStartedAt]);
 
-  const isWarning = remaining !== null && remaining <= DEMO_WARNING_THRESHOLD_MS;
+  const isWarning =
+    remaining !== null && remaining <= DEMO_WARNING_THRESHOLD_MS;
 
   function handleResetClick() {
     if (!confirmReset) {
@@ -98,15 +100,17 @@ export function DemoModeToggle({ className }: { className?: string }) {
               ? "bg-red-500/20 text-red-400 ring-1 ring-red-500/30"
               : "bg-white/10 text-foreground-muted"
           )}
-          aria-label={`Demo session time remaining: ${formatCountdown(remaining)}`}
+          aria-label={`Demo session time remaining: ${formatCountdown(
+            remaining
+          )}`}
           data-warning={isWarning}
         >
           {formatCountdown(remaining)}
         </span>
       )}
 
-      {isDemoMode && (
-        confirmReset ? (
+      {isDemoMode &&
+        (confirmReset ? (
           <span className="flex items-center gap-1 text-xs">
             <span className="text-yellow-400">Reset demo data?</span>
             <button
@@ -134,8 +138,7 @@ export function DemoModeToggle({ className }: { className?: string }) {
             <RotateCcw size={11} aria-hidden="true" />
             Reset Data
           </button>
-        )
-      )}
+        ))}
     </div>
   );
 }

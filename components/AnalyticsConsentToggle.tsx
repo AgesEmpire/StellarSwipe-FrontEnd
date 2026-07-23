@@ -10,12 +10,18 @@ export function AnalyticsConsentToggle() {
     <div className="flex items-center justify-between gap-4">
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
-          <BarChart2 size={13} className="text-foreground-muted" aria-hidden="true" />
-          <span className="text-sm font-medium text-foreground">Analytics Tracking</span>
+          <BarChart2
+            size={13}
+            className="text-foreground-muted"
+            aria-hidden="true"
+          />
+          <span className="text-sm font-medium text-foreground">
+            Analytics Tracking
+          </span>
         </div>
         <p className="text-xs text-foreground-muted">
-          Allow non-essential usage analytics to be collected. Disabling this stops
-          all analytics events and web vitals reporting immediately.
+          Allow non-essential usage analytics to be collected. Disabling this
+          stops all analytics events and web vitals reporting immediately.
         </p>
       </div>
       <button

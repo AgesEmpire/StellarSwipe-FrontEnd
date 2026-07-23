@@ -4,7 +4,14 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronDown, Copy, LogOut, PlusCircle, RefreshCw } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  LogOut,
+  PlusCircle,
+  RefreshCw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function truncate(key: string) {
@@ -68,18 +75,27 @@ export function WalletDropdown() {
 
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") { handleClose(); return; }
+      if (e.key === "Escape") {
+        handleClose();
+        return;
+      }
       if (open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
         e.preventDefault();
         const menu = menuRef.current;
         if (!menu) return;
-        const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+        const items = Array.from(
+          menu.querySelectorAll<HTMLElement>('[role="menuitem"]')
+        );
         if (!items.length) return;
         const idx = items.indexOf(document.activeElement as HTMLElement);
         const next =
           e.key === "ArrowDown"
-            ? idx < 0 ? 0 : (idx + 1) % items.length
-            : idx < 0 ? items.length - 1 : (idx - 1 + items.length) % items.length;
+            ? idx < 0
+              ? 0
+              : (idx + 1) % items.length
+            : idx < 0
+            ? items.length - 1
+            : (idx - 1 + items.length) % items.length;
         items[next]?.focus();
       }
     }
@@ -116,7 +132,10 @@ export function WalletDropdown() {
             {wallets.length}
           </span>
         )}
-        <ChevronDown aria-hidden="true" className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          aria-hidden="true"
+          className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
+        />
       </Button>
 
       {open && (
@@ -156,7 +175,12 @@ export function WalletDropdown() {
                         )}
                       >
                         <span>{truncate(w.publicKey)}</span>
-                        {isActive && <Check className="h-3 w-3 text-blue-400" aria-label="Active" />}
+                        {isActive && (
+                          <Check
+                            className="h-3 w-3 text-blue-400"
+                            aria-label="Active"
+                          />
+                        )}
                       </button>
                     </li>
                   );
@@ -171,7 +195,10 @@ export function WalletDropdown() {
           <button
             role="menuitem"
             tabIndex={0}
-            onClick={() => { handleClose(); connectAnother(); }}
+            onClick={() => {
+              handleClose();
+              connectAnother();
+            }}
             disabled={isConnecting}
             aria-label="Connect another wallet"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-60"
@@ -193,16 +220,32 @@ export function WalletDropdown() {
             tabIndex={0}
             onClick={handleRefresh}
             disabled={isRefreshing}
-            aria-label={isRefreshing ? "Refreshing wallet balance…" : refreshed ? "Balance refreshed" : "Refresh wallet balance"}
+            aria-label={
+              isRefreshing
+                ? "Refreshing wallet balance…"
+                : refreshed
+                ? "Balance refreshed"
+                : "Refresh wallet balance"
+            }
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
             {refreshed ? (
               <Check className="h-4 w-4 text-green-500" aria-hidden="true" />
             ) : (
-              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin text-blue-400")} aria-hidden="true" />
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4",
+                  isRefreshing && "animate-spin text-blue-400"
+                )}
+                aria-hidden="true"
+              />
             )}
             <span aria-live="polite">
-              {isRefreshing ? "Refreshing…" : refreshed ? "Balance updated" : "Refresh balance"}
+              {isRefreshing
+                ? "Refreshing…"
+                : refreshed
+                ? "Balance updated"
+                : "Refresh balance"}
             </span>
           </button>
 
@@ -214,7 +257,11 @@ export function WalletDropdown() {
             aria-label={copied ? "Address copied" : "Copy wallet address"}
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
           >
-            {copied ? <Check aria-hidden="true" className="h-4 w-4 text-green-600" /> : <Copy aria-hidden="true" className="h-4 w-4" />}
+            {copied ? (
+              <Check aria-hidden="true" className="h-4 w-4 text-green-600" />
+            ) : (
+              <Copy aria-hidden="true" className="h-4 w-4" />
+            )}
             {copied ? "Copied!" : "Copy address"}
           </button>
 
@@ -224,7 +271,10 @@ export function WalletDropdown() {
           <button
             role="menuitem"
             tabIndex={0}
-            onClick={() => { disconnect(); setOpen(false); }}
+            onClick={() => {
+              disconnect();
+              setOpen(false);
+            }}
             aria-label="Disconnect active wallet"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
           >
@@ -237,7 +287,10 @@ export function WalletDropdown() {
             <button
               role="menuitem"
               tabIndex={0}
-              onClick={() => { disconnectAll(); setOpen(false); }}
+              onClick={() => {
+                disconnectAll();
+                setOpen(false);
+              }}
               aria-label="Disconnect all wallets"
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-destructive/80 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
             >

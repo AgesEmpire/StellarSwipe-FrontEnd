@@ -5,10 +5,7 @@ module.exports = {
       startServerCommand: "npm run start",
       startServerReadyPattern: "Ready on",
       startServerReadyTimeout: 30000,
-      url: [
-        "http://localhost:3000/",
-        "http://localhost:3000/app",
-      ],
+      url: ["http://localhost:3000/", "http://localhost:3000/app"],
       numberOfRuns: 2,
     },
     assert: {

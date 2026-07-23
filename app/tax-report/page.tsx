@@ -3,7 +3,8 @@ import dynamic from "next/dynamic";
 
 export const metadata: Metadata = {
   title: "Tax Report | StellarSwipe",
-  description: "Generate tax documents from your StellarSwipe trading activity.",
+  description:
+    "Generate tax documents from your StellarSwipe trading activity.",
 };
 
 const TaxReportingTool = dynamic(

@@ -93,13 +93,16 @@ describe("generateBackupCodes", () => {
 
   it("generates unique codes", () => {
     const codes = generateBackupCodes(8);
-    const unique = new Set(codes.map(c => c.value));
+    const unique = new Set(codes.map((c) => c.value));
     expect(unique.size).toBe(8);
   });
 });
 
 describe("formatBackupCodesText", () => {
-  const codes = [{ value: "11111-22222", consumed: false }, { value: "33333-44444", consumed: false }];
+  const codes = [
+    { value: "11111-22222", consumed: false },
+    { value: "33333-44444", consumed: false },
+  ];
 
   it("includes a header mentioning StellarSwipe", () => {
     const text = formatBackupCodesText(codes, "user@test.com");

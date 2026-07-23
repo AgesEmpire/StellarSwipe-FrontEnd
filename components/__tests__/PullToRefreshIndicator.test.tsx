@@ -10,12 +10,7 @@ import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
 
 describe("PullToRefreshIndicator – visual feedback for pull-to-refresh", () => {
   it("renders with correct initial state", () => {
-    render(
-      <PullToRefreshIndicator
-        pullDistance={0}
-        isRefreshing={false}
-      />
-    );
+    render(<PullToRefreshIndicator pullDistance={0} isRefreshing={false} />);
 
     const indicator = screen.getByTestId("pull-to-refresh-indicator");
     expect(indicator).toBeInTheDocument();
@@ -36,22 +31,14 @@ describe("PullToRefreshIndicator – visual feedback for pull-to-refresh", () =>
   });
 
   it("shows 'Refreshing…' message during refresh", () => {
-    render(
-      <PullToRefreshIndicator
-        pullDistance={0}
-        isRefreshing={true}
-      />
-    );
+    render(<PullToRefreshIndicator pullDistance={0} isRefreshing={true} />);
 
     expect(screen.getByText("Refreshing…")).toBeInTheDocument();
   });
 
   it("shows spinner icon", () => {
     const { container } = render(
-      <PullToRefreshIndicator
-        pullDistance={0}
-        isRefreshing={false}
-      />
+      <PullToRefreshIndicator pullDistance={0} isRefreshing={false} />
     );
 
     // RefreshCw icon from lucide-react
@@ -61,33 +48,19 @@ describe("PullToRefreshIndicator – visual feedback for pull-to-refresh", () =>
 
   it("has proper accessibility attributes", () => {
     const { rerender } = render(
-      <PullToRefreshIndicator
-        pullDistance={40}
-        isRefreshing={false}
-      />
+      <PullToRefreshIndicator pullDistance={40} isRefreshing={false} />
     );
 
     let indicator = screen.getByTestId("pull-to-refresh-indicator");
     expect(indicator).toHaveAttribute("aria-live", "polite");
     expect(indicator).toHaveAttribute("role", "status");
-    expect(indicator).toHaveAttribute(
-      "aria-label",
-      "Pull to refresh"
-    );
+    expect(indicator).toHaveAttribute("aria-label", "Pull to refresh");
 
     // During refresh
-    rerender(
-      <PullToRefreshIndicator
-        pullDistance={0}
-        isRefreshing={true}
-      />
-    );
+    rerender(<PullToRefreshIndicator pullDistance={0} isRefreshing={true} />);
 
     indicator = screen.getByTestId("pull-to-refresh-indicator");
-    expect(indicator).toHaveAttribute(
-      "aria-label",
-      "Refreshing signals"
-    );
+    expect(indicator).toHaveAttribute("aria-label", "Refreshing signals");
   });
 
   it("updates aria-label when threshold is reached", () => {
@@ -126,7 +99,9 @@ describe("PullToRefreshIndicator – visual feedback for pull-to-refresh", () =>
       />
     );
 
-    const indicator = container.querySelector("[data-testid='pull-to-refresh-indicator']");
+    const indicator = container.querySelector(
+      "[data-testid='pull-to-refresh-indicator']"
+    );
     expect(indicator).toHaveClass(
       "rounded-3xl",
       "border",
@@ -137,10 +112,7 @@ describe("PullToRefreshIndicator – visual feedback for pull-to-refresh", () =>
 
   it("uses correct icon color (sky-400)", () => {
     const { container } = render(
-      <PullToRefreshIndicator
-        pullDistance={0}
-        isRefreshing={false}
-      />
+      <PullToRefreshIndicator pullDistance={0} isRefreshing={false} />
     );
 
     const icon = container.querySelector("svg");
@@ -149,10 +121,7 @@ describe("PullToRefreshIndicator – visual feedback for pull-to-refresh", () =>
 
   it("animates spinner during refresh", () => {
     const { container } = render(
-      <PullToRefreshIndicator
-        pullDistance={0}
-        isRefreshing={true}
-      />
+      <PullToRefreshIndicator pullDistance={0} isRefreshing={true} />
     );
 
     const spinnerDiv = screen.getByTestId("refresh-spinner");

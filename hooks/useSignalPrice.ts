@@ -42,7 +42,12 @@ function mockFetchPrice(current: SignalPrice): SignalPrice {
   const newRoi = parseFloat((current.roi + roiDelta).toFixed(2));
   const confDelta = Math.floor((Math.random() - 0.5) * 3);
   const newConf = Math.min(100, Math.max(0, current.confidence + confDelta));
-  return { executionPrice: newPrice, roi: newRoi, confidence: newConf, updatedAt: new Date() };
+  return {
+    executionPrice: newPrice,
+    roi: newRoi,
+    confidence: newConf,
+    updatedAt: new Date(),
+  };
 }
 
 export interface UseSignalPriceOptions {
@@ -84,14 +89,19 @@ export function useSignalPrice(
       traceWorker("worker:signalPrice:poll", async () => {
         const prev = prevRef.current;
         const next = await fetchPriceRef.current(prev);
-        
+
         if (cancelled) return;
-        
+
         consecutiveFailures = 0;
         setStale(false);
         setPrice(next);
-        
-        const dir = next.executionPrice > prev.executionPrice ? "up" : next.executionPrice < prev.executionPrice ? "down" : null;
+
+        const dir =
+          next.executionPrice > prev.executionPrice
+            ? "up"
+            : next.executionPrice < prev.executionPrice
+            ? "down"
+            : null;
         if (dir) {
           setFlash(dir);
           setTimeout(() => setFlash(null), 900);
@@ -105,7 +115,10 @@ export function useSignalPrice(
         })
         .finally(() => {
           if (!cancelled) {
-            const nextDelay = computePollDelayMs(intervalMs, consecutiveFailures);
+            const nextDelay = computePollDelayMs(
+              intervalMs,
+              consecutiveFailures
+            );
             schedule(nextDelay);
           }
         });

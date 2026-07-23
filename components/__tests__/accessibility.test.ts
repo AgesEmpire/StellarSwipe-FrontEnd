@@ -58,7 +58,9 @@ describe("Accessibility – SignalCard", () => {
         </div>
       </article>
     `);
-    const results = await axe(document.body, { rules: { region: { enabled: false } } });
+    const results = await axe(document.body, {
+      rules: { region: { enabled: false } },
+    });
     expect(results).toHaveNoViolations();
   });
 
@@ -81,7 +83,9 @@ describe("Accessibility – SignalCard", () => {
         <p>Entry price: <strong>$45,000</strong></p>
       </article>
     `);
-    const results = await axe(document.body, { rules: { region: { enabled: false } } });
+    const results = await axe(document.body, {
+      rules: { region: { enabled: false } },
+    });
     expect(results).toHaveNoViolations();
   });
 });
@@ -140,7 +144,9 @@ describe("Accessibility – TradeModal", () => {
         </div>
       </div>
     `);
-    const results = await axe(document.body, { rules: { region: { enabled: false } } });
+    const results = await axe(document.body, {
+      rules: { region: { enabled: false } },
+    });
     expect(results).toHaveNoViolations();
   });
 });
@@ -175,7 +181,9 @@ describe("Accessibility – Navbar", () => {
         </nav>
       </header>
     `);
-    const results = await axe(document.body, { rules: { region: { enabled: false } } });
+    const results = await axe(document.body, {
+      rules: { region: { enabled: false } },
+    });
     expect(results).toHaveNoViolations();
   });
 
@@ -208,7 +216,9 @@ describe("Accessibility – Navbar", () => {
         </nav>
       </header>
     `);
-    const results = await axe(document.body, { rules: { region: { enabled: false } } });
+    const results = await axe(document.body, {
+      rules: { region: { enabled: false } },
+    });
     expect(results).toHaveNoViolations();
   });
 });
@@ -233,7 +243,9 @@ describe("Accessibility – WalletDropdown", () => {
         </button>
       </div>
     `);
-    const results = await axe(document.body, { rules: { region: { enabled: false } } });
+    const results = await axe(document.body, {
+      rules: { region: { enabled: false } },
+    });
     expect(results).toHaveNoViolations();
   });
 
@@ -284,7 +296,9 @@ describe("Accessibility – WalletDropdown", () => {
         </div>
       </div>
     `);
-    const results = await axe(document.body, { rules: { region: { enabled: false } } });
+    const results = await axe(document.body, {
+      rules: { region: { enabled: false } },
+    });
     expect(results).toHaveNoViolations();
   });
 });

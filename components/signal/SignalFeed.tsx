@@ -58,14 +58,8 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
 
   // #99: provider search state (persisted in filter store)
-  const {
-    direction,
-    asset,
-    provider,
-    bookmarkedOnly,
-    sortOrder,
-    setProvider,
-  } = useSignalFilterStore();
+  const { direction, asset, provider, bookmarkedOnly, sortOrder, setProvider } =
+    useSignalFilterStore();
   const density = useFeedDensityStore((s) => s.density);
   const bookmarkedIds = useBookmarkStore((state) => state.bookmarks);
   // #321: snoozed signals are hidden from the feed until their snooze elapses.
@@ -93,11 +87,18 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     isFetchingNextPage,
     isFetching,
     refetch,
-  } = useInfiniteQuery<SignalResponse, Error, InfiniteData<SignalResponse, number>>({
+  } = useInfiniteQuery<
+    SignalResponse,
+    Error,
+    InfiniteData<SignalResponse, number>
+  >({
     queryKey: ["signals"],
     queryFn: async ({ pageParam = 1 }) => {
       // Use fetchSignals so absolute base URL is prepended correctly for MSW testing environments
-      return fetchSignals({ page: pageParam as number, pageSize: PAGE_SIZE }) as Promise<SignalResponse>;
+      return fetchSignals({
+        page: pageParam as number,
+        pageSize: PAGE_SIZE,
+      }) as Promise<SignalResponse>;
     },
     getNextPageParam: (lastPage: SignalResponse) => lastPage.nextPage,
     initialPageParam: 1,
@@ -164,17 +165,31 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allSignals, direction, asset, provider, providerSearch, bookmarkedOnly, bookmarkedIds, snoozedMap, snoozeTick]);
+  }, [
+    allSignals,
+    direction,
+    asset,
+    provider,
+    providerSearch,
+    bookmarkedOnly,
+    bookmarkedIds,
+    snoozedMap,
+    snoozeTick,
+  ]);
 
   const signals = useMemo<Signal[]>(() => {
     const copy = [...filteredSignals];
     if (sortOrder === "latest") {
-      copy.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      copy.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
     } else if (sortOrder === "hot") {
       // Best Performing: newest signals with highest confidence
-      copy.sort((a, b) =>
-        b.confidence - a.confidence ||
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      copy.sort(
+        (a, b) =>
+          b.confidence - a.confidence ||
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
     } else if (sortOrder === "confidence") {
       // Confidence: strictly by confidence score descending
@@ -182,7 +197,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     } else if (sortOrder === "relevant") {
       // Relevant: BUY/SELL before HOLD, then by confidence
       const actionWeight = (s: Signal) => (s.action === "HOLD" ? 0 : 1);
-      copy.sort((a, b) => actionWeight(b) - actionWeight(a) || b.confidence - a.confidence);
+      copy.sort(
+        (a, b) =>
+          actionWeight(b) - actionWeight(a) || b.confidence - a.confidence
+      );
     }
     return copy;
   }, [filteredSignals, sortOrder]);
@@ -241,7 +259,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       return;
     }
 
-    if (!selectedSignalId || !signals.some((signal) => signal.id === selectedSignalId)) {
+    if (
+      !selectedSignalId ||
+      !signals.some((signal) => signal.id === selectedSignalId)
+    ) {
       setSelectedSignalId(signals[0]!.id);
     }
   }, [signals, selectedSignalId]);
@@ -320,9 +341,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       }
     };
 
-    container.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
-      container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener("scroll", handleScroll);
       // Save final position on unmount
       try {
         sessionStorage.setItem(STORAGE_KEY, container.scrollTop.toString());
@@ -358,9 +379,12 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   useEffect(() => {
     const element = sentinelRef.current;
     // If auto-load previously failed, don't re-trigger via IntersectionObserver
-    if (!element || !hasNextPage || isFetchingNextPage || autoLoadFailed) return;
+    if (!element || !hasNextPage || isFetchingNextPage || autoLoadFailed)
+      return;
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0]?.isIntersecting) loadMore(); },
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
       { rootMargin: "240px" }
     );
     observer.observe(element);
@@ -368,10 +392,13 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   }, [hasNextPage, isFetchingNextPage, loadMore, autoLoadFailed]);
 
   // #99: sync provider search to filter store
-  const handleProviderSearch = useCallback((value: string) => {
-    setProviderSearch(value);
-    setProvider(value);
-  }, [setProvider]);
+  const handleProviderSearch = useCallback(
+    (value: string) => {
+      setProviderSearch(value);
+      setProvider(value);
+    },
+    [setProvider]
+  );
 
   return (
     <section
@@ -381,10 +408,15 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     >
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-sky-400/90">Signal feed</p>
-          <h2 className="text-xl font-semibold sm:text-2xl md:text-3xl">Live market signals</h2>
+          <p className="text-sm uppercase tracking-[0.3em] text-sky-400/90">
+            Signal feed
+          </p>
+          <h2 className="text-xl font-semibold sm:text-2xl md:text-3xl">
+            Live market signals
+          </h2>
           <p className="max-w-2xl text-sm text-slate-400">
-            Browse the latest actionable signals with seamless infinite scrolling.
+            Browse the latest actionable signals with seamless infinite
+            scrolling.
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -397,7 +429,11 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             <FeedDensityToggle />
           </div>
           {/* #98: show consistent loading state */}
-          <div className="text-right text-sm text-foreground-muted" aria-live="polite" aria-atomic="true">
+          <div
+            className="text-right text-sm text-foreground-muted"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {isFetching && !allSignals.length
               ? "Loading signals..."
               : isFetching
@@ -436,7 +472,8 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         {/* #99: show matching provider count */}
         {providerSearch && (
           <p className="mt-1 text-[11px] text-slate-500" aria-live="polite">
-            {signals.length} signal{signals.length !== 1 ? "s" : ""} matching &ldquo;{providerSearch}&rdquo;
+            {signals.length} signal{signals.length !== 1 ? "s" : ""} matching
+            &ldquo;{providerSearch}&rdquo;
           </p>
         )}
       </div>
@@ -453,9 +490,21 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
           >
             <SlidersHorizontal size={13} aria-hidden="true" />
             Filters
-            {(direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly || providerSearch.trim() !== "") && (
+            {(direction !== "ALL" ||
+              asset !== "" ||
+              provider !== "" ||
+              bookmarkedOnly ||
+              providerSearch.trim() !== "") && (
               <span className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white">
-                {[direction !== "ALL", asset !== "", provider !== "", bookmarkedOnly, providerSearch.trim() !== ""].filter(Boolean).length}
+                {
+                  [
+                    direction !== "ALL",
+                    asset !== "",
+                    provider !== "",
+                    bookmarkedOnly,
+                    providerSearch.trim() !== "",
+                  ].filter(Boolean).length
+                }
               </span>
             )}
           </button>
@@ -463,7 +512,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
 
         {/* Desktop: inline filter panel */}
         <div className="hidden sm:block">
-          <SignalFeedFilters availableAssets={availableAssets} availableProviders={availableProviders} />
+          <SignalFeedFilters
+            availableAssets={availableAssets}
+            availableProviders={availableProviders}
+          />
         </div>
       </div>
 
@@ -480,7 +532,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
 
       {/* Pull-to-refresh indicator — visible on touch devices only */}
       <div className="sm:hidden" data-testid="pull-to-refresh-container">
-        <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+        <PullToRefreshIndicator
+          pullDistance={pullDistance}
+          isRefreshing={isRefreshing}
+        />
       </div>
 
       <div
@@ -488,7 +543,11 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         className="lg:grid lg:items-start lg:gap-0"
         style={
           isDesktop
-            ? { gridTemplateColumns: `${(splitRatio * 100).toFixed(2)}% 10px minmax(${MIN_DETAIL_PANE_WIDTH}px, 1fr)` }
+            ? {
+                gridTemplateColumns: `${(splitRatio * 100).toFixed(
+                  2
+                )}% 10px minmax(${MIN_DETAIL_PANE_WIDTH}px, 1fr)`,
+              }
             : undefined
         }
       >
@@ -502,17 +561,27 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             onKeyDown={(e) => {
               if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
               const articles = Array.from(
-                (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>("article[tabindex]")
+                (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(
+                  "article[tabindex]"
+                )
               );
-              const idx = articles.indexOf(document.activeElement as HTMLElement);
+              const idx = articles.indexOf(
+                document.activeElement as HTMLElement
+              );
               if (idx === -1) return;
               e.preventDefault();
-              const next = e.key === "ArrowDown" ? articles[idx + 1] : articles[idx - 1];
+              const next =
+                e.key === "ArrowDown" ? articles[idx + 1] : articles[idx - 1];
               next?.focus();
             }}
           >
             {isLoading ? (
-              <div className="space-y-4" role="status" aria-label="Loading signal feed" aria-live="polite">
+              <div
+                className="space-y-4"
+                role="status"
+                aria-label="Loading signal feed"
+                aria-live="polite"
+              >
                 <span className="sr-only">Loading signal feed…</span>
                 {Array.from({ length: 3 }).map((_, index) => (
                   <SignalCardSkeleton key={index} />
@@ -542,7 +611,8 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                 {virtualizer.getVirtualItems().map((virtualRow) => {
                   const signal = signals[virtualRow.index];
                   const isExpired =
-                    !!signal.expiresAt && new Date(signal.expiresAt) < new Date();
+                    !!signal.expiresAt &&
+                    new Date(signal.expiresAt) < new Date();
 
                   return (
                     <div
@@ -563,7 +633,13 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                           addView(signal.id);
                           setSelectedSignalId(signal.id);
                         }}
-                        aria-label={`${signal.ticker} ${signal.action} signal, ${signal.confidence}% confidence${signal.provider ? `, provider ${signal.provider}` : ""}${signal.status ? `, status ${signal.status}` : ""}${isExpired ? ", expired" : ""}. Use arrow keys to navigate between signals.`}
+                        aria-label={`${signal.ticker} ${
+                          signal.action
+                        } signal, ${signal.confidence}% confidence${
+                          signal.provider ? `, provider ${signal.provider}` : ""
+                        }${signal.status ? `, status ${signal.status}` : ""}${
+                          isExpired ? ", expired" : ""
+                        }. Use arrow keys to navigate between signals.`}
                         data-density={density}
                         className={`rounded-3xl border border-white/10 bg-slate-950/90 shadow-sm shadow-slate-950/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
                           density === "compact"
@@ -578,14 +654,24 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                         )}
 
                         <div
-                          className={isExpired ? "opacity-60 pointer-events-none select-none" : ""}
+                          className={
+                            isExpired
+                              ? "opacity-60 pointer-events-none select-none"
+                              : ""
+                          }
                           aria-hidden={isExpired}
                         >
-                          <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${density === "compact" ? "gap-2" : "gap-4"}`}>
+                          <div
+                            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${
+                              density === "compact" ? "gap-2" : "gap-4"
+                            }`}
+                          >
                             <div>
                               <p className="text-xs uppercase tracking-[0.3em] text-foreground-muted">
                                 <time dateTime={signal.timestamp}>
-                                  <RelativeTimestamp timestamp={new Date(signal.timestamp)} />
+                                  <RelativeTimestamp
+                                    timestamp={new Date(signal.timestamp)}
+                                  />
                                 </time>
                               </p>
                               <h3 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-xl">
@@ -606,8 +692,8 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                                       signal.status === "Active"
                                         ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/20"
                                         : signal.status === "Waiting"
-                                          ? "bg-amber-500/10 text-amber-300 ring-amber-500/20"
-                                          : "bg-slate-500/10 text-slate-400 ring-slate-500/20"
+                                        ? "bg-amber-500/10 text-amber-300 ring-amber-500/20"
+                                        : "bg-slate-500/10 text-slate-400 ring-slate-500/20"
                                     }`}
                                     aria-label={`Status: ${signal.status}`}
                                   >
@@ -623,7 +709,13 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                               Confidence {signal.confidence}%
                             </div>
                           </div>
-                          <p className={`text-sm leading-6 text-foreground-muted ${density === "compact" ? "mt-2" : "mt-4"}`}>{signal.details}</p>
+                          <p
+                            className={`text-sm leading-6 text-foreground-muted ${
+                              density === "compact" ? "mt-2" : "mt-4"
+                            }`}
+                          >
+                            {signal.details}
+                          </p>
                         </div>
                       </article>
                     </div>
@@ -637,7 +729,6 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                 <SignalCardSkeleton />
               </div>
             )}
-
           </div>
 
           <div className="mt-6 flex flex-col items-center gap-4">
@@ -652,7 +743,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             )}
 
             {!hasNextPage && signals.length > 0 && (
-              <p className="text-center text-sm text-foreground-subtle" aria-live="polite">
+              <p
+                className="text-center text-sm text-foreground-subtle"
+                aria-live="polite"
+              >
                 You&apos;ve reached the end of the feed.
               </p>
             )}
@@ -660,7 +754,11 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             {hasNextPage && (autoLoadFailed || !isFetchingNextPage) && (
               <div className="flex flex-col items-center gap-2">
                 {autoLoadFailed && (
-                  <p className="text-xs text-amber-400" role="alert" aria-live="assertive">
+                  <p
+                    className="text-xs text-amber-400"
+                    role="alert"
+                    aria-live="assertive"
+                  >
                     Auto-load failed. Load more manually.
                   </p>
                 )}
@@ -668,7 +766,11 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                   variant="outline"
                   onClick={handleManualLoadMore}
                   disabled={isFetchingNextPage}
-                  aria-label={isFetchingNextPage ? "Loading more signals" : "Load more signals"}
+                  aria-label={
+                    isFetchingNextPage
+                      ? "Loading more signals"
+                      : "Load more signals"
+                  }
                 >
                   {isFetchingNextPage ? "Loading more..." : "Load more signals"}
                 </Button>
@@ -694,7 +796,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             >
               {selectedSignal ? (
                 <div className="space-y-4" tabIndex={0}>
-                  <p className="text-xs uppercase tracking-[0.3em] text-sky-400/80">Selected signal</p>
+                  <p className="text-xs uppercase tracking-[0.3em] text-sky-400/80">
+                    Selected signal
+                  </p>
                   <h3 className="text-2xl font-semibold text-white">
                     {selectedSignal.ticker} • {selectedSignal.action}
                   </h3>
@@ -713,9 +817,15 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm leading-6 text-foreground-muted">{selectedSignal.details}</p>
+                  <p className="text-sm leading-6 text-foreground-muted">
+                    {selectedSignal.details}
+                  </p>
                   <p className="text-xs text-foreground-subtle">
-                    Published <RelativeTimestamp timestamp={new Date(selectedSignal.timestamp)} />.
+                    Published{" "}
+                    <RelativeTimestamp
+                      timestamp={new Date(selectedSignal.timestamp)}
+                    />
+                    .
                   </p>
                 </div>
               ) : (

@@ -10,10 +10,22 @@ import {
 } from "@/store/useSwipeSettingsStore";
 
 // Sensitivity levels in display order
-const SENSITIVITY_LEVELS: { value: SensitivityLevel; label: string; description: string }[] = [
-  { value: "low", label: "Low", description: "Harder to trigger — requires a longer drag" },
+const SENSITIVITY_LEVELS: {
+  value: SensitivityLevel;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "low",
+    label: "Low",
+    description: "Harder to trigger — requires a longer drag",
+  },
   { value: "default", label: "Default", description: "Original behaviour" },
-  { value: "high", label: "High", description: "Easier to trigger — shorter drag commits the swipe" },
+  {
+    value: "high",
+    label: "High",
+    description: "Easier to trigger — shorter drag commits the swipe",
+  },
 ];
 
 /**
@@ -32,14 +44,21 @@ const SENSITIVITY_LEVELS: { value: SensitivityLevel; label: string; description:
  * <SwipeSettings />
  */
 export function SwipeSettings({ className }: { className?: string }) {
-  const { sensitivity, swapDirections, setSensitivity, setSwapDirections, resetToDefaults } =
-    useSwipeSettingsStore();
+  const {
+    sensitivity,
+    swapDirections,
+    setSensitivity,
+    setSwapDirections,
+    resetToDefaults,
+  } = useSwipeSettingsStore();
 
   const swipeThreshold = getEffectiveSwipeThreshold(sensitivity);
   const velocityThreshold = getEffectiveVelocityThreshold(sensitivity);
 
   // Convert sensitivity to a 0–2 slider index for the range input
-  const sensitivityIndex = SENSITIVITY_LEVELS.findIndex((l) => l.value === sensitivity);
+  const sensitivityIndex = SENSITIVITY_LEVELS.findIndex(
+    (l) => l.value === sensitivity
+  );
   const selectedLevel = SENSITIVITY_LEVELS[sensitivityIndex];
 
   function handleSliderChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -53,7 +72,10 @@ export function SwipeSettings({ className }: { className?: string }) {
   return (
     <section
       aria-labelledby="swipe-settings-heading"
-      className={cn("flex flex-col gap-5 rounded-2xl border bg-card p-5", className)}
+      className={cn(
+        "flex flex-col gap-5 rounded-2xl border bg-card p-5",
+        className
+      )}
     >
       <div className="flex items-center justify-between">
         <div>
@@ -101,11 +123,18 @@ export function SwipeSettings({ className }: { className?: string }) {
         {/* Slider track */}
         <div className="relative flex items-center">
           {/* Background track */}
-          <div className="absolute h-1.5 w-full rounded-full bg-muted" aria-hidden="true" />
+          <div
+            className="absolute h-1.5 w-full rounded-full bg-muted"
+            aria-hidden="true"
+          />
           {/* Filled portion */}
           <div
             className="absolute h-1.5 rounded-full bg-blue-500 transition-all duration-75"
-            style={{ width: `${(sensitivityIndex / (SENSITIVITY_LEVELS.length - 1)) * 100}%` }}
+            style={{
+              width: `${
+                (sensitivityIndex / (SENSITIVITY_LEVELS.length - 1)) * 100
+              }%`,
+            }}
             aria-hidden="true"
           />
           <input
@@ -120,7 +149,9 @@ export function SwipeSettings({ className }: { className?: string }) {
             aria-valuemin={0}
             aria-valuemax={SENSITIVITY_LEVELS.length - 1}
             aria-valuenow={sensitivityIndex}
-            aria-valuetext={`${selectedLevel?.label ?? "Default"} — ${selectedLevel?.description ?? ""}`}
+            aria-valuetext={`${selectedLevel?.label ?? "Default"} — ${
+              selectedLevel?.description ?? ""
+            }`}
             className={cn(
               "relative w-full cursor-pointer appearance-none bg-transparent h-5",
               "focus:outline-none",
@@ -140,7 +171,10 @@ export function SwipeSettings({ className }: { className?: string }) {
         </div>
 
         {/* Tick labels */}
-        <div className="flex justify-between text-xs text-muted-foreground select-none" aria-hidden="true">
+        <div
+          className="flex justify-between text-xs text-muted-foreground select-none"
+          aria-hidden="true"
+        >
           {SENSITIVITY_LEVELS.map((l) => (
             <span key={l.value}>{l.label}</span>
           ))}
@@ -199,13 +233,19 @@ export function SwipeSettings({ className }: { className?: string }) {
         aria-label="Current swipe direction mapping"
       >
         <span className="flex items-center gap-1.5">
-          <span className="text-red-400" aria-hidden="true">←</span>
+          <span className="text-red-400" aria-hidden="true">
+            ←
+          </span>
           {swapDirections ? "Trade" : "Pass"}
         </span>
-        <span className="text-muted-foreground/60" aria-hidden="true">|</span>
+        <span className="text-muted-foreground/60" aria-hidden="true">
+          |
+        </span>
         <span className="flex items-center gap-1.5">
           {swapDirections ? "Pass" : "Trade"}
-          <span className="text-green-400" aria-hidden="true">→</span>
+          <span className="text-green-400" aria-hidden="true">
+            →
+          </span>
         </span>
       </div>
     </section>

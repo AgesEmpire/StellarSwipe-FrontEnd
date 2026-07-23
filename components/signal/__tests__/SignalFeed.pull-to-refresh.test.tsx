@@ -133,7 +133,7 @@ describe("SignalFeed – pull-to-refresh integration", () => {
     const feedEl = screen.getByRole("feed");
     // In JSDOM, scroll layout doesn't automatically sync, so explicitly set scrollTop to 0
     // so the usePullToRefresh hook thinks we are at the top of the container.
-    Object.defineProperty(feedEl, 'scrollTop', { value: 0, writable: true });
+    Object.defineProperty(feedEl, "scrollTop", { value: 0, writable: true });
 
     act(() => {
       // Touch start
@@ -189,7 +189,10 @@ describe("SignalFeed – pull-to-refresh integration", () => {
     );
 
     const feedContainer = screen.getByRole("feed");
-    Object.defineProperty(feedContainer, 'scrollTop', { value: 0, writable: true });
+    Object.defineProperty(feedContainer, "scrollTop", {
+      value: 0,
+      writable: true,
+    });
 
     // First pull gesture — split touchstart+touchmove from touchend
     // so React state (pullDistance) flushes before touchend checks it
@@ -279,7 +282,10 @@ describe("SignalFeed – pull-to-refresh integration", () => {
     const indicator = screen.getByTestId("pull-to-refresh-indicator");
 
     // Initial state
-    expect(indicator).toHaveAttribute("aria-label", expect.stringContaining("Pull to refresh"));
+    expect(indicator).toHaveAttribute(
+      "aria-label",
+      expect.stringContaining("Pull to refresh")
+    );
   });
 
   it("disables pull-to-refresh during initial load", async () => {

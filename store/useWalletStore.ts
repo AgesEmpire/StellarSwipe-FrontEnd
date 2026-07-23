@@ -37,7 +37,12 @@ export const useWalletStore = create<WalletState>()(
             return { activePublicKey: key, publicKey: key, isConnected: true };
           }
           const wallets = [...state.wallets, { publicKey: key }];
-          return { wallets, activePublicKey: key, publicKey: key, isConnected: true };
+          return {
+            wallets,
+            activePublicKey: key,
+            publicKey: key,
+            isConnected: true,
+          };
         }),
 
       setActiveWallet: (key) =>
@@ -51,7 +56,7 @@ export const useWalletStore = create<WalletState>()(
           const wallets = state.wallets.filter((w) => w.publicKey !== key);
           const activePublicKey =
             state.activePublicKey === key
-              ? (wallets[0]?.publicKey ?? null)
+              ? wallets[0]?.publicKey ?? null
               : state.activePublicKey;
           return {
             wallets,
@@ -62,7 +67,12 @@ export const useWalletStore = create<WalletState>()(
         }),
 
       disconnectAll: () =>
-        set({ wallets: [], activePublicKey: null, publicKey: null, isConnected: false }),
+        set({
+          wallets: [],
+          activePublicKey: null,
+          publicKey: null,
+          isConnected: false,
+        }),
 
       // Backward compat: setPublicKey adds wallet and makes it active
       setPublicKey: (key) => {

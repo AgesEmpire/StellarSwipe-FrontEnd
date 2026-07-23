@@ -12,12 +12,11 @@ interface RelativeTimestampProps {
  * using Intl.RelativeTimeFormat. Falls back to an absolute timestamp if
  * localization fails.
  */
-export function RelativeTimestamp({ timestamp, className }: RelativeTimestampProps) {
+export function RelativeTimestamp({
+  timestamp,
+  className,
+}: RelativeTimestampProps) {
   const label = useRelativeTime(timestamp);
 
-  return (
-    <span className={className}>
-      {label}
-    </span>
-  );
+  return <span className={className}>{label}</span>;
 }

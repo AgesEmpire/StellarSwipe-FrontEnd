@@ -52,8 +52,12 @@ export function SignalSparkline({ data, className }: SignalSparklineProps) {
       )}
       <button
         type="button"
-        onClick={() => setChartStyle(chartStyle === "line" ? "candlestick" : "line")}
-        aria-label={`Switch to ${chartStyle === "line" ? "candlestick" : "line"} chart`}
+        onClick={() =>
+          setChartStyle(chartStyle === "line" ? "candlestick" : "line")
+        }
+        aria-label={`Switch to ${
+          chartStyle === "line" ? "candlestick" : "line"
+        } chart`}
         aria-pressed={chartStyle === "candlestick"}
         className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
       >

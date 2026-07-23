@@ -83,7 +83,9 @@ describe("addSignal – deduplication", () => {
 describe(`addSignal – MAX_SIGNALS (${MAX_SIGNALS}) limit`, () => {
   it("allows adding exactly MAX_SIGNALS signals", () => {
     for (let i = 1; i <= MAX_SIGNALS; i++) {
-      const added = useComparisonStore.getState().addSignal(makeSignal(`s${i}`));
+      const added = useComparisonStore
+        .getState()
+        .addSignal(makeSignal(`s${i}`));
       expect(added).toBe(true);
     }
     expect(useComparisonStore.getState().signals).toHaveLength(MAX_SIGNALS);
@@ -93,7 +95,9 @@ describe(`addSignal – MAX_SIGNALS (${MAX_SIGNALS}) limit`, () => {
     for (let i = 1; i <= MAX_SIGNALS; i++) {
       useComparisonStore.getState().addSignal(makeSignal(`s${i}`));
     }
-    const overflow = useComparisonStore.getState().addSignal(makeSignal("s-extra"));
+    const overflow = useComparisonStore
+      .getState()
+      .addSignal(makeSignal("s-extra"));
     expect(overflow).toBe(false);
   });
 
@@ -207,7 +211,9 @@ describe("clearSignals – clear all", () => {
       useComparisonStore.getState().addSignal(makeSignal(`s${i}`));
     }
     useComparisonStore.getState().clearSignals();
-    const added = useComparisonStore.getState().addSignal(makeSignal("s-fresh"));
+    const added = useComparisonStore
+      .getState()
+      .addSignal(makeSignal("s-fresh"));
     expect(added).toBe(true);
   });
 });
@@ -253,7 +259,9 @@ describe("toggleMetric", () => {
   it("removes the key when toggled again", () => {
     useComparisonStore.getState().toggleMetric("confidence");
     useComparisonStore.getState().toggleMetric("confidence");
-    expect(useComparisonStore.getState().hiddenMetrics).not.toContain("confidence");
+    expect(useComparisonStore.getState().hiddenMetrics).not.toContain(
+      "confidence"
+    );
   });
 
   it("does not affect other hidden metrics when toggling one key", () => {
@@ -261,6 +269,8 @@ describe("toggleMetric", () => {
     useComparisonStore.getState().toggleMetric("confidence");
     useComparisonStore.getState().toggleMetric("confidence");
     expect(useComparisonStore.getState().hiddenMetrics).toContain("entryPrice");
-    expect(useComparisonStore.getState().hiddenMetrics).not.toContain("confidence");
+    expect(useComparisonStore.getState().hiddenMetrics).not.toContain(
+      "confidence"
+    );
   });
 });
