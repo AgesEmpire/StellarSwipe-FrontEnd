@@ -52,6 +52,18 @@ When running locally (`npm run dev`), the [React Query Devtools](https://tanstac
 
 The devtools are mounted only when `NODE_ENV === "development"`; the import is dead-code-eliminated from production builds, so the panel never ships to users and requires no manual toggling.
 
+## Web Push Notifications
+
+Push subscriptions (`lib/notifications.ts`'s `subscribeToPush`) require a VAPID public key at `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in your `.env.local`. Without it, `subscribeToPush()` silently returns `null` and users can never subscribe.
+
+Generate a VAPID key pair locally:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Set the public key as `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and keep the private key server-side only (used by whatever service dispatches the push messages) — never prefix it with `NEXT_PUBLIC_` or commit it.
+
 ## Storybook
 
 Storybook provides an isolated visual catalog for all core UI primitives and components.
