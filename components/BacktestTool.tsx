@@ -1,5 +1,14 @@
 "use client";
 
+feat/backtest-run-history
+import React, { useState } from 'react'
+import { runBacktest, type BacktestParams, type BacktestResult } from '@/lib/backtest'
+import Link from 'next/link'
+import { Download, History, Save, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useBacktestPresetsStore } from '@/store/useBacktestPresetsStore'
+import { useBacktestHistoryStore } from '@/store/useBacktestHistoryStore'
+
 import React, { useState } from "react";
 import {
   runBacktest,
@@ -9,6 +18,7 @@ import {
 import { Download, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBacktestPresetsStore } from "@/store/useBacktestPresetsStore";
+ main
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -57,7 +67,12 @@ export default function BacktestTool() {
   const [presetName, setPresetName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
 
+feat/backtest-run-history
+  const { presets, savePreset, deletePreset } = useBacktestPresetsStore()
+  const addRun = useBacktestHistoryStore((s) => s.addRun)
+
   const { presets, savePreset, deletePreset } = useBacktestPresetsStore();
+main
 
   const params: BacktestParams = {
     from,
@@ -71,8 +86,14 @@ export default function BacktestTool() {
     setLoading(true);
     setError(null);
     try {
+ feat/backtest-run-history
+      const r = await runBacktest(params)
+      setResult(r)
+      addRun(params, r)
+
       const r = await runBacktest(params);
       setResult(r);
+ main
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Simulation failed");
     } finally {
@@ -245,6 +266,11 @@ export default function BacktestTool() {
       </div>
 
       {/* Actions */}
+ feat/backtest-run-history
+      <div className="flex gap-3 mb-6" data-testid="backtest-actions">
+        <Button onClick={handleRun} disabled={loading} className="bg-purple-500 text-white">
+          {loading ? 'Running…' : 'Run Simulation'}
+
       <div className="flex gap-3 mb-6">
         <Button
           onClick={handleRun}
@@ -252,6 +278,7 @@ export default function BacktestTool() {
           className="bg-purple-500 text-white"
         >
           {loading ? "Running…" : "Run Simulation"}
+ main
         </Button>
         <Button
           variant="outline"
@@ -271,6 +298,12 @@ export default function BacktestTool() {
           <Download className="h-4 w-4" />
           Export JSON
         </Button>
+        <Link href="/backtest-sim/history">
+          <Button variant="outline" className="gap-2">
+            <History className="h-4 w-4" />
+            History
+          </Button>
+        </Link>
       </div>
 
       {/* Error */}
