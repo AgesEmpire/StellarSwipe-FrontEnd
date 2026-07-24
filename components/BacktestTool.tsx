@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react'
 import { runBacktest, type BacktestParams, type BacktestResult } from '@/lib/backtest'
-import { Download, Save, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { Download, History, Save, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useBacktestPresetsStore } from '@/store/useBacktestPresetsStore'
+import { useBacktestHistoryStore } from '@/store/useBacktestHistoryStore'
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime })
@@ -50,6 +52,7 @@ export default function BacktestTool() {
   const [showSaveInput, setShowSaveInput] = useState(false)
 
   const { presets, savePreset, deletePreset } = useBacktestPresetsStore()
+  const addRun = useBacktestHistoryStore((s) => s.addRun)
 
   const params: BacktestParams = { from, to, signals: selected, slippageBps, feeBps }
 
@@ -59,6 +62,7 @@ export default function BacktestTool() {
     try {
       const r = await runBacktest(params)
       setResult(r)
+      addRun(params, r)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Simulation failed')
     } finally {
@@ -200,7 +204,7 @@ export default function BacktestTool() {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-6" data-testid="backtest-actions">
         <Button onClick={handleRun} disabled={loading} className="bg-purple-500 text-white">
           {loading ? 'Running…' : 'Run Simulation'}
         </Button>
@@ -222,6 +226,12 @@ export default function BacktestTool() {
           <Download className="h-4 w-4" />
           Export JSON
         </Button>
+        <Link href="/backtest-sim/history">
+          <Button variant="outline" className="gap-2">
+            <History className="h-4 w-4" />
+            History
+          </Button>
+        </Link>
       </div>
 
       {/* Error */}
