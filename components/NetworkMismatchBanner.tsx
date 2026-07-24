@@ -59,7 +59,9 @@ export function useNetworkMismatch() {
   useEffect(() => {
     setLocal(_state);
     _listeners.add(setLocal);
-    return () => { _listeners.delete(setLocal); };
+    return () => {
+      _listeners.delete(setLocal);
+    };
   }, []);
   return {
     isMismatch: state.status === "mismatch",
@@ -82,7 +84,9 @@ export function NetworkMismatchBanner() {
   useEffect(() => {
     setLocalState(_state);
     _listeners.add(setLocalState);
-    return () => { _listeners.delete(setLocalState); };
+    return () => {
+      _listeners.delete(setLocalState);
+    };
   }, []);
 
   const checkNetwork = useCallback(async () => {
@@ -102,7 +106,11 @@ export function NetworkMismatchBanner() {
         setState({ status: "match" });
         setDismissed(false); // reset so banner shows again if it mismatches later
       } else {
-        setState({ status: "mismatch", walletNetwork: walletNet, appNetwork: appNet });
+        setState({
+          status: "mismatch",
+          walletNetwork: walletNet,
+          appNetwork: appNet,
+        });
         setDismissed(false);
       }
     } catch {
@@ -123,13 +131,15 @@ export function NetworkMismatchBanner() {
 
   // Also re-check when the user reconnects a wallet
   useEffect(() => {
-    function onWalletConnected() { checkNetwork(); }
+    function onWalletConnected() {
+      checkNetwork();
+    }
     window.addEventListener("wallet-connected", onWalletConnected);
-    return () => window.removeEventListener("wallet-connected", onWalletConnected);
+    return () =>
+      window.removeEventListener("wallet-connected", onWalletConnected);
   }, [checkNetwork]);
 
-  const visible =
-    !dismissed && localState.status === "mismatch" && isConnected;
+  const visible = !dismissed && localState.status === "mismatch" && isConnected;
 
   if (!visible) return null;
 
@@ -165,10 +175,9 @@ export function NetworkMismatchBanner() {
           </p>
           <p className="mt-0.5 text-amber-200/80">
             Your wallet is on{" "}
-            <strong className="text-amber-200">{walletNetwork}</strong> but
-            this app expects{" "}
-            <strong className="text-amber-200">{appNetwork}</strong>. Trades
-            are disabled until you switch networks.
+            <strong className="text-amber-200">{walletNetwork}</strong> but this
+            app expects <strong className="text-amber-200">{appNetwork}</strong>
+            . Trades are disabled until you switch networks.
           </p>
 
           {/* How to switch guidance */}
@@ -183,11 +192,12 @@ export function NetworkMismatchBanner() {
                 the current network name).
               </li>
               <li>
-                Select{" "}
-                <strong className="text-amber-200">{appNetwork}</strong> from
-                the dropdown.
+                Select <strong className="text-amber-200">{appNetwork}</strong>{" "}
+                from the dropdown.
               </li>
-              <li>Return to this page — the banner will disappear automatically.</li>
+              <li>
+                Return to this page — the banner will disappear automatically.
+              </li>
             </ol>
             <a
               href={freighterSettingsUrl}

@@ -34,6 +34,8 @@ describe("AnalyticsDebugConsole", () => {
     });
 
     render(<AnalyticsDebugConsole />);
-    expect(screen.getByLabelText("Analytics debug console (dev mode only)")).toBeTruthy();
+    expect(
+      screen.getByLabelText("Analytics debug console (dev mode only)")
+    ).toBeTruthy();
   });
 });

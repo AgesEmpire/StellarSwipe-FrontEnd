@@ -109,10 +109,7 @@ export function StopLossSlider({
     <div className={cn("flex flex-col gap-3", className)}>
       {/* Header row */}
       <div className="flex items-center justify-between">
-        <label
-          htmlFor={id}
-          className="text-sm font-medium text-foreground"
-        >
+        <label htmlFor={id} className="text-sm font-medium text-foreground">
           Stop-Loss
         </label>
         <div className="flex items-center gap-2">
@@ -160,7 +157,9 @@ export function StopLossSlider({
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={clamp(value)}
-          aria-valuetext={`${clamp(value)}% stop-loss${stopPrice ? `, price ${stopPrice} ${assetSymbol}` : ""}`}
+          aria-valuetext={`${clamp(value)}% stop-loss${
+            stopPrice ? `, price ${stopPrice} ${assetSymbol}` : ""
+          }`}
           className={cn(
             // Reset native styles, keep it accessible
             "relative w-full cursor-pointer appearance-none bg-transparent",

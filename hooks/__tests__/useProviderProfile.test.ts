@@ -16,9 +16,12 @@ function computePendingSignals(signals: ProviderSignal[]): ProviderSignal[] {
   return signals.filter((s) => s.outcome === "PENDING");
 }
 
-function getSignalStats(
-  signals: ProviderSignal[]
-): { total: number; wins: number; losses: number; pending: number } {
+function getSignalStats(signals: ProviderSignal[]): {
+  total: number;
+  wins: number;
+  losses: number;
+  pending: number;
+} {
   return {
     total: signals.length,
     wins: signals.filter((s) => s.outcome === "WIN").length,
@@ -138,7 +141,9 @@ describe("useProviderProfile – pure logic functions", () => {
     });
 
     it("returns empty array when no pending signals", () => {
-      const completedSignals = MOCK_SIGNALS.filter((s) => s.outcome !== "PENDING");
+      const completedSignals = MOCK_SIGNALS.filter(
+        (s) => s.outcome !== "PENDING"
+      );
       const result = computePendingSignals(completedSignals);
       expect(result).toEqual([]);
     });

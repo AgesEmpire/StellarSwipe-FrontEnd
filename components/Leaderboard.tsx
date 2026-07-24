@@ -1,9 +1,17 @@
 import React from "react";
 import Image from "next/image";
-import { useLeaderboardStore, type LeaderboardEntry } from "../store/leaderboardStore";
+import {
+  useLeaderboardStore,
+  type LeaderboardEntry,
+} from "../store/leaderboardStore";
+import { useDataSaverStore } from "../store/useDataSaverStore";
+import { getImageQuality } from "../lib/dataSaver";
 import { formatNumber } from "../lib/utils";
 
-const PERIOD_TABS: { value: "daily" | "weekly" | "monthly" | "yearly"; label: string }[] = [
+const PERIOD_TABS: {
+  value: "daily" | "weekly" | "monthly" | "yearly";
+  label: string;
+}[] = [
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
@@ -11,7 +19,18 @@ const PERIOD_TABS: { value: "daily" | "weekly" | "monthly" | "yearly"; label: st
 ];
 
 export const Leaderboard: React.FC = () => {
-  const { rankings, loading, error, fetchRankings, period, setPeriod, currentUserId } = useLeaderboardStore();
+  const {
+    rankings,
+    loading,
+    error,
+    fetchRankings,
+    period,
+    setPeriod,
+    currentUserId,
+  } = useLeaderboardStore();
+  // #408: serve lower-quality avatars when Data Saver mode is enabled.
+  const dataSaverEnabled = useDataSaverStore((s) => s.dataSaverEnabled);
+  const imageQuality = getImageQuality(dataSaverEnabled);
 
   React.useEffect(() => {
     fetchRankings();
@@ -33,7 +52,11 @@ export const Leaderboard: React.FC = () => {
   }
 
   if (error) {
-    return <div className="text-red-500 p-4">Failed to load leaderboard: {error}</div>;
+    return (
+      <div className="text-red-500 p-4">
+        Failed to load leaderboard: {error}
+      </div>
+    );
   }
 
   return (
@@ -42,7 +65,11 @@ export const Leaderboard: React.FC = () => {
         Community Leaderboard
       </h1>
 
-      <div className="flex gap-1 mb-6 border-b border-gray-200" role="tablist" aria-label="Leaderboard time range">
+      <div
+        className="flex gap-1 mb-6 border-b border-gray-200"
+        role="tablist"
+        aria-label="Leaderboard time range"
+      >
         {PERIOD_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -84,6 +111,7 @@ export const Leaderboard: React.FC = () => {
                   height={64}
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary"
                   sizes="64px"
+                  quality={imageQuality}
                 />
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-gray-800">
@@ -119,9 +147,13 @@ export const Leaderboard: React.FC = () => {
               #{currentUserEntry.rank}
             </span>
             <span className="font-semibold text-gray-800 text-sm">
-              {currentUserEntry.entry.anonymous ? "Anonymous" : currentUserEntry.entry.username}
+              {currentUserEntry.entry.anonymous
+                ? "Anonymous"
+                : currentUserEntry.entry.username}
             </span>
-            <span className="text-xs text-gray-500">{currentUserEntry.entry.marketType}</span>
+            <span className="text-xs text-gray-500">
+              {currentUserEntry.entry.marketType}
+            </span>
           </div>
           <div className="text-right shrink-0">
             <p className="text-xs text-gray-500">Return %</p>

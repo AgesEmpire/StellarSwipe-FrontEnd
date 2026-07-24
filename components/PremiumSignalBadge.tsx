@@ -27,7 +27,11 @@ export function PremiumSignalBadge({
           className
         )}
       >
-        <Star size={11} aria-hidden="true" className="fill-yellow-400 forced-colors:fill-[Highlight]" />
+        <Star
+          size={11}
+          aria-hidden="true"
+          className="fill-yellow-400 forced-colors:fill-[Highlight]"
+        />
         Premium
       </span>
     );

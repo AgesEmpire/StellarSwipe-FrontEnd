@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("forced-colors accessibility", () => {
-  test("renders key controls with visible high-contrast styling", async ({ page }) => {
+  test("renders key controls with visible high-contrast styling", async ({
+    page,
+  }) => {
     await page.emulateMedia({ forcedColors: "active" });
     await page.goto("/forced-colors-demo");
 

@@ -46,7 +46,9 @@ let hasErrors = false;
 
 for (const file of localeFiles) {
   const locale = path.basename(file, ".json");
-  const localeKeys = new Set(flattenKeys(readJSON(path.join(LOCALES_DIR, file))));
+  const localeKeys = new Set(
+    flattenKeys(readJSON(path.join(LOCALES_DIR, file)))
+  );
   const missing = [...baseKeys].filter((k) => !localeKeys.has(k));
 
   if (missing.length > 0) {
@@ -56,7 +58,9 @@ for (const file of localeFiles) {
     missing.forEach((k) => console.error(`  - ${k}`));
     hasErrors = true;
   } else {
-    console.log(`[OK]   Locale "${locale}" — all ${baseKeys.size} keys present.`);
+    console.log(
+      `[OK]   Locale "${locale}" — all ${baseKeys.size} keys present.`
+    );
   }
 }
 

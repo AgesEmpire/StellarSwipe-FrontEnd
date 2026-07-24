@@ -200,7 +200,10 @@ export function IdleSessionGuard() {
             </div>
 
             {/* Description */}
-            <p id="idle-warning-desc" className="text-sm text-foreground-muted mb-4">
+            <p
+              id="idle-warning-desc"
+              className="text-sm text-foreground-muted mb-4"
+            >
               You&apos;ve been inactive. Your wallet will be disconnected in{" "}
               <strong
                 className="tabular-nums text-amber-300"

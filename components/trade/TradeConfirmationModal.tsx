@@ -72,7 +72,7 @@ export function TradeConfirmationModal({
             "rounded-t-2xl bg-background shadow-2xl outline-none",
             "sm:bottom-auto sm:left-1/2 sm:top-1/2",
             "sm:-translate-x-1/2 sm:-translate-y-1/2",
-            "sm:w-full sm:max-w-md sm:max-h-[85vh] sm:rounded-2xl",
+            "sm:w-full sm:max-w-md sm:max-h-[85vh] sm:rounded-2xl"
           )}
         >
           <p id="trade-confirm-desc" className="sr-only">
@@ -80,7 +80,10 @@ export function TradeConfirmationModal({
           </p>
 
           {/* Mobile drag handle */}
-          <div className="flex justify-center pt-3 pb-1 sm:hidden" aria-hidden="true">
+          <div
+            className="flex justify-center pt-3 pb-1 sm:hidden"
+            aria-hidden="true"
+          >
             <div className="h-1 w-10 rounded-full bg-border" />
           </div>
 
@@ -112,7 +115,9 @@ export function TradeConfirmationModal({
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">You receive</span>
+                <span className="text-muted-foreground text-sm">
+                  You receive
+                </span>
                 <span className="font-semibold text-lg text-green-600 dark:text-green-400">
                   {toAmount} {toSymbol}
                 </span>
@@ -129,7 +134,9 @@ export function TradeConfirmationModal({
               </h2>
               <dl className="rounded-xl border p-3 sm:p-4 space-y-2.5 text-sm">
                 <Row
-                  label={orderType === "limit" ? "Limit price" : "Exchange rate"}
+                  label={
+                    orderType === "limit" ? "Limit price" : "Exchange rate"
+                  }
                   value={price}
                 />
                 <Row
@@ -173,7 +180,9 @@ export function TradeConfirmationModal({
             >
               <div className="flex items-center gap-1.5 mb-2 text-muted-foreground font-medium text-xs">
                 <Info size={13} aria-hidden="true" />
-                <span>0.1% platform fee — 50% to signal provider, 50% to platform</span>
+                <span>
+                  0.1% platform fee — 50% to signal provider, 50% to platform
+                </span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Network fees are charged separately by the Stellar network.
@@ -224,7 +233,9 @@ function Row({
           </span>
         )}
       </span>
-      <span className={cn("font-mono font-medium", valueClassName)}>{value}</span>
+      <span className={cn("font-mono font-medium", valueClassName)}>
+        {value}
+      </span>
     </div>
   );
 }

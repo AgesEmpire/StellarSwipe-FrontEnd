@@ -44,7 +44,10 @@ function rsGeneratorPoly(degree: number): Uint8Array {
   return result;
 }
 
-function rsComputeRemainder(data: Uint8Array, generator: Uint8Array): Uint8Array {
+function rsComputeRemainder(
+  data: Uint8Array,
+  generator: Uint8Array
+): Uint8Array {
   const result = new Uint8Array(generator.length - 1);
   for (const b of data) {
     const factor = b ^ result[0];
@@ -72,16 +75,86 @@ interface VersionInfo {
 
 const VERSION_TABLE: VersionInfo[] = [
   // ver, total, ec/block, blocks,  data, alignment
-  { version: 1, totalCodewords: 26,  ecPerBlock: 10, numBlocks: 1, dataCodewords: 16, alignmentPatterns: [] },
-  { version: 2, totalCodewords: 44,  ecPerBlock: 16, numBlocks: 1, dataCodewords: 28, alignmentPatterns: [6, 18] },
-  { version: 3, totalCodewords: 70,  ecPerBlock: 26, numBlocks: 1, dataCodewords: 44, alignmentPatterns: [6, 22] },
-  { version: 4, totalCodewords: 100, ecPerBlock: 18, numBlocks: 2, dataCodewords: 64, alignmentPatterns: [6, 26] },
-  { version: 5, totalCodewords: 134, ecPerBlock: 24, numBlocks: 2, dataCodewords: 86, alignmentPatterns: [6, 30] },
-  { version: 6, totalCodewords: 172, ecPerBlock: 16, numBlocks: 4, dataCodewords: 108, alignmentPatterns: [6, 34] },
-  { version: 7, totalCodewords: 196, ecPerBlock: 18, numBlocks: 4, dataCodewords: 124, alignmentPatterns: [6, 22, 38] },
-  { version: 8, totalCodewords: 242, ecPerBlock: 22, numBlocks: 4, dataCodewords: 154, alignmentPatterns: [6, 24, 42] },
-  { version: 9, totalCodewords: 292, ecPerBlock: 22, numBlocks: 5, dataCodewords: 182, alignmentPatterns: [6, 26, 46] },
-  { version: 10, totalCodewords: 346, ecPerBlock: 26, numBlocks: 5, dataCodewords: 216, alignmentPatterns: [6, 28, 50] },
+  {
+    version: 1,
+    totalCodewords: 26,
+    ecPerBlock: 10,
+    numBlocks: 1,
+    dataCodewords: 16,
+    alignmentPatterns: [],
+  },
+  {
+    version: 2,
+    totalCodewords: 44,
+    ecPerBlock: 16,
+    numBlocks: 1,
+    dataCodewords: 28,
+    alignmentPatterns: [6, 18],
+  },
+  {
+    version: 3,
+    totalCodewords: 70,
+    ecPerBlock: 26,
+    numBlocks: 1,
+    dataCodewords: 44,
+    alignmentPatterns: [6, 22],
+  },
+  {
+    version: 4,
+    totalCodewords: 100,
+    ecPerBlock: 18,
+    numBlocks: 2,
+    dataCodewords: 64,
+    alignmentPatterns: [6, 26],
+  },
+  {
+    version: 5,
+    totalCodewords: 134,
+    ecPerBlock: 24,
+    numBlocks: 2,
+    dataCodewords: 86,
+    alignmentPatterns: [6, 30],
+  },
+  {
+    version: 6,
+    totalCodewords: 172,
+    ecPerBlock: 16,
+    numBlocks: 4,
+    dataCodewords: 108,
+    alignmentPatterns: [6, 34],
+  },
+  {
+    version: 7,
+    totalCodewords: 196,
+    ecPerBlock: 18,
+    numBlocks: 4,
+    dataCodewords: 124,
+    alignmentPatterns: [6, 22, 38],
+  },
+  {
+    version: 8,
+    totalCodewords: 242,
+    ecPerBlock: 22,
+    numBlocks: 4,
+    dataCodewords: 154,
+    alignmentPatterns: [6, 24, 42],
+  },
+  {
+    version: 9,
+    totalCodewords: 292,
+    ecPerBlock: 22,
+    numBlocks: 5,
+    dataCodewords: 182,
+    alignmentPatterns: [6, 26, 46],
+  },
+  {
+    version: 10,
+    totalCodewords: 346,
+    ecPerBlock: 26,
+    numBlocks: 5,
+    dataCodewords: 216,
+    alignmentPatterns: [6, 28, 50],
+  },
 ];
 
 function pickVersion(byteLen: number): VersionInfo {
@@ -89,7 +162,9 @@ function pickVersion(byteLen: number): VersionInfo {
     // byte mode overhead: 4 (mode) + 8 (char count) = 12 bits = 1.5 bytes
     if (v.dataCodewords >= byteLen + 2) return v;
   }
-  throw new Error(`QR: data too long (${byteLen} bytes, max ~214 for version 10 M)`);
+  throw new Error(
+    `QR: data too long (${byteLen} bytes, max ~214 for version 10 M)`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +189,9 @@ class BitBuffer {
     return bytes;
   }
 
-  get length() { return this.bitLen; }
+  get length() {
+    return this.bitLen;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +226,10 @@ function buildDataCodewords(text: string, info: VersionInfo): Uint8Array {
 // ---------------------------------------------------------------------------
 // Interleave data + ECC blocks
 // ---------------------------------------------------------------------------
-function buildFinalMessage(dataCodewords: Uint8Array, info: VersionInfo): Uint8Array {
+function buildFinalMessage(
+  dataCodewords: Uint8Array,
+  info: VersionInfo
+): Uint8Array {
   const blockSize = Math.floor(info.dataCodewords / info.numBlocks);
   const longBlocks = info.dataCodewords % info.numBlocks;
   const gen = rsGeneratorPoly(info.ecPerBlock);
@@ -166,7 +246,7 @@ function buildFinalMessage(dataCodewords: Uint8Array, info: VersionInfo): Uint8A
   }
 
   const out: number[] = [];
-  const maxDataLen = Math.max(...dataBlocks.map(b => b.length));
+  const maxDataLen = Math.max(...dataBlocks.map((b) => b.length));
   for (let i = 0; i < maxDataLen; i++) {
     for (const b of dataBlocks) if (i < b.length) out.push(b[i]);
   }
@@ -182,13 +262,17 @@ function buildFinalMessage(dataCodewords: Uint8Array, info: VersionInfo): Uint8A
 type Module = 0 | 1 | -1; // -1 = reserved/function module (dark=1, light=0)
 
 function createMatrix(size: number): Module[][] {
-  return Array.from({ length: size }, () => new Array(size).fill(-1) as Module[]);
+  return Array.from(
+    { length: size },
+    () => new Array(size).fill(-1) as Module[]
+  );
 }
 
 function setFinderPattern(mat: Module[][], row: number, col: number) {
   for (let r = -1; r <= 7; r++) {
     for (let c = -1; c <= 7; c++) {
-      const mr = row + r, mc = col + c;
+      const mr = row + r,
+        mc = col + c;
       if (mr < 0 || mr >= mat.length || mc < 0 || mc >= mat.length) continue;
       const dark =
         (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
@@ -202,8 +286,7 @@ function setFinderPattern(mat: Module[][], row: number, col: number) {
 function setAlignmentPattern(mat: Module[][], row: number, col: number) {
   for (let r = -2; r <= 2; r++) {
     for (let c = -2; c <= 2; c++) {
-      const dark =
-        Math.max(Math.abs(r), Math.abs(c)) !== 1;
+      const dark = Math.max(Math.abs(r), Math.abs(c)) !== 1;
       mat[row + r][col + c] = dark ? 1 : 0;
     }
   }
@@ -252,16 +335,16 @@ function placeDataBits(mat: Module[][], bits: boolean[]) {
 
 function applyMask(mat: Module[][], mask: number): Module[][] {
   const size = mat.length;
-  const result = mat.map(r => [...r] as Module[]);
+  const result = mat.map((r) => [...r] as Module[]);
   const maskFn = [
     (r: number, c: number) => (r + c) % 2 === 0,
     (r: number, c: number) => r % 2 === 0,
     (_r: number, c: number) => c % 3 === 0,
     (r: number, c: number) => (r + c) % 3 === 0,
     (r: number, c: number) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
-    (r: number, c: number) => ((r * c) % 2 + (r * c) % 3) === 0,
-    (r: number, c: number) => ((r * c) % 2 + (r * c) % 3) % 2 === 0,
-    (r: number, c: number) => ((r + c) % 2 + (r * c) % 3) % 2 === 0,
+    (r: number, c: number) => ((r * c) % 2) + ((r * c) % 3) === 0,
+    (r: number, c: number) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+    (r: number, c: number) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0,
   ][mask];
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
@@ -277,7 +360,12 @@ function applyMask(mat: Module[][], mask: number): Module[][] {
 }
 
 // Rough function-module check: finder patterns, separators, timing, alignment
-function isFunctionModule(mat: Module[][], row: number, col: number, size: number): boolean {
+function isFunctionModule(
+  mat: Module[][],
+  row: number,
+  col: number,
+  size: number
+): boolean {
   // Finder + separator regions
   if (row <= 8 && col <= 8) return true;
   if (row <= 8 && col >= size - 8) return true;
@@ -290,7 +378,7 @@ function isFunctionModule(mat: Module[][], row: number, col: number, size: numbe
 function getFormatBits(eccLevel: number, mask: number): number {
   const data = (eccLevel << 3) | mask;
   let rem = data;
-  for (let i = 0; i < 10; i++) rem = ((rem << 1) ^ ((rem >> 9) * 0x537));
+  for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >> 9) * 0x537);
   const bits = ((data << 10) | rem) ^ 0x5412;
   return bits;
 }
@@ -298,7 +386,24 @@ function getFormatBits(eccLevel: number, mask: number): number {
 function writeFormatModules(mat: Module[][], formatBits: number) {
   const size = mat.length;
   // Horizontal strip row 8
-  const seq = [0,1,2,3,4,5,7,8, size-8,size-7,size-6,size-5,size-4,size-3,size-2,size-1];
+  const seq = [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    size - 8,
+    size - 7,
+    size - 6,
+    size - 5,
+    size - 4,
+    size - 3,
+    size - 2,
+    size - 1,
+  ];
   for (let i = 0; i < 15; i++) {
     const bit: Module = ((formatBits >> (14 - i)) & 1) as Module;
     if (i < 8) {
@@ -324,7 +429,9 @@ function penaltyScore(mat: Module[][]): number {
   for (let r = 0; r < size; r++) {
     let run = 1;
     for (let c = 1; c < size; c++) {
-      if (mat[r][c] === mat[r][c-1]) { run++; } else {
+      if (mat[r][c] === mat[r][c - 1]) {
+        run++;
+      } else {
         if (run >= 5) score += run - 2;
         run = 1;
       }
@@ -334,7 +441,9 @@ function penaltyScore(mat: Module[][]): number {
   for (let c = 0; c < size; c++) {
     let run = 1;
     for (let r = 1; r < size; r++) {
-      if (mat[r][c] === mat[r-1][c]) { run++; } else {
+      if (mat[r][c] === mat[r - 1][c]) {
+        run++;
+      } else {
         if (run >= 5) score += run - 2;
         run = 1;
       }
@@ -345,7 +454,8 @@ function penaltyScore(mat: Module[][]): number {
   for (let r = 0; r < size - 1; r++) {
     for (let c = 0; c < size - 1; c++) {
       const v = mat[r][c];
-      if (v === mat[r+1][c] && v === mat[r][c+1] && v === mat[r+1][c+1]) score += 3;
+      if (v === mat[r + 1][c] && v === mat[r][c + 1] && v === mat[r + 1][c + 1])
+        score += 3;
     }
   }
   return score;
@@ -359,9 +469,19 @@ function penaltyScore(mat: Module[][]): number {
 export function renderQRCode(
   canvas: HTMLCanvasElement,
   text: string,
-  options: { size?: number; margin?: number; darkColor?: string; lightColor?: string } = {}
+  options: {
+    size?: number;
+    margin?: number;
+    darkColor?: string;
+    lightColor?: string;
+  } = {}
 ) {
-  const { size = 256, margin = 4, darkColor = "#000000", lightColor = "#ffffff" } = options;
+  const {
+    size = 256,
+    margin = 4,
+    darkColor = "#000000",
+    lightColor = "#ffffff",
+  } = options;
 
   const bytes = new TextEncoder().encode(text);
   const info = pickVersion(bytes.length);
@@ -384,9 +504,14 @@ export function renderQRCode(
   setTimingPatterns(base, matSize);
   for (const ap of info.alignmentPatterns) {
     for (const ap2 of info.alignmentPatterns) {
-      if ((ap === 6 && ap2 === 6) ||
-          (ap === 6 && ap2 === info.alignmentPatterns[info.alignmentPatterns.length - 1]) ||
-          (ap2 === 6 && ap === info.alignmentPatterns[info.alignmentPatterns.length - 1])) continue;
+      if (
+        (ap === 6 && ap2 === 6) ||
+        (ap === 6 &&
+          ap2 === info.alignmentPatterns[info.alignmentPatterns.length - 1]) ||
+        (ap2 === 6 &&
+          ap === info.alignmentPatterns[info.alignmentPatterns.length - 1])
+      )
+        continue;
       setAlignmentPattern(base, ap, ap2);
     }
   }

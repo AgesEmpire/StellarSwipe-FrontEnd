@@ -48,8 +48,8 @@ describe("useCrossTabSync – conflict detection", () => {
 
   it("conflict for wallet-store and no conflict for stellar-theme are independent", () => {
     const now = Date.now();
-    const walletTs = now - 100;  // recent — conflict
-    const themeTs = now - 5000;  // stale — no conflict
+    const walletTs = now - 100; // recent — conflict
+    const themeTs = now - 5000; // stale — no conflict
 
     expect(detectConflict(walletTs, now)).toBe(true);
     expect(detectConflict(themeTs, now)).toBe(false);

@@ -91,7 +91,8 @@ export function PageTransitionPlaceholder({
 
     return () => {
       if (showTimerRef.current) clearTimeout(showTimerRef.current);
-      if (minDurationTimerRef.current) clearTimeout(minDurationTimerRef.current);
+      if (minDurationTimerRef.current)
+        clearTimeout(minDurationTimerRef.current);
     };
   }, [pathname, showDelay, minShowDuration, startTransition]);
 
@@ -99,7 +100,8 @@ export function PageTransitionPlaceholder({
   useEffect(() => {
     return () => {
       if (showTimerRef.current) clearTimeout(showTimerRef.current);
-      if (minDurationTimerRef.current) clearTimeout(minDurationTimerRef.current);
+      if (minDurationTimerRef.current)
+        clearTimeout(minDurationTimerRef.current);
     };
   }, []);
 

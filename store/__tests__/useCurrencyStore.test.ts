@@ -6,8 +6,14 @@ import {
 } from "@/store/useCurrencyStore";
 
 // Mirrors the formatting logic in usePriceFormat
-function formatPrice(value: number, currency: DisplayCurrency, decimals = 4): string {
-  return `${CURRENCY_SYMBOLS[currency]}${(value * EXCHANGE_RATES[currency]).toFixed(decimals)}`;
+function formatPrice(
+  value: number,
+  currency: DisplayCurrency,
+  decimals = 4
+): string {
+  return `${CURRENCY_SYMBOLS[currency]}${(
+    value * EXCHANGE_RATES[currency]
+  ).toFixed(decimals)}`;
 }
 
 describe("useCurrencyStore", () => {

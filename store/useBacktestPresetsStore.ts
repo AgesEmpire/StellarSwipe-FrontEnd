@@ -1,18 +1,18 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import type { BacktestParams } from "@/lib/backtest"
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { BacktestParams } from "@/lib/backtest";
 
 export interface BacktestPreset {
-  id: string
-  name: string
-  params: BacktestParams
-  createdAt: number
+  id: string;
+  name: string;
+  params: BacktestParams;
+  createdAt: number;
 }
 
 interface BacktestPresetsState {
-  presets: BacktestPreset[]
-  savePreset: (name: string, params: BacktestParams) => void
-  deletePreset: (id: string) => void
+  presets: BacktestPreset[];
+  savePreset: (name: string, params: BacktestParams) => void;
+  deletePreset: (id: string) => void;
 }
 
 export const useBacktestPresetsStore = create<BacktestPresetsState>()(
@@ -23,7 +23,12 @@ export const useBacktestPresetsStore = create<BacktestPresetsState>()(
         set((state) => ({
           presets: [
             ...state.presets,
-            { id: `${name}-${state.presets.length}`, name, params, createdAt: Date.now() },
+            {
+              id: `${name}-${state.presets.length}`,
+              name,
+              params,
+              createdAt: Date.now(),
+            },
           ],
         })),
       deletePreset: (id) =>
@@ -33,4 +38,4 @@ export const useBacktestPresetsStore = create<BacktestPresetsState>()(
     }),
     { name: "backtest-presets-store" }
   )
-)
+);

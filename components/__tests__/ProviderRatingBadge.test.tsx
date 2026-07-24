@@ -7,7 +7,9 @@ import { useProviderProfile } from "@/hooks/useProviderProfile";
 
 jest.mock("@/hooks/useProviderProfile");
 
-const mockUseProviderProfile = useProviderProfile as jest.MockedFunction<typeof useProviderProfile>;
+const mockUseProviderProfile = useProviderProfile as jest.MockedFunction<
+  typeof useProviderProfile
+>;
 
 const MOCK_PROFILE = {
   id: "provider-1",
@@ -110,8 +112,18 @@ describe("ProviderRatingBadge – trust score breakdown popover", () => {
   });
 
   it("works with direct prop values when no providerId is given", () => {
-    mockUseProviderProfile.mockReturnValue({ data: undefined, isLoading: false, error: null } as any);
-    render(<ProviderRatingBadge trustScore={75} winRate={80} providerName="BetaTrader" />);
+    mockUseProviderProfile.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+    } as any);
+    render(
+      <ProviderRatingBadge
+        trustScore={75}
+        winRate={80}
+        providerName="BetaTrader"
+      />
+    );
     const trigger = screen.getByRole("button", { name: /provider rating/i });
     fireEvent.click(trigger);
     expect(screen.getByRole("dialog")).toBeTruthy();

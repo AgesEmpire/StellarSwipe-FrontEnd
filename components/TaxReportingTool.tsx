@@ -43,10 +43,12 @@ function deriveTransactions(
       const sellPrice = parseFloat(tx.price);
       const amount = parseFloat(tx.amount);
       const fee = parseFloat(tx.fee);
-      const gainFactor = tx.outcome === "WIN" ? 0.1 : tx.outcome === "LOSS" ? -0.08 : 0;
+      const gainFactor =
+        tx.outcome === "WIN" ? 0.1 : tx.outcome === "LOSS" ? -0.08 : 0;
       const buyPrice = sellPrice / (1 + gainFactor);
 
-      const hasForeignCurrency = tx.assetPair.includes("USDC") && !tx.assetPair.startsWith("USDC");
+      const hasForeignCurrency =
+        tx.assetPair.includes("USDC") && !tx.assetPair.startsWith("USDC");
 
       return {
         id: tx.id,
@@ -79,10 +81,16 @@ function SummaryCard({
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-3">
       <div className="flex items-center gap-1.5">
-        <Icon size={13} className={cn("shrink-0", className)} aria-hidden="true" />
+        <Icon
+          size={13}
+          className={cn("shrink-0", className)}
+          aria-hidden="true"
+        />
         <span className="text-[11px] text-foreground-muted">{label}</span>
       </div>
-      <p className={cn("text-sm font-semibold leading-tight", className)}>{value}</p>
+      <p className={cn("text-sm font-semibold leading-tight", className)}>
+        {value}
+      </p>
       {sub && <p className="text-[11px] text-foreground-subtle">{sub}</p>}
     </div>
   );
@@ -112,7 +120,9 @@ export function TaxReportingTool() {
 
   const yoyChange =
     previousReport.totalGainLoss !== 0
-      ? ((netGainLoss - previousReport.totalGainLoss) / Math.abs(previousReport.totalGainLoss)) * 100
+      ? ((netGainLoss - previousReport.totalGainLoss) /
+          Math.abs(previousReport.totalGainLoss)) *
+        100
       : null;
 
   function handleExportCsv() {
@@ -152,10 +162,13 @@ export function TaxReportingTool() {
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <FileText size={18} className="text-blue-400" aria-hidden="true" />
-          <h2 className="text-lg font-semibold text-foreground">Tax Report Generator</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            Tax Report Generator
+          </h2>
         </div>
         <p className="text-sm text-foreground-muted">
-          Generate tax documents based on your trading activity for the selected year and jurisdiction.
+          Generate tax documents based on your trading activity for the selected
+          year and jurisdiction.
         </p>
       </div>
 
@@ -174,7 +187,9 @@ export function TaxReportingTool() {
             <select
               id="jurisdiction-select"
               value={jurisdiction}
-              onChange={(e) => setJurisdiction(e.target.value as TaxJurisdiction)}
+              onChange={(e) =>
+                setJurisdiction(e.target.value as TaxJurisdiction)
+              }
               className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               aria-label="Select tax jurisdiction"
             >
@@ -276,11 +291,15 @@ export function TaxReportingTool() {
           <CardContent className="px-4 pb-4">
             <div className="flex flex-wrap gap-6 text-sm">
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-foreground-muted">{selectedYear - 1} Net Gain/Loss</span>
+                <span className="text-xs text-foreground-muted">
+                  {selectedYear - 1} Net Gain/Loss
+                </span>
                 <span
                   className={cn(
                     "font-semibold",
-                    previousReport.totalGainLoss >= 0 ? "text-green-400" : "text-red-400"
+                    previousReport.totalGainLoss >= 0
+                      ? "text-green-400"
+                      : "text-red-400"
                   )}
                 >
                   {previousReport.totalGainLoss >= 0 ? "+" : ""}$
@@ -288,11 +307,15 @@ export function TaxReportingTool() {
                 </span>
               </div>
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-foreground-muted">{selectedYear} Net Gain/Loss</span>
+                <span className="text-xs text-foreground-muted">
+                  {selectedYear} Net Gain/Loss
+                </span>
                 <span
                   className={cn(
                     "font-semibold",
-                    currentReport.totalGainLoss >= 0 ? "text-green-400" : "text-red-400"
+                    currentReport.totalGainLoss >= 0
+                      ? "text-green-400"
+                      : "text-red-400"
                   )}
                 >
                   {currentReport.totalGainLoss >= 0 ? "+" : ""}$
@@ -338,9 +361,15 @@ export function TaxReportingTool() {
                   <tr className="border-b border-border text-foreground-muted">
                     <th className="pb-2 text-left font-medium pr-4">Date</th>
                     <th className="pb-2 text-left font-medium pr-4">Pair</th>
-                    <th className="pb-2 text-right font-medium pr-4">Proceeds</th>
-                    <th className="pb-2 text-right font-medium pr-4">Cost Basis</th>
-                    <th className="pb-2 text-right font-medium pr-4">Gain/Loss</th>
+                    <th className="pb-2 text-right font-medium pr-4">
+                      Proceeds
+                    </th>
+                    <th className="pb-2 text-right font-medium pr-4">
+                      Cost Basis
+                    </th>
+                    <th className="pb-2 text-right font-medium pr-4">
+                      Gain/Loss
+                    </th>
                     <th className="pb-2 text-right font-medium pr-4">Fees</th>
                     <th className="pb-2 text-left font-medium pr-4">Term</th>
                     <th className="pb-2 text-left font-medium">FX</th>
@@ -367,10 +396,13 @@ export function TaxReportingTool() {
                       <td
                         className={cn(
                           "py-2 pr-4 text-right font-medium",
-                          entry.gainLoss >= 0 ? "text-green-400" : "text-red-400"
+                          entry.gainLoss >= 0
+                            ? "text-green-400"
+                            : "text-red-400"
                         )}
                       >
-                        {entry.gainLoss >= 0 ? "+" : ""}${entry.gainLoss.toFixed(2)}
+                        {entry.gainLoss >= 0 ? "+" : ""}$
+                        {entry.gainLoss.toFixed(2)}
                       </td>
                       <td className="py-2 pr-4 text-right text-foreground-muted">
                         ${entry.fees.toFixed(4)}
@@ -389,7 +421,9 @@ export function TaxReportingTool() {
                       </td>
                       <td className="py-2 text-foreground-muted font-mono">
                         {entry.foreignCurrency
-                          ? `${entry.foreignCurrency} @${entry.conversionRate?.toFixed(4)}`
+                          ? `${
+                              entry.foreignCurrency
+                            } @${entry.conversionRate?.toFixed(4)}`
                           : "—"}
                       </td>
                     </tr>
@@ -404,77 +438,79 @@ export function TaxReportingTool() {
       {/* Export section */}
       <Card>
         <CardHeader>
-          <h3 className="text-sm font-semibold text-foreground">Export Report</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            Export Report
+          </h3>
           <p className="text-xs text-foreground-muted">
             Download your {selectedYear} tax report in your preferred format.
           </p>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="csv-preset-select"
-              className="text-xs font-medium text-foreground-muted"
-            >
-              CSV Format
-            </label>
-            <select
-              id="csv-preset-select"
-              value={csvPreset}
-              onChange={(e) => setCsvPreset(e.target.value as CsvPreset)}
-              className="w-48 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              aria-label="Select CSV export format"
-            >
-              {(Object.keys(CSV_PRESETS) as CsvPreset[]).map((key) => (
-                <option key={key} value={key}>
-                  {CSV_PRESETS[key].label}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="csv-preset-select"
+                className="text-xs font-medium text-foreground-muted"
+              >
+                CSV Format
+              </label>
+              <select
+                id="csv-preset-select"
+                value={csvPreset}
+                onChange={(e) => setCsvPreset(e.target.value as CsvPreset)}
+                className="w-48 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                aria-label="Select CSV export format"
+              >
+                {(Object.keys(CSV_PRESETS) as CsvPreset[]).map((key) => (
+                  <option key={key} value={key}>
+                    {CSV_PRESETS[key].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportCsv}
+                className="gap-1.5"
+                aria-label={`Export ${selectedYear} tax report as CSV`}
+              >
+                <Download size={13} aria-hidden="true" />
+                CSV
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportPdf}
+                className="gap-1.5"
+                aria-label={`Export ${selectedYear} tax report as PDF`}
+              >
+                <Download size={13} aria-hidden="true" />
+                PDF
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportTurboTax}
+                className="gap-1.5"
+                aria-label={`Export ${selectedYear} tax report for TurboTax`}
+              >
+                <Download size={13} aria-hidden="true" />
+                TurboTax (.txf)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportTaxAct}
+                className="gap-1.5"
+                aria-label={`Export ${selectedYear} tax report for TaxAct`}
+              >
+                <Download size={13} aria-hidden="true" />
+                TaxAct (.csv)
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleExportCsv}
-              className="gap-1.5"
-              aria-label={`Export ${selectedYear} tax report as CSV`}
-            >
-              <Download size={13} aria-hidden="true" />
-              CSV
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleExportPdf}
-              className="gap-1.5"
-              aria-label={`Export ${selectedYear} tax report as PDF`}
-            >
-              <Download size={13} aria-hidden="true" />
-              PDF
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleExportTurboTax}
-              className="gap-1.5"
-              aria-label={`Export ${selectedYear} tax report for TurboTax`}
-            >
-              <Download size={13} aria-hidden="true" />
-              TurboTax (.txf)
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleExportTaxAct}
-              className="gap-1.5"
-              aria-label={`Export ${selectedYear} tax report for TaxAct`}
-            >
-              <Download size={13} aria-hidden="true" />
-              TaxAct (.csv)
-            </Button>
-          </div>
-        </div>
         </CardContent>
       </Card>
 
@@ -491,11 +527,11 @@ export function TaxReportingTool() {
         />
         <p className="text-foreground-muted leading-relaxed">
           <span className="font-medium text-amber-400">Disclaimer: </span>
-          The information provided by this tool is for informational purposes only and
-          does not constitute tax, legal, or financial advice. Tax laws vary by
-          jurisdiction and individual circumstances. The estimated tax liability shown is
-          a preliminary estimate only. Please consult a qualified tax professional before
-          filing your taxes.
+          The information provided by this tool is for informational purposes
+          only and does not constitute tax, legal, or financial advice. Tax laws
+          vary by jurisdiction and individual circumstances. The estimated tax
+          liability shown is a preliminary estimate only. Please consult a
+          qualified tax professional before filing your taxes.
         </p>
       </div>
     </section>

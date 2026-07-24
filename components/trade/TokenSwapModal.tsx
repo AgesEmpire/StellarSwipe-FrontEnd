@@ -14,8 +14,13 @@ interface Token {
 }
 
 const TOKENS: Token[] = [
-  { symbol: "XLM", name: "Stellar Lumens", balance: "1,234.56", initials: "XL" },
-  { symbol: "USDC", name: "USD Coin",       balance: "500.00",   initials: "US" },
+  {
+    symbol: "XLM",
+    name: "Stellar Lumens",
+    balance: "1,234.56",
+    initials: "XL",
+  },
+  { symbol: "USDC", name: "USD Coin", balance: "500.00", initials: "US" },
 ];
 
 const EXCHANGE_RATE = 0.094; // 1 XLM = 0.094 USDC (mock)
@@ -27,13 +32,17 @@ interface TokenSwapModalProps {
 
 export function TokenSwapModal({ open, onOpenChange }: TokenSwapModalProps) {
   const [fromToken, setFromToken] = React.useState<Token>(TOKENS[0]);
-  const [toToken, setToToken]     = React.useState<Token>(TOKENS[1]);
+  const [toToken, setToToken] = React.useState<Token>(TOKENS[1]);
   const [fromAmount, setFromAmount] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const toAmount    = fromAmount ? (parseFloat(fromAmount) * EXCHANGE_RATE).toFixed(6) : "";
-  const minReceived = toAmount   ? (parseFloat(toAmount)   * 0.995).toFixed(6)         : "—";
-  const canConfirm  = !!fromAmount && parseFloat(fromAmount) > 0;
+  const toAmount = fromAmount
+    ? (parseFloat(fromAmount) * EXCHANGE_RATE).toFixed(6)
+    : "";
+  const minReceived = toAmount
+    ? (parseFloat(toAmount) * 0.995).toFixed(6)
+    : "—";
+  const canConfirm = !!fromAmount && parseFloat(fromAmount) > 0;
 
   function handleSwapDirection() {
     setFromToken(toToken);
@@ -76,7 +85,7 @@ export function TokenSwapModal({ open, onOpenChange }: TokenSwapModalProps) {
             "sm:bottom-auto sm:left-1/2 sm:top-1/2",
             "sm:-translate-x-1/2 sm:-translate-y-1/2",
             "sm:w-full sm:max-w-md",
-            "sm:max-h-[85vh] sm:rounded-2xl",
+            "sm:max-h-[85vh] sm:rounded-2xl"
           )}
         >
           {/* Hidden description for screen readers */}
@@ -85,7 +94,10 @@ export function TokenSwapModal({ open, onOpenChange }: TokenSwapModalProps) {
           </p>
 
           {/* Mobile drag handle */}
-          <div className="flex justify-center pt-3 pb-1 sm:hidden" aria-hidden="true">
+          <div
+            className="flex justify-center pt-3 pb-1 sm:hidden"
+            aria-hidden="true"
+          >
             <div className="h-1 w-10 rounded-full bg-border" />
           </div>
 
@@ -106,7 +118,6 @@ export function TokenSwapModal({ open, onOpenChange }: TokenSwapModalProps) {
 
           {/* ── Scrollable body ─────────────────────────────────────────── */}
           <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-2 sm:px-6">
-
             {/* From */}
             <section aria-labelledby="from-label">
               <p
@@ -134,7 +145,9 @@ export function TokenSwapModal({ open, onOpenChange }: TokenSwapModalProps) {
                     <span>Balance: {fromToken.balance}</span>
                     <button
                       type="button"
-                      onClick={() => setFromAmount(fromToken.balance.replace(",", ""))}
+                      onClick={() =>
+                        setFromAmount(fromToken.balance.replace(",", ""))
+                      }
                       className="rounded px-1.5 py-0.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
                     >
                       MAX
@@ -228,8 +241,8 @@ export function TokenSwapModal({ open, onOpenChange }: TokenSwapModalProps) {
               {isSubmitting
                 ? "Confirming…"
                 : canConfirm
-                  ? `Swap ${fromToken.symbol} → ${toToken.symbol}`
-                  : "Enter an amount"}
+                ? `Swap ${fromToken.symbol} → ${toToken.symbol}`
+                : "Enter an amount"}
             </Button>
           </div>
         </Dialog.Content>
@@ -277,7 +290,12 @@ function TradeRow({
           </span>
         )}
       </dt>
-      <dd className={cn("truncate text-right font-medium tabular-nums", valueClassName)}>
+      <dd
+        className={cn(
+          "truncate text-right font-medium tabular-nums",
+          valueClassName
+        )}
+      >
         {value}
       </dd>
     </div>

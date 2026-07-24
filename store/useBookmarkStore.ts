@@ -58,8 +58,7 @@ export const useBookmarkStore = create<BookmarkState>()(
             : [...state.bookmarks, id],
         })),
       setBookmarks: (ids: string[]) => set({ bookmarks: [...new Set(ids)] }),
-      clearBookmarks: () =>
-        set({ bookmarks: [], folders: [] }),
+      clearBookmarks: () => set({ bookmarks: [], folders: [] }),
       createFolder: (name: string) => {
         const id = `folder-${++folderCounter}-${Date.now()}`;
         set((state) => ({
@@ -89,7 +88,10 @@ export const useBookmarkStore = create<BookmarkState>()(
         set((state) => ({
           folders: state.folders.map((f) =>
             f.id === folderId
-              ? { ...f, signalIds: f.signalIds.filter((sid) => sid !== signalId) }
+              ? {
+                  ...f,
+                  signalIds: f.signalIds.filter((sid) => sid !== signalId),
+                }
               : f
           ),
         })),
@@ -110,4 +112,5 @@ export const useBookmarkStore = create<BookmarkState>()(
 );
 
 /** Returns `true` once localStorage has been read and state is stable. */
-export const useBookmarkHydrated = () => useBookmarkStore((s) => s._hasHydrated);
+export const useBookmarkHydrated = () =>
+  useBookmarkStore((s) => s._hasHydrated);

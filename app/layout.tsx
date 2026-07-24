@@ -9,6 +9,7 @@ import { DevPerfOverlay } from "@/components/DevPerfOverlay";
 import { AnalyticsDebugConsole } from "@/components/AnalyticsDebugConsole";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
+import { ComparisonTray } from "@/components/ComparisonTray";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -20,6 +21,27 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "StellarSwipe",
   description: "Stellar-powered swipe app",
+  openGraph: {
+    title: "StellarSwipe",
+    description: "Stellar-powered swipe app — discover top signal providers, trade tokens, and track performance on the Stellar network.",
+    url: "/",
+    siteName: "StellarSwipe",
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "StellarSwipe",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "StellarSwipe",
+    description: "Stellar-powered swipe app — discover top signal providers, trade tokens, and track performance on the Stellar network.",
+  },
 };
 
 export default function RootLayout({
@@ -28,7 +50,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning className={inter.variable}>
+    <html
+      lang="en"
+      dir="ltr"
+      suppressHydrationWarning
+      className={inter.variable}
+    >
       <head>
         {/*
          * Blocking inline script — runs synchronously before any paint.
@@ -60,6 +87,7 @@ export default function RootLayout({
           <TradeStatusBanner />
           <DevPerfOverlay />
           <AnalyticsDebugConsole />
+          <ComparisonTray />
         </Providers>
       </body>
     </html>

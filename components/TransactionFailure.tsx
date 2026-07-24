@@ -16,7 +16,8 @@ interface TransactionFailureProps {
 export function TransactionFailure({ onRetry }: TransactionFailureProps) {
   const { error, showError, clearError, preservedInput, setPreservedInput } =
     useTransactionStore();
-  const { alertsEnabled, toggleAlerts, categoryPreferences } = useNotificationPreference();
+  const { alertsEnabled, toggleAlerts, categoryPreferences } =
+    useNotificationPreference();
 
   const handleRetry = useCallback(() => {
     const input = preservedInput;
@@ -34,13 +35,14 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
     if (!showError || !error) return;
     if (alertsEnabled && categoryPreferences.systemUpdates) {
       showNotification("Trade Failed", {
-        body: error.message || "Something went wrong during the trade execution.",
+        body:
+          error.message || "Something went wrong during the trade execution.",
         icon: "⚠️",
         category: "systemUpdates",
       });
     }
-    analyticsService.track('trade_confirmation_failed', {
-      error_message: error.message || 'unknown_error',
+    analyticsService.track("trade_confirmation_failed", {
+      error_message: error.message || "unknown_error",
       error_code: error.code || undefined,
     });
   }, [showError, error, alertsEnabled, categoryPreferences.systemUpdates]);
@@ -75,7 +77,11 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
             <div className="absolute right-4 top-4 flex gap-2">
               <button
                 onClick={() => toggleAlerts(!alertsEnabled)}
-                aria-label={alertsEnabled ? "Disable outcome alerts" : "Enable outcome alerts"}
+                aria-label={
+                  alertsEnabled
+                    ? "Disable outcome alerts"
+                    : "Enable outcome alerts"
+                }
                 className="rounded-full p-1 text-foreground-subtle transition-colors hover:bg-surface-high hover:text-foreground-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 title={alertsEnabled ? "Alerts enabled" : "Alerts disabled"}
               >
@@ -98,13 +104,22 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 200,
+                  damping: 15,
+                  delay: 0.1,
+                }}
               >
                 <div className="relative">
                   <motion.div
                     className="absolute -inset-2 rounded-full bg-accent-danger/20 blur-xl"
                     animate={{ scale: [1, 1.15, 1] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
                   />
                   <motion.div
                     animate={{ rotate: [0, -8, 8, -8, 0] }}
@@ -131,7 +146,8 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
             >
-              {error.message || "Something went wrong during the trade execution."}
+              {error.message ||
+                "Something went wrong during the trade execution."}
             </motion.p>
 
             {(error.reason || error.code) && (
@@ -143,14 +159,22 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
               >
                 {error.code && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-foreground-subtle">Error Code</span>
-                    <span className="text-xs font-mono text-accent-danger">{error.code}</span>
+                    <span className="text-xs text-foreground-subtle">
+                      Error Code
+                    </span>
+                    <span className="text-xs font-mono text-accent-danger">
+                      {error.code}
+                    </span>
                   </div>
                 )}
                 {error.reason && (
                   <div className="flex items-start justify-between gap-4">
-                    <span className="text-xs text-foreground-subtle shrink-0">Reason</span>
-                    <span className="text-xs text-right text-foreground-muted">{error.reason}</span>
+                    <span className="text-xs text-foreground-subtle shrink-0">
+                      Reason
+                    </span>
+                    <span className="text-xs text-right text-foreground-muted">
+                      {error.reason}
+                    </span>
                   </div>
                 )}
               </motion.div>
@@ -169,7 +193,11 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
                 <RefreshCw className="h-4 w-4" />
                 Retry
               </Button>
-              <Button onClick={handleDismiss} variant="outline" className="flex-1 gap-2">
+              <Button
+                onClick={handleDismiss}
+                variant="outline"
+                className="flex-1 gap-2"
+              >
                 Dismiss
               </Button>
             </motion.div>

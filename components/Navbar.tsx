@@ -13,7 +13,8 @@ import { CommandPalette } from "@/components/CommandPalette";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
-  { href: "/signals", label: "Signals" },
+  { href: "/app", label: "Signals" },
+  { href: "/journal", label: "Journal" },
   { href: "/bookmarks", label: "Bookmarks" },
   { href: "/providers", label: "Providers" },
   { href: "/tax-report", label: "Tax Report" },
@@ -77,11 +78,16 @@ export function Navbar() {
                 size="sm"
                 disabled={isConnecting}
                 onClick={() => setWalletModalOpen(true)}
-                aria-label={isConnecting ? "Connecting wallet…" : "Connect wallet"}
+                aria-label={
+                  isConnecting ? "Connecting wallet…" : "Connect wallet"
+                }
                 className="gap-2"
               >
                 {isConnecting && (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  <Loader2
+                    className="h-3.5 w-3.5 animate-spin"
+                    aria-hidden="true"
+                  />
                 )}
                 {isConnecting ? "Connecting…" : "Connect Wallet"}
               </Button>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/store/useThemeStore";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface CommandItem {
   id: string;
@@ -33,25 +34,62 @@ interface CommandPaletteProps {
   onConnectWallet?: () => void;
 }
 
-export function CommandPalette({ open, onClose, onConnectWallet }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onClose,
+  onConnectWallet,
+}: CommandPaletteProps) {
   const router = useRouter();
   const { toggle: toggleTheme } = useThemeStore();
   const inputRef = useRef<HTMLInputElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 
   const items: CommandItem[] = [
     { id: "home", label: "Home", group: "Routes", href: "/" },
     { id: "signals", label: "Signals", group: "Routes", href: "/signals" },
-    { id: "bookmarks", label: "Bookmarks", group: "Routes", href: "/bookmarks" },
-    { id: "providers", label: "Providers", group: "Routes", href: "/providers" },
-    { id: "tax-report", label: "Tax Report", group: "Routes", href: "/tax-report", keywords: ["tax", "report"] },
+    {
+      id: "bookmarks",
+      label: "Bookmarks",
+      group: "Routes",
+      href: "/bookmarks",
+    },
+    {
+      id: "providers",
+      label: "Providers",
+      group: "Routes",
+      href: "/providers",
+    },
+    {
+      id: "tax-report",
+      label: "Tax Report",
+      group: "Routes",
+      href: "/tax-report",
+      keywords: ["tax", "report"],
+    },
     { id: "compare", label: "Compare", group: "Routes", href: "/compare" },
-    { id: "backtest", label: "Backtest Simulator", group: "Routes", href: "/backtest-sim", keywords: ["backtest", "sim"] },
+    {
+      id: "backtest",
+      label: "Backtest Simulator",
+      group: "Routes",
+      href: "/backtest-sim",
+      keywords: ["backtest", "sim"],
+    },
     { id: "referral", label: "Referral", group: "Routes", href: "/referral" },
     { id: "security", label: "Security", group: "Routes", href: "/security" },
-    { id: "analytics", label: "Analytics", group: "Routes", href: "/analytics" },
-    { id: "performance", label: "Performance", group: "Routes", href: "/performance" },
+    {
+      id: "analytics",
+      label: "Analytics",
+      group: "Routes",
+      href: "/analytics",
+    },
+    {
+      id: "performance",
+      label: "Performance",
+      group: "Routes",
+      href: "/performance",
+    },
     {
       id: "toggle-theme",
       label: "Toggle Theme",
@@ -74,13 +112,19 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
       item.keywords?.some((k) => fuzzyMatch(query, k))
   );
 
-  useEffect(() => { setActiveIndex(0); }, [query]);
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
 
   useEffect(() => {
     if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
       setQuery("");
       setActiveIndex(0);
       requestAnimationFrame(() => inputRef.current?.focus());
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
     }
   }, [open]);
 
@@ -99,7 +143,10 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
@@ -132,7 +179,11 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
       />
       <div className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-popover shadow-2xl overflow-hidden">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Search size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+          <Search
+            size={15}
+            className="shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
           <input
             ref={inputRef}
             type="text"
@@ -143,7 +194,11 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
             aria-label="Search command palette"
             aria-autocomplete="list"
             aria-controls="command-palette-list"
-            aria-activedescendant={filtered[activeIndex] ? `cmd-${filtered[activeIndex].id}` : undefined}
+            aria-activedescendant={
+              filtered[activeIndex]
+                ? `cmd-${filtered[activeIndex].id}`
+                : undefined
+            }
           />
           <button
             onClick={onClose}
@@ -160,8 +215,12 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
           className="max-h-72 overflow-y-auto p-1"
         >
           {filtered.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No results for &ldquo;{query}&rdquo;
+            <li className="px-2 py-2">
+              <EmptyState
+                title="No results"
+                description={`No results for "${query}"`}
+                className="rounded-xl bg-transparent py-8"
+              />
             </li>
           ) : (
             filtered.map((item, i) => (
@@ -179,20 +238,31 @@ export function CommandPalette({ open, onClose, onConnectWallet }: CommandPalett
                     : "text-foreground hover:bg-accent/50"
                 )}
               >
-                <span className="w-4 text-center text-muted-foreground text-xs" aria-hidden="true">
+                <span
+                  className="w-4 text-center text-muted-foreground text-xs"
+                  aria-hidden="true"
+                >
                   {item.group === "Routes" ? "→" : "⚡"}
                 </span>
                 <span className="flex-1">{item.label}</span>
-                <span className="text-[10px] text-muted-foreground">{item.group}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {item.group}
+                </span>
               </li>
             ))
           )}
         </ul>
 
         <div className="border-t border-border px-4 py-2 flex gap-4 text-[11px] text-muted-foreground">
-          <span><kbd className="font-mono">↑↓</kbd> navigate</span>
-          <span><kbd className="font-mono">↵</kbd> select</span>
-          <span><kbd className="font-mono">Esc</kbd> close</span>
+          <span>
+            <kbd className="font-mono">↑↓</kbd> navigate
+          </span>
+          <span>
+            <kbd className="font-mono">↵</kbd> select
+          </span>
+          <span>
+            <kbd className="font-mono">Esc</kbd> close
+          </span>
         </div>
       </div>
     </div>,

@@ -21,13 +21,14 @@ function computeStopLossPrice(
       ? highWaterMark * (1 - stopLossPercent / 100)
       : null;
   }
-  return entryPrice != null
-    ? entryPrice * (1 - stopLossPercent / 100)
-    : null;
+  return entryPrice != null ? entryPrice * (1 - stopLossPercent / 100) : null;
 }
 
 // Mirrors the updateCurrentPrice logic (high-water mark only moves upward).
-function updateHighWaterMark(prev: number | null, price: number): number | null {
+function updateHighWaterMark(
+  prev: number | null,
+  price: number
+): number | null {
   if (prev === null) return price;
   return price > prev ? price : prev;
 }

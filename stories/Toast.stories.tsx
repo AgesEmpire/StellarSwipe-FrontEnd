@@ -20,7 +20,15 @@ const meta: Meta<typeof ToastProvider> = {
 export default meta;
 type Story = StoryObj<typeof ToastProvider>;
 
-function ToastTrigger({ tone, title, description }: { tone: "success" | "error" | "info"; title: string; description?: string }) {
+function ToastTrigger({
+  tone,
+  title,
+  description,
+}: {
+  tone: "success" | "error" | "info";
+  title: string;
+  description?: string;
+}) {
   const toast = useToast();
   return (
     <Button onClick={() => toast[tone](title, { description })}>
@@ -30,15 +38,33 @@ function ToastTrigger({ tone, title, description }: { tone: "success" | "error" 
 }
 
 export const Success: Story = {
-  render: () => <ToastTrigger tone="success" title="Trade executed" description="XLM/USDC order placed successfully." />,
+  render: () => (
+    <ToastTrigger
+      tone="success"
+      title="Trade executed"
+      description="XLM/USDC order placed successfully."
+    />
+  ),
 };
 
 export const Error: Story = {
-  render: () => <ToastTrigger tone="error" title="Transaction failed" description="Insufficient balance." />,
+  render: () => (
+    <ToastTrigger
+      tone="error"
+      title="Transaction failed"
+      description="Insufficient balance."
+    />
+  ),
 };
 
 export const Info: Story = {
-  render: () => <ToastTrigger tone="info" title="Signal updated" description="New price target available." />,
+  render: () => (
+    <ToastTrigger
+      tone="info"
+      title="Signal updated"
+      description="New price target available."
+    />
+  ),
 };
 
 export const AllTones: Story = {

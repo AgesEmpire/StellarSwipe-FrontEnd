@@ -58,8 +58,22 @@ export const useSignalFilterStore = create<SignalFilterState>()(
       setBookmarkedOnly: (selected) => set({ bookmarkedOnly: selected }),
       setSortOrder: (sortOrder) => set({ sortOrder }),
       savePreset: (name) => {
-        const { direction, asset, provider, bookmarkedOnly, sortOrder, presets } = get();
-        const preset: FilterPreset = { name, direction, asset, provider, bookmarkedOnly, sortOrder };
+        const {
+          direction,
+          asset,
+          provider,
+          bookmarkedOnly,
+          sortOrder,
+          presets,
+        } = get();
+        const preset: FilterPreset = {
+          name,
+          direction,
+          asset,
+          provider,
+          bookmarkedOnly,
+          sortOrder,
+        };
         const existing = presets.findIndex((p) => p.name === name);
         if (existing >= 0) {
           const updated = [...presets];
@@ -102,4 +116,5 @@ export const useSignalFilterStore = create<SignalFilterState>()(
 );
 
 /** Returns `true` once localStorage has been read and state is stable. */
-export const useSignalFilterHydrated = () => useSignalFilterStore((s) => s._hasHydrated);
+export const useSignalFilterHydrated = () =>
+  useSignalFilterStore((s) => s._hasHydrated);

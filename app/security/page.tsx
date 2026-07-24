@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Bug, ChevronRight, Shield } from "lucide-react";
+import Link from "next/link";
+import { Bug, ChevronRight, Shield, MonitorSmartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -11,8 +12,10 @@ import {
 import { bugBountyProgram } from "@/content/security";
 import { auditReports } from "@/content/audits";
 import { AnalyticsConsentToggle } from "@/components/AnalyticsConsentToggle";
+import { DataSaverToggle } from "@/components/DataSaverToggle";
 import { NotificationPermissionButton } from "@/components/NotificationPermissionButton";
 import { useNotificationPreference } from "@/hooks/useNotificationPreference";
+import { SettingsBreadcrumb } from "@/components/SettingsBreadcrumb";
 
 export default function SecuritySettingsPage() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -27,10 +30,13 @@ export default function SecuritySettingsPage() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
       <div className="mx-auto w-full max-w-2xl space-y-6">
+        <SettingsBreadcrumb />
         {/* Page header */}
         <div className="flex items-center gap-2">
           <Shield size={20} className="text-blue-400" aria-hidden="true" />
-          <h1 className="text-xl font-semibold text-foreground">Account Security</h1>
+          <h1 className="text-xl font-semibold text-foreground">
+            Account Security
+          </h1>
         </div>
 
         {/* 2FA status card */}
@@ -86,6 +92,38 @@ export default function SecuritySettingsPage() {
           />
         )}
 
+        {/* Active Sessions entry point */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MonitorSmartphone
+                  size={16}
+                  className="text-blue-400"
+                  aria-hidden="true"
+                />
+                <h2 className="text-sm font-semibold text-foreground">
+                  Active Sessions
+                </h2>
+              </div>
+            </div>
+            <p className="text-xs text-foreground-muted">
+              Review and revoke access for devices and browsers signed in to
+              your account.
+            </p>
+          </CardHeader>
+          <CardContent className="px-5 pb-5">
+            <Button size="sm" asChild className="gap-1.5">
+              <Link
+                href="/security/active-sessions"
+                aria-label="Manage active sessions"
+              >
+                Manage sessions <ChevronRight size={13} aria-hidden="true" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Privacy */}
         <Card>
           <CardHeader>
@@ -95,7 +133,35 @@ export default function SecuritySettingsPage() {
             </p>
           </CardHeader>
           <CardContent className="px-5 pb-5">
-            <AnalyticsConsentToggle />
+            <div className="space-y-4">
+              <AnalyticsConsentToggle />
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-xs text-foreground-muted mb-2">
+                  Need a full account export for records or compliance requests?
+                </p>
+                <Button asChild size="sm" variant="outline" className="gap-1.5">
+                  <Link href="/security/data-export">
+                    Request Account Data Export <ChevronRight size={13} />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Usage */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-sm font-semibold text-foreground">
+              Data Usage
+            </h2>
+            <p className="text-xs text-foreground-muted">
+              Reduce network and battery usage on limited or expensive
+              connections.
+            </p>
+          </CardHeader>
+          <CardContent className="px-5 pb-5">
+            <DataSaverToggle />
           </CardContent>
         </Card>
 
@@ -121,7 +187,10 @@ export default function SecuritySettingsPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <label htmlFor="toggle-priceAlerts" className="text-xs font-semibold text-foreground">
+                    <label
+                      htmlFor="toggle-priceAlerts"
+                      className="text-xs font-semibold text-foreground"
+                    >
                       Price Alerts
                     </label>
                     <p className="text-[11px] text-foreground-muted">
@@ -132,13 +201,18 @@ export default function SecuritySettingsPage() {
                     id="toggle-priceAlerts"
                     type="checkbox"
                     checked={categoryPreferences.priceAlerts}
-                    onChange={(e) => toggleCategory("priceAlerts", e.target.checked)}
+                    onChange={(e) =>
+                      toggleCategory("priceAlerts", e.target.checked)
+                    }
                     className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 accent-blue-500"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <label htmlFor="toggle-newSignals" className="text-xs font-semibold text-foreground">
+                    <label
+                      htmlFor="toggle-newSignals"
+                      className="text-xs font-semibold text-foreground"
+                    >
                       New Signals
                     </label>
                     <p className="text-[11px] text-foreground-muted">
@@ -149,13 +223,18 @@ export default function SecuritySettingsPage() {
                     id="toggle-newSignals"
                     type="checkbox"
                     checked={categoryPreferences.newSignals}
-                    onChange={(e) => toggleCategory("newSignals", e.target.checked)}
+                    onChange={(e) =>
+                      toggleCategory("newSignals", e.target.checked)
+                    }
                     className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 accent-blue-500"
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <label htmlFor="toggle-systemUpdates" className="text-xs font-semibold text-foreground">
+                    <label
+                      htmlFor="toggle-systemUpdates"
+                      className="text-xs font-semibold text-foreground"
+                    >
                       System & Trade Updates
                     </label>
                     <p className="text-[11px] text-foreground-muted">
@@ -166,7 +245,9 @@ export default function SecuritySettingsPage() {
                     id="toggle-systemUpdates"
                     type="checkbox"
                     checked={categoryPreferences.systemUpdates}
-                    onChange={(e) => toggleCategory("systemUpdates", e.target.checked)}
+                    onChange={(e) =>
+                      toggleCategory("systemUpdates", e.target.checked)
+                    }
                     className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 accent-blue-500"
                   />
                 </div>
@@ -187,7 +268,10 @@ export default function SecuritySettingsPage() {
           </CardHeader>
           <CardContent className="px-5 pb-5">
             {[...auditReports]
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .sort(
+                (a, b) =>
+                  new Date(b.date).getTime() - new Date(a.date).getTime()
+              )
               .map((audit) => (
                 <div
                   key={audit.id}
