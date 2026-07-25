@@ -8,8 +8,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    // Only run files in __tests__/ at root level (not store/__tests__ which uses Jest)
-    include: ["__tests__/**/*.test.{ts,tsx}"],
+    // Include test files under any __tests__ directory, including app-level suites.
+    include: ["**/__tests__/**/*.test.{ts,tsx}"],
   },
   resolve: {
     alias: {
