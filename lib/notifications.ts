@@ -1,13 +1,16 @@
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
-  if (!('Notification' in window)) return 'denied';
-  if (Notification.permission !== 'default') return Notification.permission;
+  if (!("Notification" in window)) return "denied";
+  if (Notification.permission !== "default") return Notification.permission;
   return await Notification.requestPermission();
 }
 
-export type NotificationCategory = 'priceAlerts' | 'newSignals' | 'systemUpdates';
+export type NotificationCategory =
+  | "priceAlerts"
+  | "newSignals"
+  | "systemUpdates";
 
 export function canShowNotification(): boolean {
-  return 'Notification' in window && Notification.permission === 'granted';
+  return "Notification" in window && Notification.permission === "granted";
 }
 
 export function showNotification(
@@ -16,8 +19,8 @@ export function showNotification(
 ) {
   if (!canShowNotification()) return;
 
-  if (options?.category && typeof window !== 'undefined') {
-    const stored = localStorage.getItem('stellarswipe:notification-categories');
+  if (options?.category && typeof window !== "undefined") {
+    const stored = localStorage.getItem("stellarswipe:notification-categories");
     if (stored) {
       try {
         const prefs = JSON.parse(stored);
@@ -30,8 +33,10 @@ export function showNotification(
     }
   }
 
-  if (typeof window !== 'undefined') {
-    const storedAlerts = localStorage.getItem('stellarswipe:notification-alerts-enabled');
+  if (typeof window !== "undefined") {
+    const storedAlerts = localStorage.getItem(
+      "stellarswipe:notification-alerts-enabled"
+    );
     if (storedAlerts && JSON.parse(storedAlerts) === false) {
       return;
     }
@@ -40,12 +45,11 @@ export function showNotification(
   new Notification(title, options);
 }
 
-
 // Web Push helpers
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) return null;
-  return navigator.serviceWorker.register('/sw.js');
+  if (!("serviceWorker" in navigator)) return null;
+  return navigator.serviceWorker.register("/sw.js");
 }
 
 export async function subscribeToPush(
@@ -75,8 +79,8 @@ export async function getExistingSubscription(
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(base64);
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }

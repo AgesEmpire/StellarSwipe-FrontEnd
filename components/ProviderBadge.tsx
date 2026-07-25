@@ -13,19 +13,22 @@ const BADGE_CONFIG: Record<
   verified: {
     icon: "✓",
     label: "Verified",
-    className: "bg-blue-100 text-blue-700 border border-blue-300 forced-colors:bg-[Canvas] forced-colors:text-[LinkText] forced-colors:border-[LinkText]",
+    className:
+      "bg-blue-100 text-blue-700 border border-blue-300 forced-colors:bg-[Canvas] forced-colors:text-[LinkText] forced-colors:border-[LinkText]",
     tooltip: "Verified provider — identity confirmed",
   },
   professional: {
     icon: "★",
     label: "Professional",
-    className: "bg-purple-100 text-purple-700 border border-purple-300 forced-colors:bg-[Canvas] forced-colors:text-[Highlight] forced-colors:border-[Highlight]",
+    className:
+      "bg-purple-100 text-purple-700 border border-purple-300 forced-colors:bg-[Canvas] forced-colors:text-[Highlight] forced-colors:border-[Highlight]",
     tooltip: "Professional provider — proven track record",
   },
   new: {
     icon: "🔥",
     label: "New",
-    className: "bg-orange-100 text-orange-700 border border-orange-300 forced-colors:bg-[Canvas] forced-colors:text-[ButtonText] forced-colors:border-[ButtonText]",
+    className:
+      "bg-orange-100 text-orange-700 border border-orange-300 forced-colors:bg-[Canvas] forced-colors:text-[ButtonText] forced-colors:border-[ButtonText]",
     tooltip: "New provider — recently joined",
   },
 };

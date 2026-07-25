@@ -12,10 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
-export type WalletConnectErrorReason =
-  | "not_found"
-  | "error"
-  | null;
+export type WalletConnectErrorReason = "not_found" | "error" | null;
 
 interface WalletConnectErrorModalProps {
   open: boolean;
@@ -144,7 +141,10 @@ export function WalletConnectErrorModal({
               </p>
               <ol className="space-y-2">
                 {content.steps.map((step, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-foreground"
+                  >
                     <CheckCircle2
                       size={14}
                       className="mt-0.5 shrink-0 text-accent-primary"

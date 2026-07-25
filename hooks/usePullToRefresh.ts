@@ -56,7 +56,7 @@ export interface UsePullToRefreshState {
  *   <div>
  *     <PullToRefreshIndicator distance={pullDistance} />
  *     <div ref={feedRef} className="overflow-y-auto">
- *       {/* feed content */}
+ *       feed content
  *     </div>
  *   </div>
  * );

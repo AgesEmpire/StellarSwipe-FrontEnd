@@ -16,13 +16,22 @@ async function sendWithRetryMock(
   attempts: number,
   backoffInterval: number,
   sleepFn: (ms: number) => Promise<void>
-): Promise<{ status: "success" | "failed"; statusCode?: number; attemptNumber: number; error?: string }> {
+): Promise<{
+  status: "success" | "failed";
+  statusCode?: number;
+  attemptNumber: number;
+  error?: string;
+}> {
   const deliveryId = `del_test`;
   for (let i = 0; i < attempts; i++) {
     try {
       const res = await fetchFn();
       if (res.ok) {
-        return { status: "success", statusCode: res.status, attemptNumber: i + 1 };
+        return {
+          status: "success",
+          statusCode: res.status,
+          attemptNumber: i + 1,
+        };
       }
       if (i === attempts - 1) {
         return {
@@ -43,7 +52,11 @@ async function sendWithRetryMock(
     }
     await sleepFn(backoffInterval * (i + 1));
   }
-  return { status: "failed", error: "Max retries exceeded", attemptNumber: attempts };
+  return {
+    status: "failed",
+    error: "Max retries exceeded",
+    attemptNumber: attempts,
+  };
 }
 
 // ── retry attempt counting ────────────────────────────────────────────────────
@@ -98,7 +111,9 @@ describe("webhookRetry – attempt counting against a failing endpoint", () => {
   });
 
   it("records the correct attemptNumber on first-attempt success", async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ ok: true, status: 201, statusText: "Created" });
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue({ ok: true, status: 201, statusText: "Created" });
     const sleep = jest.fn().mockResolvedValue(undefined);
 
     const result = await sendWithRetryMock(fetchFn, 3, 1000, sleep);
@@ -108,7 +123,11 @@ describe("webhookRetry – attempt counting against a failing endpoint", () => {
   });
 
   it("records the last attempt number on exhausted retries", async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 429, statusText: "Too Many Requests" });
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: "Too Many Requests",
+    });
     const sleep = jest.fn().mockResolvedValue(undefined);
 
     const result = await sendWithRetryMock(fetchFn, 4, 500, sleep);
@@ -128,7 +147,9 @@ describe("webhookRetry – backoff interval timing", () => {
       return { ok: calls >= 3, status: calls >= 3 ? 200 : 500, statusText: "" };
     });
     const sleepMs: number[] = [];
-    const sleep = jest.fn().mockImplementation(async (ms: number) => { sleepMs.push(ms); });
+    const sleep = jest.fn().mockImplementation(async (ms: number) => {
+      sleepMs.push(ms);
+    });
 
     await sendWithRetryMock(fetchFn, 5, 2000, sleep);
 
@@ -142,7 +163,9 @@ describe("webhookRetry – backoff interval timing", () => {
       return { ok: calls >= 3, status: calls >= 3 ? 200 : 500, statusText: "" };
     });
     const sleepMs: number[] = [];
-    const sleep = jest.fn().mockImplementation(async (ms: number) => { sleepMs.push(ms); });
+    const sleep = jest.fn().mockImplementation(async (ms: number) => {
+      sleepMs.push(ms);
+    });
 
     await sendWithRetryMock(fetchFn, 5, 2000, sleep);
 
@@ -150,7 +173,9 @@ describe("webhookRetry – backoff interval timing", () => {
   });
 
   it("does not sleep after the final failed attempt", async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 500, statusText: "Error" });
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue({ ok: false, status: 500, statusText: "Error" });
     const sleep = jest.fn().mockResolvedValue(undefined);
 
     await sendWithRetryMock(fetchFn, 3, 1000, sleep);
@@ -160,7 +185,9 @@ describe("webhookRetry – backoff interval timing", () => {
   });
 
   it("does not sleep at all on a first-attempt success", async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, statusText: "OK" });
     const sleep = jest.fn().mockResolvedValue(undefined);
 
     await sendWithRetryMock(fetchFn, 3, 1000, sleep);
@@ -175,7 +202,9 @@ describe("webhookRetry – backoff interval timing", () => {
       return { ok: calls >= 2, status: calls >= 2 ? 200 : 500, statusText: "" };
     });
     const sleepMs: number[] = [];
-    const sleep = jest.fn().mockImplementation(async (ms: number) => { sleepMs.push(ms); });
+    const sleep = jest.fn().mockImplementation(async (ms: number) => {
+      sleepMs.push(ms);
+    });
 
     await sendWithRetryMock(fetchFn, 3, 500, sleep);
 
@@ -193,22 +222,32 @@ describe("useWebhookStore – retry configuration", () => {
   });
 
   it("new webhooks default to maxRetries=3 and backoffInterval=1000", () => {
-    const wh = useWebhookStore.getState().addWebhook("https://example.com/hook", ["new_signal"]);
+    const wh = useWebhookStore
+      .getState()
+      .addWebhook("https://example.com/hook", ["new_signal"]);
     expect(wh.maxRetries).toBe(3);
     expect(wh.backoffInterval).toBe(1000);
   });
 
   it("updateRetryConfig changes maxRetries", () => {
-    const wh = useWebhookStore.getState().addWebhook("https://example.com/hook", ["new_signal"]);
+    const wh = useWebhookStore
+      .getState()
+      .addWebhook("https://example.com/hook", ["new_signal"]);
     useWebhookStore.getState().updateRetryConfig(wh.id, 5, 1000);
-    const updated = useWebhookStore.getState().webhooks.find((w) => w.id === wh.id);
+    const updated = useWebhookStore
+      .getState()
+      .webhooks.find((w) => w.id === wh.id);
     expect(updated?.maxRetries).toBe(5);
   });
 
   it("updateRetryConfig changes backoffInterval", () => {
-    const wh = useWebhookStore.getState().addWebhook("https://example.com/hook", ["new_signal"]);
+    const wh = useWebhookStore
+      .getState()
+      .addWebhook("https://example.com/hook", ["new_signal"]);
     useWebhookStore.getState().updateRetryConfig(wh.id, 3, 2500);
-    const updated = useWebhookStore.getState().webhooks.find((w) => w.id === wh.id);
+    const updated = useWebhookStore
+      .getState()
+      .webhooks.find((w) => w.id === wh.id);
     expect(updated?.backoffInterval).toBe(2500);
   });
 
@@ -240,13 +279,17 @@ describe("useWebhookStore – retry configuration", () => {
       ],
     });
     useWebhookStore.getState().updateRetryConfig("wh_a", 7, 3000);
-    const unchanged = useWebhookStore.getState().webhooks.find((w) => w.id === "wh_b");
+    const unchanged = useWebhookStore
+      .getState()
+      .webhooks.find((w) => w.id === "wh_b");
     expect(unchanged?.maxRetries).toBe(3);
     expect(unchanged?.backoffInterval).toBe(1000);
   });
 
   it("deliveries record the attemptNumber field", () => {
-    const wh = useWebhookStore.getState().addWebhook("https://example.com/hook", ["new_signal"]);
+    const wh = useWebhookStore
+      .getState()
+      .addWebhook("https://example.com/hook", ["new_signal"]);
     useWebhookStore.getState().recordDelivery(wh.id, {
       id: "del_1",
       timestamp: new Date().toISOString(),
@@ -255,13 +298,16 @@ describe("useWebhookStore – retry configuration", () => {
       error: "HTTP 500",
       attemptNumber: 3,
     });
-    const delivery = useWebhookStore.getState().webhooks
-      .find((w) => w.id === wh.id)?.deliveries[0];
+    const delivery = useWebhookStore
+      .getState()
+      .webhooks.find((w) => w.id === wh.id)?.deliveries[0];
     expect(delivery?.attemptNumber).toBe(3);
   });
 
   it("failure history contains only failed deliveries", () => {
-    const wh = useWebhookStore.getState().addWebhook("https://example.com/hook", ["new_signal"]);
+    const wh = useWebhookStore
+      .getState()
+      .addWebhook("https://example.com/hook", ["new_signal"]);
     useWebhookStore.getState().recordDelivery(wh.id, {
       id: "del_ok",
       timestamp: new Date().toISOString(),
@@ -277,7 +323,9 @@ describe("useWebhookStore – retry configuration", () => {
       error: "Service Unavailable",
       attemptNumber: 3,
     });
-    const hook = useWebhookStore.getState().webhooks.find((w) => w.id === wh.id)!;
+    const hook = useWebhookStore
+      .getState()
+      .webhooks.find((w) => w.id === wh.id)!;
     const failures = hook.deliveries.filter((d) => d.status === "failed");
     expect(failures).toHaveLength(1);
     expect(failures[0].id).toBe("del_fail");

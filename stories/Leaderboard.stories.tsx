@@ -1,26 +1,30 @@
-import type { Meta, StoryFn, StoryObj } from '@storybook/react';
-import { Leaderboard } from '@/components/Leaderboard';
-import { useLeaderboardStore, type LeaderboardEntry } from '@/store/leaderboardStore';
+import type { Meta, StoryFn, StoryObj } from "@storybook/react";
+import { Leaderboard } from "@/components/Leaderboard";
+import {
+  useLeaderboardStore,
+  type LeaderboardEntry,
+} from "@/store/leaderboardStore";
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_RANKINGS: LeaderboardEntry[] = [
   {
-    id: '1',
-    username: 'stellar_alpha',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=stellar_alpha',
-    marketType: 'crypto',
+    id: "1",
+    username: "stellar_alpha",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=stellar_alpha",
+    marketType: "crypto",
     returnPct: 42.5,
     winRate: 78,
     anonymous: false,
-    badges: ['top_trader'],
+    badges: ["top_trader"],
     followed: false,
   },
   {
-    id: '2',
-    username: 'moonshot_trader',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=moonshot_trader',
-    marketType: 'crypto',
+    id: "2",
+    username: "moonshot_trader",
+    avatarUrl:
+      "https://api.dicebear.com/7.x/avataaars/svg?seed=moonshot_trader",
+    marketType: "crypto",
     returnPct: 31.2,
     winRate: 65,
     anonymous: false,
@@ -28,10 +32,10 @@ const MOCK_RANKINGS: LeaderboardEntry[] = [
     followed: true,
   },
   {
-    id: '3',
-    username: 'fx_wizard',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=fx_wizard',
-    marketType: 'forex',
+    id: "3",
+    username: "fx_wizard",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=fx_wizard",
+    marketType: "forex",
     returnPct: 27.8,
     winRate: 72,
     anonymous: false,
@@ -39,10 +43,10 @@ const MOCK_RANKINGS: LeaderboardEntry[] = [
     followed: false,
   },
   {
-    id: '4',
-    username: '',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anon4',
-    marketType: 'commodities',
+    id: "4",
+    username: "",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=anon4",
+    marketType: "commodities",
     returnPct: 19.4,
     winRate: 58,
     anonymous: true,
@@ -55,7 +59,11 @@ const MOCK_RANKINGS: LeaderboardEntry[] = [
 // Override fetchRankings with a no-op so the component's useEffect does not
 // clear the pre-seeded store state when Chromatic captures the snapshot.
 
-function withLeaderboardState(rankings: LeaderboardEntry[], loading = false, error: string | null = null) {
+function withLeaderboardState(
+  rankings: LeaderboardEntry[],
+  loading = false,
+  error: string | null = null
+) {
   return (Story: StoryFn) => {
     useLeaderboardStore.setState({
       rankings,
@@ -71,12 +79,12 @@ function withLeaderboardState(rankings: LeaderboardEntry[], loading = false, err
 // ── Meta ──────────────────────────────────────────────────────────────────────
 
 const meta: Meta<typeof Leaderboard> = {
-  title: 'Components/Leaderboard',
+  title: "Components/Leaderboard",
   component: Leaderboard,
-  tags: ['autodocs'],
+  tags: ["autodocs"],
   parameters: {
     chromatic: { viewports: [375, 768, 1280] },
-    layout: 'padded',
+    layout: "padded",
   },
 };
 
@@ -86,33 +94,33 @@ type Story = StoryObj<typeof Leaderboard>;
 // ── Populated states ──────────────────────────────────────────────────────────
 
 export const Default: Story = {
-  name: 'Default (4 traders)',
+  name: "Default (4 traders)",
   decorators: [withLeaderboardState(MOCK_RANKINGS)],
 };
 
 export const DefaultDark: Story = {
-  name: 'Default – Dark',
-  parameters: { themes: { themeOverride: 'dark' } },
+  name: "Default – Dark",
+  parameters: { themes: { themeOverride: "dark" } },
   decorators: [withLeaderboardState(MOCK_RANKINGS)],
 };
 
 export const DefaultLight: Story = {
-  name: 'Default – Light',
-  parameters: { themes: { themeOverride: 'light' } },
+  name: "Default – Light",
+  parameters: { themes: { themeOverride: "light" } },
   decorators: [withLeaderboardState(MOCK_RANKINGS)],
 };
 
 export const SingleEntry: Story = {
-  name: 'Single entry',
+  name: "Single entry",
   decorators: [withLeaderboardState([MOCK_RANKINGS[0]])],
 };
 
 export const WithAnonymousTrader: Story = {
-  name: 'Anonymous trader',
+  name: "Anonymous trader",
   decorators: [
     withLeaderboardState([
       ...MOCK_RANKINGS.slice(0, 2),
-      { ...MOCK_RANKINGS[3], id: 'anon-only', anonymous: true },
+      { ...MOCK_RANKINGS[3], id: "anon-only", anonymous: true },
     ]),
   ],
 };
@@ -120,33 +128,33 @@ export const WithAnonymousTrader: Story = {
 // ── Loading state ─────────────────────────────────────────────────────────────
 
 export const Loading: Story = {
-  name: 'Loading',
+  name: "Loading",
   decorators: [withLeaderboardState([], true, null)],
 };
 
 export const LoadingDark: Story = {
-  name: 'Loading – Dark',
-  parameters: { themes: { themeOverride: 'dark' } },
+  name: "Loading – Dark",
+  parameters: { themes: { themeOverride: "dark" } },
   decorators: [withLeaderboardState([], true, null)],
 };
 
 // ── Error state ───────────────────────────────────────────────────────────────
 
 export const FetchError: Story = {
-  name: 'Error state',
-  decorators: [withLeaderboardState([], false, 'Network response was not ok')],
+  name: "Error state",
+  decorators: [withLeaderboardState([], false, "Network response was not ok")],
 };
 
 export const FetchErrorDark: Story = {
-  name: 'Error state – Dark',
-  parameters: { themes: { themeOverride: 'dark' } },
-  decorators: [withLeaderboardState([], false, 'Network response was not ok')],
+  name: "Error state – Dark",
+  parameters: { themes: { themeOverride: "dark" } },
+  decorators: [withLeaderboardState([], false, "Network response was not ok")],
 };
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 export const Empty: Story = {
-  name: 'Empty rankings',
+  name: "Empty rankings",
   decorators: [withLeaderboardState([])],
 };
 
@@ -155,10 +163,10 @@ export const Empty: Story = {
 const EXTENDED_RANKINGS: LeaderboardEntry[] = [
   ...MOCK_RANKINGS,
   {
-    id: '5',
-    username: 'arbitrage_king',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=arbitrage_king',
-    marketType: 'crypto',
+    id: "5",
+    username: "arbitrage_king",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=arbitrage_king",
+    marketType: "crypto",
     returnPct: 15.3,
     winRate: 61,
     anonymous: false,
@@ -166,10 +174,10 @@ const EXTENDED_RANKINGS: LeaderboardEntry[] = [
     followed: false,
   },
   {
-    id: '6',
-    username: 'steady_gains',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=steady_gains',
-    marketType: 'forex',
+    id: "6",
+    username: "steady_gains",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=steady_gains",
+    marketType: "forex",
     returnPct: 11.7,
     winRate: 69,
     anonymous: false,
@@ -179,6 +187,6 @@ const EXTENDED_RANKINGS: LeaderboardEntry[] = [
 ];
 
 export const ManyEntries: Story = {
-  name: 'Many entries (6 traders)',
+  name: "Many entries (6 traders)",
   decorators: [withLeaderboardState(EXTENDED_RANKINGS)],
 };

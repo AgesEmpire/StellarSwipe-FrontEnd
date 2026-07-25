@@ -36,9 +36,6 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ error, errorInfo });
 
-    console.error("[ErrorBoundary] Caught an error:", error);
-    console.error("[ErrorBoundary] Component stack:", errorInfo.componentStack);
-
     Sentry.withScope((scope) => {
       scope.setContext("component_stack", {
         componentStack: errorInfo.componentStack,
@@ -139,7 +136,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-function buildReportHref(digest: string | undefined, eventId: string | null): string {
+function buildReportHref(
+  digest: string | undefined,
+  eventId: string | null
+): string {
   const subject = encodeURIComponent("Error Report – StellarSwipe");
   const body = encodeURIComponent(
     [

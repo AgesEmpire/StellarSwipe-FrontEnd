@@ -8,7 +8,12 @@
 
 import { type LeaderboardTimeRange } from "@/hooks/useLeaderboard";
 
-const VALID_TIME_RANGES: LeaderboardTimeRange[] = ["daily", "weekly", "monthly", "all-time"];
+const VALID_TIME_RANGES: LeaderboardTimeRange[] = [
+  "daily",
+  "weekly",
+  "monthly",
+  "all-time",
+];
 
 // Simulate the getPersistedTimeRange logic extracted from the hook
 const TIME_RANGE_STORAGE_KEY = "stellarswipe:leaderboard-time-range";
@@ -16,7 +21,9 @@ const TIME_RANGE_STORAGE_KEY = "stellarswipe:leaderboard-time-range";
 function getPersistedTimeRange(
   storage: Record<string, string> = {}
 ): LeaderboardTimeRange {
-  const stored = storage[TIME_RANGE_STORAGE_KEY] as LeaderboardTimeRange | undefined;
+  const stored = storage[TIME_RANGE_STORAGE_KEY] as
+    | LeaderboardTimeRange
+    | undefined;
   return stored && VALID_TIME_RANGES.includes(stored) ? stored : "all-time";
 }
 
@@ -54,29 +61,44 @@ describe("useLeaderboard – time-range persistence", () => {
   });
 
   it("restores a persisted daily selection", () => {
-    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "daily" })).toBe("daily");
+    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "daily" })).toBe(
+      "daily"
+    );
   });
 
   it("restores a persisted weekly selection", () => {
-    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "weekly" })).toBe("weekly");
+    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "weekly" })).toBe(
+      "weekly"
+    );
   });
 
   it("restores a persisted monthly selection", () => {
-    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "monthly" })).toBe("monthly");
+    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "monthly" })).toBe(
+      "monthly"
+    );
   });
 
   it("restores a persisted all-time selection", () => {
-    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "all-time" })).toBe("all-time");
+    expect(
+      getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "all-time" })
+    ).toBe("all-time");
   });
 
   it("falls back to all-time for an unrecognised stored value", () => {
-    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "unknown" })).toBe("all-time");
+    expect(getPersistedTimeRange({ [TIME_RANGE_STORAGE_KEY]: "unknown" })).toBe(
+      "all-time"
+    );
   });
 });
 
 describe("useLeaderboard – valid time-range type", () => {
   it("all four time-range values are valid", () => {
-    const valid: LeaderboardTimeRange[] = ["daily", "weekly", "monthly", "all-time"];
+    const valid: LeaderboardTimeRange[] = [
+      "daily",
+      "weekly",
+      "monthly",
+      "all-time",
+    ];
     valid.forEach((v) => {
       expect(VALID_TIME_RANGES).toContain(v);
     });

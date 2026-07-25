@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Shield, AlertTriangle, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PROTOCOL_MIN_STAKE_XLM, LOW_STAKE_WARNING_MARGIN } from "@/lib/stellar";
+import {
+  PROTOCOL_MIN_STAKE_XLM,
+  LOW_STAKE_WARNING_MARGIN,
+} from "@/lib/stellar";
 import { useProviderProfile } from "@/hooks/useProviderProfile";
 
 interface StakeBadgeProps {
@@ -40,15 +43,15 @@ export function StakeBadge({
   const resolvedTrustScore = profileData?.trustScore;
   const resolvedWinRate = profileData?.winRate;
 
-  if (!resolvedStake && !resolvedReputation) return null;
-
   const isLowStake =
     resolvedStakeXlm !== undefined &&
     resolvedStakeXlm <= minStakeXlm * (1 + warningMargin);
 
   const getTierColor = (score: number) => {
-    if (score >= 80) return "text-yellow-500 bg-yellow-500/10 border-yellow-500/20 forced-colors:text-[Highlight] forced-colors:bg-[Canvas] forced-colors:border-[Highlight]";
-    if (score >= 60) return "text-blue-500 bg-blue-500/10 border-blue-500/20 forced-colors:text-[LinkText] forced-colors:bg-[Canvas] forced-colors:border-[LinkText]";
+    if (score >= 80)
+      return "text-yellow-500 bg-yellow-500/10 border-yellow-500/20 forced-colors:text-[Highlight] forced-colors:bg-[Canvas] forced-colors:border-[Highlight]";
+    if (score >= 60)
+      return "text-blue-500 bg-blue-500/10 border-blue-500/20 forced-colors:text-[LinkText] forced-colors:bg-[Canvas] forced-colors:border-[LinkText]";
     return "text-gray-400 bg-gray-500/10 border-gray-500/20 forced-colors:text-[GrayText] forced-colors:bg-[Canvas] forced-colors:border-[GrayText]";
   };
 
@@ -98,10 +101,14 @@ export function StakeBadge({
     };
   }, [popoverOpen]);
 
+  if (!resolvedStake && !resolvedReputation) return null;
+
   if (isLowStake) {
     const warningDescription =
       `Low stake warning: ${resolvedStakeXlm?.toLocaleString()} XLM staked, ` +
-      `within ${Math.round(warningMargin * 100)}% of the ${minStakeXlm.toLocaleString()} XLM minimum.`;
+      `within ${Math.round(
+        warningMargin * 100
+      )}% of the ${minStakeXlm.toLocaleString()} XLM minimum.`;
 
     return (
       <div className={cn("relative inline-flex items-center", className)}>
@@ -113,7 +120,9 @@ export function StakeBadge({
           aria-expanded={popoverOpen}
           aria-label={`${warningDescription} Click for details.`}
           onClick={togglePopover}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && togglePopover()}
+          onKeyDown={(e) =>
+            (e.key === "Enter" || e.key === " ") && togglePopover()
+          }
           className={cn(
             "inline-flex cursor-pointer items-center gap-1 px-2 py-1 rounded text-xs font-medium border forced-color-adjust-none",
             "text-amber-500 bg-amber-500/10 border-amber-500/30 forced-colors:text-[Mark] forced-colors:bg-[Canvas] forced-colors:border-[Mark]"
@@ -152,7 +161,9 @@ export function StakeBadge({
         aria-expanded={popoverOpen}
         aria-label={`Stake tier: ${tierLabel}. Reputation ${resolvedReputation}%, staked $${resolvedStake?.toLocaleString()}. Click for breakdown.`}
         onClick={togglePopover}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && togglePopover()}
+        onKeyDown={(e) =>
+          (e.key === "Enter" || e.key === " ") && togglePopover()
+        }
         className={cn(
           "inline-flex cursor-pointer items-center gap-1 px-2 py-1 rounded text-xs font-medium border forced-color-adjust-none",
           tierColor
@@ -206,7 +217,7 @@ const BreakdownPopover = ({
   winRate,
   tierLabel,
   ref,
-}: BreakdownPopoverProps & { ref: React.RefObject<HTMLDivElement | null> }) => (
+}: BreakdownPopoverProps & { ref: React.Ref<HTMLDivElement> }) => (
   <div
     id={id}
     ref={ref}
@@ -219,18 +230,24 @@ const BreakdownPopover = ({
 
     <div className="space-y-1.5 text-slate-400">
       <div className="flex justify-between">
-        <span>Tier <span className="text-slate-600">(50%)</span></span>
+        <span>
+          Tier <span className="text-slate-600">(50%)</span>
+        </span>
         <span className="font-medium text-white">{tierLabel}</span>
       </div>
       {reputation > 0 && (
         <div className="flex justify-between">
-          <span>Reputation <span className="text-slate-600">(30%)</span></span>
+          <span>
+            Reputation <span className="text-slate-600">(30%)</span>
+          </span>
           <span className="font-medium text-blue-400">{reputation}%</span>
         </div>
       )}
       {trustScore !== undefined && (
         <div className="flex justify-between">
-          <span>Trust score <span className="text-slate-600">(20%)</span></span>
+          <span>
+            Trust score <span className="text-slate-600">(20%)</span>
+          </span>
           <span className="font-medium text-purple-400">{trustScore}/100</span>
         </div>
       )}
@@ -243,19 +260,25 @@ const BreakdownPopover = ({
       {stake > 0 && (
         <div className="flex justify-between">
           <span>Staked (USD)</span>
-          <span className="font-medium text-white">${stake.toLocaleString()}</span>
+          <span className="font-medium text-white">
+            ${stake.toLocaleString()}
+          </span>
         </div>
       )}
       {stakeXlm !== undefined && (
         <div className="flex justify-between">
           <span>Staked (XLM)</span>
-          <span className="font-medium text-white">{stakeXlm.toLocaleString()} XLM</span>
+          <span className="font-medium text-white">
+            {stakeXlm.toLocaleString()} XLM
+          </span>
         </div>
       )}
       {stakeXlm !== undefined && (
         <div className="flex justify-between">
           <span>Protocol min</span>
-          <span className="text-slate-500">{minStakeXlm.toLocaleString()} XLM</span>
+          <span className="text-slate-500">
+            {minStakeXlm.toLocaleString()} XLM
+          </span>
         </div>
       )}
     </div>

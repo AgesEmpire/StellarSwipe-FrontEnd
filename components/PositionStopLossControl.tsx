@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Edit2, Save, Info } from "lucide-react";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { StopLossSlider } from "@/components/ui/stop-loss-slider";
+import { GlossaryTerm } from "@/components/GlossaryTerm";
 import { cn } from "@/lib/utils";
 import type { StopLossMode } from "@/hooks/useStopLoss";
 
@@ -31,7 +32,9 @@ export function PositionStopLossControl() {
       .filter((asset) => asset.value > 0)
       .map((asset, index) => {
         const entryPrice = Number((0.4 + index * 0.03).toFixed(4));
-        const currentPrice = Number((entryPrice * (1 + 0.06 + index * 0.01)).toFixed(4));
+        const currentPrice = Number(
+          (entryPrice * (1 + 0.06 + index * 0.01)).toFixed(4)
+        );
         return {
           symbol: asset.symbol,
           assetPair: `${asset.symbol}/USDC`,
@@ -55,9 +58,7 @@ export function PositionStopLossControl() {
   function handleToggleEdit(symbol: string) {
     setPositions((prev) =>
       prev.map((item) =>
-        item.symbol === symbol
-          ? { ...item, isEditing: !item.isEditing }
-          : item
+        item.symbol === symbol ? { ...item, isEditing: !item.isEditing } : item
       )
     );
   }
@@ -74,7 +75,8 @@ export function PositionStopLossControl() {
     setPositions((prev) =>
       prev.map((item) => {
         if (item.symbol !== symbol) return item;
-        const nextMode: StopLossMode = item.mode === "fixed" ? "trailing" : "fixed";
+        const nextMode: StopLossMode =
+          item.mode === "fixed" ? "trailing" : "fixed";
         return { ...item, mode: nextMode };
       })
     );
@@ -84,8 +86,14 @@ export function PositionStopLossControl() {
     <section className="rounded-3xl border border-white/10 bg-card p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-base font-semibold text-foreground">Stop-Loss Controls</p>
-          <p className="text-sm text-muted-foreground">View and adjust stop-loss levels for current open positions.</p>
+          <p className="text-base font-semibold text-foreground">
+            <GlossaryTerm term="stop-loss">Stop-Loss</GlossaryTerm> Controls
+          </p>
+          <p className="text-sm text-muted-foreground">
+            View and adjust{" "}
+            <GlossaryTerm term="stop-loss">stop-loss</GlossaryTerm> levels for
+            current open positions.
+          </p>
         </div>
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {positions.length} open
@@ -93,12 +101,16 @@ export function PositionStopLossControl() {
       </div>
 
       {positions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No active positions available to adjust.</p>
+        <p className="text-sm text-muted-foreground">
+          No active positions available to adjust.
+        </p>
       ) : (
         <div className="space-y-4">
           {positions.map((position) => {
             const referencePrice =
-              position.mode === "trailing" ? position.highWaterMark : position.entryPrice;
+              position.mode === "trailing"
+                ? position.highWaterMark
+                : position.entryPrice;
             const stopPrice = Number(
               (referencePrice * (1 - position.stopLoss / 100)).toFixed(4)
             );
@@ -110,9 +122,12 @@ export function PositionStopLossControl() {
               >
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{position.assetPair}</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {position.assetPair}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Entry {position.entryPrice.toFixed(4)} · Current {position.currentPrice.toFixed(4)}
+                      Entry {position.entryPrice.toFixed(4)} · Current{" "}
+                      {position.currentPrice.toFixed(4)}
                     </p>
                   </div>
                   <button
@@ -124,7 +139,11 @@ export function PositionStopLossControl() {
                         : "bg-white/5 text-foreground border border-white/10 hover:bg-white/10"
                     )}
                   >
-                    {position.isEditing ? <Save size={14} /> : <Edit2 size={14} />}
+                    {position.isEditing ? (
+                      <Save size={14} />
+                    ) : (
+                      <Edit2 size={14} />
+                    )}
                     {position.isEditing ? "Save" : "Edit"}
                   </button>
                 </div>
@@ -140,7 +159,10 @@ export function PositionStopLossControl() {
                     {(["fixed", "trailing"] as StopLossMode[]).map((m) => (
                       <button
                         key={m}
-                        onClick={() => position.isEditing && handleModeToggle(position.symbol)}
+                        onClick={() =>
+                          position.isEditing &&
+                          handleModeToggle(position.symbol)
+                        }
                         aria-pressed={position.mode === m}
                         disabled={!position.isEditing}
                         className={cn(
@@ -170,7 +192,9 @@ export function PositionStopLossControl() {
                   <div className="space-y-3">
                     <StopLossSlider
                       value={position.stopLoss}
-                      onChange={(value) => handleStopLossChange(position.symbol, value)}
+                      onChange={(value) =>
+                        handleStopLossChange(position.symbol, value)
+                      }
                       entryPrice={referencePrice}
                       assetSymbol={position.symbol}
                       min={1}
@@ -180,16 +204,24 @@ export function PositionStopLossControl() {
                     />
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Stop Price</p>
-                        <p className="mt-1 text-sm font-semibold text-foreground">{stopPrice.toFixed(4)} {position.symbol}</p>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                          Stop Price
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-foreground">
+                          {stopPrice.toFixed(4)} {position.symbol}
+                        </p>
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                         <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                          {position.mode === "trailing" ? "High-Water Mark" : "Risk Metric"}
+                          {position.mode === "trailing"
+                            ? "High-Water Mark"
+                            : "Risk Metric"}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-foreground">
                           {position.mode === "trailing"
-                            ? `${position.highWaterMark.toFixed(4)} ${position.symbol}`
+                            ? `${position.highWaterMark.toFixed(4)} ${
+                                position.symbol
+                              }`
                             : `-${position.stopLoss}% risk window`}
                         </p>
                       </div>
@@ -206,8 +238,14 @@ export function PositionStopLossControl() {
 
       {positions.length > 0 && (
         <div className="mt-5 rounded-3xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
-          <p>Aggregate exposure: {currentValue.toFixed(4)} total price units across active positions.</p>
-          <p className="mt-2">Stop-loss values are preserved while the page is open and visible in the position summary.</p>
+          <p>
+            Aggregate exposure: {currentValue.toFixed(4)} total price units
+            across active positions.
+          </p>
+          <p className="mt-2">
+            Stop-loss values are preserved while the page is open and visible in
+            the position summary.
+          </p>
         </div>
       )}
     </section>

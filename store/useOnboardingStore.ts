@@ -23,7 +23,12 @@ export const useOnboardingStore = create<OnboardingState>()(
       currentStep: 0,
       _hasHydrated: false,
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
-      setCompleted: () => set({ completed: true, dismissed: true, currentStep: ONBOARDING_TOTAL_STEPS }),
+      setCompleted: () =>
+        set({
+          completed: true,
+          dismissed: true,
+          currentStep: ONBOARDING_TOTAL_STEPS,
+        }),
       setDismissed: () => set({ dismissed: true }),
       setCurrentStep: (step: number) => set({ currentStep: step }),
       reset: () => set({ completed: false, dismissed: false, currentStep: 0 }),
@@ -38,4 +43,5 @@ export const useOnboardingStore = create<OnboardingState>()(
 );
 
 /** Returns `true` once localStorage has been read and state is stable. */
-export const useOnboardingHydrated = () => useOnboardingStore((s) => s._hasHydrated);
+export const useOnboardingHydrated = () =>
+  useOnboardingStore((s) => s._hasHydrated);

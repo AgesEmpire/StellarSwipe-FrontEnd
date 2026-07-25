@@ -7,6 +7,7 @@ Persists the current onboarding step to localStorage on each transition. When a 
 ## Changes
 
 ### Store (`store/useOnboardingStore.ts`)
+
 - Added `currentStep: number` to the persisted state (defaults to 0)
 - Added `setCurrentStep(step)` action — called on each step transition
 - Exported `ONBOARDING_TOTAL_STEPS = 3` constant for tests and component
@@ -15,6 +16,7 @@ Persists the current onboarding step to localStorage on each transition. When a 
 - `setDismissed()` preserves `currentStep` so a dismissed user who comes back later can still resume
 
 ### Onboarding Flow (`components/OnboardingFlow.tsx`)
+
 - Replaced local `useState(0)` with persisted `currentStep`/`setCurrentStep` from the store
 - Fixed `useFocusTrap` hook call — was imported but never invoked (bug fix: `const focusTrapRef = useFocusTrap({ isActive: true })`)
 - Added text progress indicator: **"Step 2 of 3 · 67% complete"** between the progress dots and the icon
@@ -22,6 +24,7 @@ Persists the current onboarding step to localStorage on each transition. When a 
 - Each "Next" click persists the new step via `setCurrentStep()`
 
 ### Unit Tests (`store/__tests__/stores.test.ts`)
+
 - 7 new tests in `describe("useOnboardingStore")`:
   1. `starts with step 0 and not completed`
   2. `setCurrentStep persists the step`
@@ -33,11 +36,11 @@ Persists the current onboarding step to localStorage on each transition. When a 
 
 ## Files Changed
 
-| File | Status |
-|---|---|
-| `store/useOnboardingStore.ts` | Modified — added `currentStep`, `setCurrentStep`, `ONBOARDING_TOTAL_STEPS` |
-| `components/OnboardingFlow.tsx` | Modified — persisted step, progress indicator, focus trap fix |
-| `store/__tests__/stores.test.ts` | Modified — added 7 onboarding resume tests |
+| File                             | Status                                                                     |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `store/useOnboardingStore.ts`    | Modified — added `currentStep`, `setCurrentStep`, `ONBOARDING_TOTAL_STEPS` |
+| `components/OnboardingFlow.tsx`  | Modified — persisted step, progress indicator, focus trap fix              |
+| `store/__tests__/stores.test.ts` | Modified — added 7 onboarding resume tests                                 |
 
 ## Backward Compatibility
 

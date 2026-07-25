@@ -61,7 +61,9 @@ export function AccentColorPicker({ className }: AccentColorPickerProps) {
     const lightContrast = contrastRatio(hex, "#fff");
     const darkContrast = contrastRatio(hex, "#09090b");
     if (lightContrast < MIN_CONTRAST || darkContrast < MIN_CONTRAST) {
-      return `Low contrast (light: ${lightContrast.toFixed(1)}:1, dark: ${darkContrast.toFixed(1)}:1). WCAG AA requires ≥ 3:1.`;
+      return `Low contrast (light: ${lightContrast.toFixed(
+        1
+      )}:1, dark: ${darkContrast.toFixed(1)}:1). WCAG AA requires ≥ 3:1.`;
     }
     return null;
   }
@@ -92,8 +94,14 @@ export function AccentColorPicker({ className }: AccentColorPickerProps) {
   return (
     <div className={`space-y-3 ${className ?? ""}`}>
       <div className="flex items-center gap-2">
-        <Palette size={14} className="text-muted-foreground" aria-hidden="true" />
-        <span className="text-sm font-medium text-foreground">Accent Color</span>
+        <Palette
+          size={14}
+          className="text-muted-foreground"
+          aria-hidden="true"
+        />
+        <span className="text-sm font-medium text-foreground">
+          Accent Color
+        </span>
         {accentColor !== DEFAULT_ACCENT_COLOR && (
           <button
             type="button"
@@ -108,7 +116,11 @@ export function AccentColorPicker({ className }: AccentColorPickerProps) {
       </div>
 
       {/* Curated palette */}
-      <div role="group" aria-label="Accent color palette" className="flex flex-wrap gap-2">
+      <div
+        role="group"
+        aria-label="Accent color palette"
+        className="flex flex-wrap gap-2"
+      >
         {PALETTE.map(({ color, label }) => (
           <button
             key={color}
@@ -135,7 +147,15 @@ export function AccentColorPicker({ className }: AccentColorPickerProps) {
       <div className="flex items-center gap-2">
         <div
           className="h-7 w-7 flex-shrink-0 rounded-full border border-border"
-          style={{ backgroundColor: isValidHex(customInput.startsWith("#") ? customInput : `#${customInput}`) ? (customInput.startsWith("#") ? customInput : `#${customInput}`) : accentColor }}
+          style={{
+            backgroundColor: isValidHex(
+              customInput.startsWith("#") ? customInput : `#${customInput}`
+            )
+              ? customInput.startsWith("#")
+                ? customInput
+                : `#${customInput}`
+              : accentColor,
+          }}
           aria-hidden="true"
         />
         <input
@@ -160,7 +180,11 @@ export function AccentColorPicker({ className }: AccentColorPickerProps) {
       </div>
 
       {inputError && (
-        <p id="accent-input-error" role="alert" className="text-xs text-red-400">
+        <p
+          id="accent-input-error"
+          role="alert"
+          className="text-xs text-red-400"
+        >
           {inputError}
         </p>
       )}
@@ -171,7 +195,11 @@ export function AccentColorPicker({ className }: AccentColorPickerProps) {
           role="alert"
           className="flex items-start gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-400"
         >
-          <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <AlertTriangle
+            size={12}
+            className="mt-0.5 flex-shrink-0"
+            aria-hidden="true"
+          />
           <span>{warning}</span>
         </div>
       )}

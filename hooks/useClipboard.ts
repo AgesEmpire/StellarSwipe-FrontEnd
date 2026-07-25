@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface UseClipboardOptions {
   /** Duration in ms before the "copied" state resets. Default: 2000 */
@@ -43,7 +44,7 @@ export function useClipboard(
         setCopied(true);
         setTimeout(() => setCopied(false), resetDelay);
       } catch (err) {
-        console.error("Failed to copy to clipboard:", err);
+        Sentry.captureException(err);
       }
     },
     [resetDelay]

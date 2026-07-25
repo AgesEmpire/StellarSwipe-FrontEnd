@@ -6,7 +6,10 @@ import {
   type TransactionHistoryItem,
 } from "@/store/useTransactionStore";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
-import { useOnboardingStore, ONBOARDING_TOTAL_STEPS } from "@/store/useOnboardingStore";
+import {
+  useOnboardingStore,
+  ONBOARDING_TOTAL_STEPS,
+} from "@/store/useOnboardingStore";
 import { usePositionLimitStore } from "@/store/usePositionLimitStore";
 import { useSignalFilterStore } from "@/store/useSignalFilterStore";
 import { useThemeStore } from "@/store/useThemeStore";
@@ -15,7 +18,11 @@ import { useThemeStore } from "@/store/useThemeStore";
 
 describe("useWalletStore", () => {
   beforeEach(() => {
-    useWalletStore.setState({ publicKey: null, isConnected: false, network: "TESTNET" });
+    useWalletStore.setState({
+      publicKey: null,
+      isConnected: false,
+      network: "TESTNET",
+    });
   });
 
   it("starts disconnected with no public key", () => {
@@ -37,7 +44,12 @@ describe("useWalletStore", () => {
   });
 
   it("disconnect clears key and connected flag", () => {
-    useWalletStore.setState({ publicKey: "GKEY", isConnected: true });
+    useWalletStore.setState({
+      activePublicKey: "GKEY",
+      publicKey: "GKEY",
+      isConnected: true,
+      wallets: [{ publicKey: "GKEY" }],
+    });
     useWalletStore.getState().disconnect();
     const { publicKey, isConnected } = useWalletStore.getState();
     expect(publicKey).toBeNull();
@@ -108,7 +120,8 @@ describe("useBookmarkStore", () => {
   beforeEach(() => {
     useBookmarkStore.setState({
       bookmarks: [],
-      hasBookmark: (id: string) => useBookmarkStore.getState().bookmarks.includes(id),
+      hasBookmark: (id: string) =>
+        useBookmarkStore.getState().bookmarks.includes(id),
       addBookmark: useBookmarkStore.getState().addBookmark,
       removeBookmark: useBookmarkStore.getState().removeBookmark,
       toggleBookmark: useBookmarkStore.getState().toggleBookmark,
@@ -132,8 +145,13 @@ describe("useBookmarkStore", () => {
   });
 
   it("setBookmarks deduplicates ids", () => {
-    useBookmarkStore.getState().setBookmarks(["signal-3", "signal-3", "signal-4"]);
-    expect(useBookmarkStore.getState().bookmarks).toEqual(["signal-3", "signal-4"]);
+    useBookmarkStore
+      .getState()
+      .setBookmarks(["signal-3", "signal-3", "signal-4"]);
+    expect(useBookmarkStore.getState().bookmarks).toEqual([
+      "signal-3",
+      "signal-4",
+    ]);
   });
 
   it("hasBookmark reflects current state", () => {
@@ -281,7 +299,14 @@ describe("useTransactionStore", () => {
   });
 
   it("setSuccess stores details and shows success panel", () => {
-    const details = { hash: "h1", amount: "10", price: "0.5", fee: "0.001", token: "XLM", timestamp: 0 };
+    const details = {
+      hash: "h1",
+      amount: "10",
+      price: "0.5",
+      fee: "0.001",
+      token: "XLM",
+      timestamp: 0,
+    };
     useTransactionStore.getState().setSuccess(details);
     const { success, showSuccess, showError } = useTransactionStore.getState();
     expect(success).toEqual(details);
@@ -290,7 +315,14 @@ describe("useTransactionStore", () => {
   });
 
   it("clearSuccess hides the success panel", () => {
-    const details = { hash: "h1", amount: "10", price: "0.5", fee: "0.001", token: "XLM", timestamp: 0 };
+    const details = {
+      hash: "h1",
+      amount: "10",
+      price: "0.5",
+      fee: "0.001",
+      token: "XLM",
+      timestamp: 0,
+    };
     useTransactionStore.getState().setSuccess(details);
     useTransactionStore.getState().clearSuccess();
     expect(useTransactionStore.getState().success).toBeNull();
@@ -298,7 +330,9 @@ describe("useTransactionStore", () => {
   });
 
   it("setError stores error and hides success", () => {
-    useTransactionStore.getState().setError({ message: "Network error", code: "ERR_01" });
+    useTransactionStore
+      .getState()
+      .setError({ message: "Network error", code: "ERR_01" });
     const { error, showError, showSuccess } = useTransactionStore.getState();
     expect(error?.message).toBe("Network error");
     expect(showError).toBe(true);
@@ -321,8 +355,12 @@ describe("useTransactionStore", () => {
 
   it("updateTransactionStatus changes status to SUCCEEDED", () => {
     useTransactionStore.getState().addTransaction(NEW_TX);
-    useTransactionStore.getState().updateTransactionStatus("tx-new", "SUCCEEDED");
-    const tx = useTransactionStore.getState().history.find((t) => t.id === "tx-new");
+    useTransactionStore
+      .getState()
+      .updateTransactionStatus("tx-new", "SUCCEEDED");
+    const tx = useTransactionStore
+      .getState()
+      .history.find((t) => t.id === "tx-new");
     expect(tx?.status).toBe("SUCCEEDED");
     expect(tx?.outcome).toBe("WIN");
   });
@@ -330,15 +368,21 @@ describe("useTransactionStore", () => {
   it("updateTransactionStatus changes status to FAILED", () => {
     useTransactionStore.getState().addTransaction(NEW_TX);
     useTransactionStore.getState().updateTransactionStatus("tx-new", "FAILED");
-    const tx = useTransactionStore.getState().history.find((t) => t.id === "tx-new");
+    const tx = useTransactionStore
+      .getState()
+      .history.find((t) => t.id === "tx-new");
     expect(tx?.status).toBe("FAILED");
     expect(tx?.outcome).toBe("LOSS");
   });
 
   it("updateTransactionStatus accepts an explicit outcome override", () => {
     useTransactionStore.getState().addTransaction(NEW_TX);
-    useTransactionStore.getState().updateTransactionStatus("tx-new", "SUCCEEDED", "LOSS");
-    const tx = useTransactionStore.getState().history.find((t) => t.id === "tx-new");
+    useTransactionStore
+      .getState()
+      .updateTransactionStatus("tx-new", "SUCCEEDED", "LOSS");
+    const tx = useTransactionStore
+      .getState()
+      .history.find((t) => t.id === "tx-new");
     expect(tx?.outcome).toBe("LOSS");
   });
 
@@ -346,14 +390,23 @@ describe("useTransactionStore", () => {
     const other: TransactionHistoryItem = { ...NEW_TX, id: "tx-other" };
     useTransactionStore.getState().addTransaction(NEW_TX);
     useTransactionStore.getState().addTransaction(other);
-    useTransactionStore.getState().updateTransactionStatus("tx-new", "SUCCEEDED");
-    const untouched = useTransactionStore.getState().history.find((t) => t.id === "tx-other");
+    useTransactionStore
+      .getState()
+      .updateTransactionStatus("tx-new", "SUCCEEDED");
+    const untouched = useTransactionStore
+      .getState()
+      .history.find((t) => t.id === "tx-other");
     expect(untouched?.status).toBe("PENDING");
   });
 
   it("setPreservedInput stores arbitrary input and can be cleared", () => {
-    useTransactionStore.getState().setPreservedInput({ amount: "42", type: "LIMIT" });
-    expect(useTransactionStore.getState().preservedInput).toEqual({ amount: "42", type: "LIMIT" });
+    useTransactionStore
+      .getState()
+      .setPreservedInput({ amount: "42", type: "LIMIT" });
+    expect(useTransactionStore.getState().preservedInput).toEqual({
+      amount: "42",
+      type: "LIMIT",
+    });
     useTransactionStore.getState().setPreservedInput(null);
     expect(useTransactionStore.getState().preservedInput).toBeNull();
   });

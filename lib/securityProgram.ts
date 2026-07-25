@@ -21,7 +21,6 @@ export const securityProgram = {
   submission: {
     label: "Report a vulnerability",
     href: "mailto:security@stellarswipe.app",
-    text:
-      "Email security@stellarswipe.app with the affected route or component, reproduction steps, expected impact, and any suggested fix.",
+    text: "Email security@stellarswipe.app with the affected route or component, reproduction steps, expected impact, and any suggested fix.",
   },
 } as const;

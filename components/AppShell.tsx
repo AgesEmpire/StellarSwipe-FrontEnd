@@ -81,13 +81,21 @@ export function AppShell({ children }: AppShellProps) {
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
               StellarSwipe
             </h1>
-            <p className="mt-2 text-foreground-muted">Connect your Freighter wallet to get started</p>
+            <p className="mt-2 text-foreground-muted">
+              Connect your Freighter wallet to get started
+            </p>
           </motion.div>
 
           <motion.div
-            initial={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+            initial={
+              prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.95 }
+            }
             animate={prefersReduced ? { opacity: 1 } : { opacity: 1, scale: 1 }}
-            transition={prefersReduced ? { duration: 0.01 } : { delay: 0.2, duration: 0.4 }}
+            transition={
+              prefersReduced
+                ? { duration: 0.01 }
+                : { delay: 0.2, duration: 0.4 }
+            }
             className="flex flex-col items-center gap-4"
           >
             <Button
@@ -113,7 +121,9 @@ export function AppShell({ children }: AppShellProps) {
       {/* `div` here because <main id="main-content"> lives in the root layout */}
       <div className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
         <header className="mx-auto mb-6 flex w-full max-w-7xl items-center justify-between sm:mb-8">
-          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">StellarSwipe</h1>
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            StellarSwipe
+          </h1>
           <div className="flex items-center gap-3">
             <p className="hidden text-sm font-mono text-foreground-muted sm:block">
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
@@ -133,9 +143,7 @@ export function AppShell({ children }: AppShellProps) {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
             <div className="flex flex-col gap-4 min-w-0">
               {/* Signal feed streamed in via Suspense */}
-              <SignalFeedErrorBoundary>
-                {children}
-              </SignalFeedErrorBoundary>
+              <SignalFeedErrorBoundary>{children}</SignalFeedErrorBoundary>
 
               <PortfolioErrorBoundary>
                 <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 sm:px-0">

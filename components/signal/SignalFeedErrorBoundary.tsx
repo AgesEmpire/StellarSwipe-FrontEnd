@@ -3,6 +3,7 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import * as Sentry from "@sentry/nextjs";
 
 interface Props {
   children: ReactNode;
@@ -24,10 +25,14 @@ export class SignalFeedErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("[SignalFeedErrorBoundary] Signal feed crashed:", error);
-    if (errorInfo.componentStack) {
-      console.error("[SignalFeedErrorBoundary] Component stack:", errorInfo.componentStack);
-    }
+    Sentry.withScope((scope) => {
+      if (errorInfo.componentStack) {
+        scope.setContext("component_stack", {
+          componentStack: errorInfo.componentStack,
+        });
+      }
+      Sentry.captureException(error);
+    });
   }
 
   handleRetry = () => {
@@ -43,13 +48,18 @@ export class SignalFeedErrorBoundary extends Component<Props, State> {
           aria-live="assertive"
           className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center"
         >
-          <AlertTriangle className="h-10 w-10 text-destructive" aria-hidden="true" />
+          <AlertTriangle
+            className="h-10 w-10 text-destructive"
+            aria-hidden="true"
+          />
 
           <div>
-            <p className="font-semibold text-destructive">Signal feed unavailable</p>
+            <p className="font-semibold text-destructive">
+              Signal feed unavailable
+            </p>
             <p className="mt-2 text-sm text-foreground-muted">
-              Something went wrong while displaying the signal feed. The rest of the
-              dashboard is unaffected.
+              Something went wrong while displaying the signal feed. The rest of
+              the dashboard is unaffected.
             </p>
           </div>
 

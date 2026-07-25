@@ -34,9 +34,13 @@ export default function Home() {
         </motion.div>
 
         <motion.div
-          initial={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+          initial={
+            prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.95 }
+          }
           animate={prefersReduced ? { opacity: 1 } : { opacity: 1, scale: 1 }}
-          transition={prefersReduced ? { duration: 0.01 } : { delay: 0.2, duration: 0.4 }}
+          transition={
+            prefersReduced ? { duration: 0.01 } : { delay: 0.2, duration: 0.4 }
+          }
           className="flex flex-col items-center gap-4"
         >
           {connected ? (
@@ -46,7 +50,10 @@ export default function Home() {
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 <Link href="/app">
-                  <Button size="lg" className="focus:ring-2 focus:ring-blue-500">
+                  <Button
+                    size="lg"
+                    className="focus:ring-2 focus:ring-blue-500"
+                  >
                     Go to Signals
                   </Button>
                 </Link>

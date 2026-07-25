@@ -28,8 +28,8 @@ const mockProviderSignals: Record<string, ProviderSignal[]> = {
       confidence: 87,
       timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       outcome: "WIN",
-      targetPrice: 0.5310,
-      actualPrice: 0.5420,
+      targetPrice: 0.531,
+      actualPrice: 0.542,
     },
     {
       id: "sig-2",

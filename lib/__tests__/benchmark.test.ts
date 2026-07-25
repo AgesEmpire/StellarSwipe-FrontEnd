@@ -8,9 +8,9 @@ import type { PricePoint } from "@/hooks/usePriceHistory";
 
 describe("computeBenchmarkSeries", () => {
   const mockXLMHistory: PricePoint[] = [
-    { timestamp: 0, price: 0.40 },
+    { timestamp: 0, price: 0.4 },
     { timestamp: 1, price: 0.45 },
-    { timestamp: 2, price: 0.50 },
+    { timestamp: 2, price: 0.5 },
     { timestamp: 3, price: 0.55 },
   ];
 
@@ -21,7 +21,9 @@ describe("computeBenchmarkSeries", () => {
   });
 
   it("returns empty arrays when XLM history is empty", () => {
-    const portfolioHistory: PortfolioValuePoint[] = [{ timestamp: 0, value: 1000 }];
+    const portfolioHistory: PortfolioValuePoint[] = [
+      { timestamp: 0, value: 1000 },
+    ];
     const result = computeBenchmarkSeries(portfolioHistory, [], 1000);
     expect(result.portfolio).toEqual([]);
     expect(result.benchmark).toEqual([]);
@@ -35,7 +37,11 @@ describe("computeBenchmarkSeries", () => {
       { timestamp: 3, value: 1250 },
     ];
 
-    const result = computeBenchmarkSeries(portfolioHistory, mockXLMHistory, 1000);
+    const result = computeBenchmarkSeries(
+      portfolioHistory,
+      mockXLMHistory,
+      1000
+    );
 
     expect(result.benchmark.length).toBe(4);
     expect(result.benchmark[0].value).toBeCloseTo(1000);
@@ -50,7 +56,11 @@ describe("computeBenchmarkSeries", () => {
       { timestamp: 1, value: 1100 },
     ];
 
-    const result = computeBenchmarkSeries(unsortedPortfolio, mockXLMHistory, 1000);
+    const result = computeBenchmarkSeries(
+      unsortedPortfolio,
+      mockXLMHistory,
+      1000
+    );
 
     expect(result.portfolio[0].timestamp).toBe(0);
     expect(result.portfolio[3].timestamp).toBe(3);
@@ -103,7 +113,9 @@ describe("computePerformanceDelta", () => {
   });
 
   it("returns null when XLM history is empty", () => {
-    const portfolioHistory: PortfolioValuePoint[] = [{ timestamp: 0, value: 1000 }];
+    const portfolioHistory: PortfolioValuePoint[] = [
+      { timestamp: 0, value: 1000 },
+    ];
     const result = computePerformanceDelta(portfolioHistory, []);
     expect(result).toBeNull();
   });
@@ -115,8 +127,8 @@ describe("computePerformanceDelta", () => {
     ];
 
     const xlmHistory: PricePoint[] = [
-      { timestamp: 0, price: 0.40 },
-      { timestamp: 1, price: 0.50 },
+      { timestamp: 0, price: 0.4 },
+      { timestamp: 1, price: 0.5 },
     ];
 
     const result = computePerformanceDelta(portfolioHistory, xlmHistory);
@@ -133,7 +145,7 @@ describe("computePerformanceDelta", () => {
     ];
 
     const xlmHistory: PricePoint[] = [
-      { timestamp: 0, price: 0.40 },
+      { timestamp: 0, price: 0.4 },
       { timestamp: 1, price: 0.45 },
     ];
 
@@ -151,8 +163,8 @@ describe("computePerformanceDelta", () => {
     ];
 
     const xlmHistory: PricePoint[] = [
-      { timestamp: 0, price: 0.50 },
-      { timestamp: 1, price: 0.40 },
+      { timestamp: 0, price: 0.5 },
+      { timestamp: 1, price: 0.4 },
     ];
 
     const result = computePerformanceDelta(portfolioHistory, xlmHistory);

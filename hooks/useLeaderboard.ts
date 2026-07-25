@@ -7,11 +7,18 @@ export type LeaderboardTimeRange = "daily" | "weekly" | "monthly" | "all-time";
 
 const TIME_RANGE_STORAGE_KEY = "stellarswipe:leaderboard-time-range";
 
-const VALID_TIME_RANGES: LeaderboardTimeRange[] = ["daily", "weekly", "monthly", "all-time"];
+const VALID_TIME_RANGES: LeaderboardTimeRange[] = [
+  "daily",
+  "weekly",
+  "monthly",
+  "all-time",
+];
 
 function getPersistedTimeRange(): LeaderboardTimeRange {
   if (typeof window === "undefined") return "all-time";
-  const stored = localStorage.getItem(TIME_RANGE_STORAGE_KEY) as LeaderboardTimeRange | null;
+  const stored = localStorage.getItem(
+    TIME_RANGE_STORAGE_KEY
+  ) as LeaderboardTimeRange | null;
   return stored && VALID_TIME_RANGES.includes(stored) ? stored : "all-time";
 }
 
@@ -68,7 +75,9 @@ const mockProviders: SignalProvider[] = [
 ];
 
 export function useLeaderboard() {
-  const [timeRange, setTimeRangeState] = useState<LeaderboardTimeRange>(getPersistedTimeRange);
+  const [timeRange, setTimeRangeState] = useState<LeaderboardTimeRange>(
+    getPersistedTimeRange
+  );
 
   const setTimeRange = (range: LeaderboardTimeRange) => {
     setTimeRangeState(range);

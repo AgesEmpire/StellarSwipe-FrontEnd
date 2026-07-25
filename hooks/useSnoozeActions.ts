@@ -25,7 +25,11 @@ export function useSnoozeActions() {
   const isSnoozed = useSnoozeStore((state) => state.isSnoozed);
 
   const snooze = useCallback(
-    (id: string, label: string, durationMs: number = DEFAULT_SNOOZE_DURATION_MS) => {
+    (
+      id: string,
+      label: string,
+      durationMs: number = DEFAULT_SNOOZE_DURATION_MS
+    ) => {
       snoozeSignal(id, durationMs);
       toast.info("Signal snoozed", {
         description: `${label} is hidden for ${formatDuration(durationMs)}.`,

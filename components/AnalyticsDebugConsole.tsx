@@ -22,6 +22,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { subscribeToAnalyticsEvents } from "@/services/analytics";
 import type { AnalyticsEventEntry } from "@/services/analytics";
@@ -102,7 +103,9 @@ function AnalyticsDebugConsoleInner() {
         type="button"
         onClick={() => setMinimised((v) => !v)}
         aria-expanded={!minimised}
-        aria-label={minimised ? "Expand analytics console" : "Minimise analytics console"}
+        aria-label={
+          minimised ? "Expand analytics console" : "Minimise analytics console"
+        }
         className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
       >
         <span className="flex items-center gap-1.5 font-semibold text-slate-300">
@@ -120,7 +123,11 @@ function AnalyticsDebugConsoleInner() {
         {minimised ? (
           <ChevronUp size={11} className="text-slate-500" aria-hidden="true" />
         ) : (
-          <ChevronDown size={11} className="text-slate-500" aria-hidden="true" />
+          <ChevronDown
+            size={11}
+            className="text-slate-500"
+            aria-hidden="true"
+          />
         )}
       </button>
 
@@ -169,16 +176,23 @@ function AnalyticsDebugConsoleInner() {
           {/* Event list */}
           <div className="overflow-y-auto flex-1 max-h-72">
             {eventCount === 0 && (
-              <div className="flex flex-col items-center justify-center py-6 text-slate-600">
-                <Activity size={16} className="mb-1 opacity-40" aria-hidden="true" />
-                <span className="text-[10px]">
-                  {filterText ? "No matching events" : "No events yet"}
-                </span>
-                {!filterText && (
-                  <span className="text-[9px] text-slate-700 mt-0.5">
-                    Events will appear here as they fire
-                  </span>
-                )}
+              <div className="px-2 py-2">
+                <EmptyState
+                  title={filterText ? "No matching events" : "No events yet"}
+                  description={
+                    filterText
+                      ? "Try a broader filter to include more events."
+                      : "Events will appear here as they fire."
+                  }
+                  icon={
+                    <Activity
+                      size={16}
+                      className="opacity-40 text-slate-500"
+                      aria-hidden="true"
+                    />
+                  }
+                  className="rounded-lg border-white/5 bg-transparent py-6"
+                />
               </div>
             )}
 
