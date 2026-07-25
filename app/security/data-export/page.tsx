@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, DownloadCloud, FileClock, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  DownloadCloud,
+  FileClock,
+  ShieldCheck,
+  CheckCircle2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
@@ -12,9 +18,16 @@ interface ExportRequest {
   id: string;
   requestedAt: string;
   status: ExportStatus;
+  downloadUrl?: string;
+  downloadFileName?: string;
 }
 
 const EXPORT_STORAGE_KEY = "account-data-export-requests";
+const EXPORT_TIMINGS = {
+  pending: 0,
+  processing: 2500,
+  ready: 4000,
+} as const;
 
 const INCLUDED_CATEGORIES = [
   "Profile and account details",
@@ -43,12 +56,55 @@ function writeRequests(requests: ExportRequest[]) {
   window.localStorage.setItem(EXPORT_STORAGE_KEY, JSON.stringify(requests));
 }
 
+function buildExportPayload(requestedAt: string) {
+  return JSON.stringify(
+    {
+      generatedAt: new Date().toISOString(),
+      requestedAt,
+      exportType: "full-account-data",
+      includedCategories: INCLUDED_CATEGORIES,
+      summary: {
+        profile: true,
+        settings: true,
+        journalEntries: true,
+        referralData: true,
+        auditHistory: true,
+      },
+    },
+    null,
+    2
+  );
+}
+
+function createExportDownloadUrl(payload: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (typeof window.URL?.createObjectURL === "function") {
+    return window.URL.createObjectURL(
+      new Blob([payload], { type: "application/json" })
+    );
+  }
+
+  return `data:application/json;charset=utf-8,${encodeURIComponent(payload)}`;
+}
+
 export default function DataExportRequestPage() {
   const [requests, setRequests] = useState<ExportRequest[]>([]);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setRequests(readRequests());
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (downloadUrl && typeof window.URL?.revokeObjectURL === "function") {
+        window.URL.revokeObjectURL(downloadUrl);
+      }
+    };
+  }, [downloadUrl]);
 
   const latestRequest = useMemo(
     () =>
@@ -60,7 +116,15 @@ export default function DataExportRequestPage() {
     [requests]
   );
 
+  const hasActiveRequest = Boolean(
+    latestRequest && ["pending", "processing"].includes(latestRequest.status)
+  );
+
   const requestExport = () => {
+    if (hasActiveRequest) {
+      return;
+    }
+
     const nextRequest: ExportRequest = {
       id: `export-${Date.now()}`,
       requestedAt: new Date().toISOString(),
@@ -70,6 +134,45 @@ export default function DataExportRequestPage() {
     const next = [nextRequest, ...requests].slice(0, 10);
     setRequests(next);
     writeRequests(next);
+
+    window.setTimeout(() => {
+      setRequests((current) => {
+        const updated = current.map((request) =>
+          request.id === nextRequest.id
+            ? { ...request, status: "processing" }
+            : request
+        );
+        writeRequests(updated);
+        return updated;
+      });
+    }, EXPORT_TIMINGS.processing);
+
+    window.setTimeout(() => {
+      const payload = buildExportPayload(nextRequest.requestedAt);
+      const objectUrl = createExportDownloadUrl(payload);
+
+      setDownloadUrl((current) => {
+        if (current && typeof window.URL?.revokeObjectURL === "function") {
+          window.URL.revokeObjectURL(current);
+        }
+        return objectUrl;
+      });
+
+      setRequests((current) => {
+        const updated = current.map((request) =>
+          request.id === nextRequest.id
+            ? {
+                ...request,
+                status: "ready",
+                downloadUrl: objectUrl,
+                downloadFileName: `account-data-export-${new Date().toISOString()}.json`,
+              }
+            : request
+        );
+        writeRequests(updated);
+        return updated;
+      });
+    }, EXPORT_TIMINGS.ready);
   };
 
   return (
@@ -85,7 +188,7 @@ export default function DataExportRequestPage() {
             <h2 className="text-sm font-semibold">What is included</h2>
             <p className="text-xs text-foreground-muted">
               This export is prepared asynchronously and can take time depending
-              on account activity.
+              on account activity. It is not an instant download.
             </p>
           </CardHeader>
           <CardContent className="px-5 pb-5">
@@ -105,11 +208,41 @@ export default function DataExportRequestPage() {
               is not an instant download.
             </p>
           </CardHeader>
-          <CardContent className="px-5 pb-5">
-            <Button onClick={requestExport} className="gap-2">
+          <CardContent className="px-5 pb-5 space-y-3">
+            <Button
+              onClick={requestExport}
+              className="gap-2"
+              disabled={hasActiveRequest}
+              aria-disabled={hasActiveRequest}
+            >
               <DownloadCloud className="h-4 w-4" aria-hidden="true" />
               Request full account export
             </Button>
+
+            {hasActiveRequest && (
+              <p className="text-sm text-foreground-muted">
+                Another export request is already being prepared. Please wait until
+                it completes before requesting another one.
+              </p>
+            )}
+
+            {latestRequest?.status === "ready" && latestRequest.downloadUrl && (
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  <span>Your export is ready.</span>
+                </div>
+                <a
+                  href={latestRequest.downloadUrl}
+                  download={latestRequest.downloadFileName}
+                  className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-emerald-300 underline"
+                  aria-label="Download account data export"
+                >
+                  <DownloadCloud className="h-4 w-4" aria-hidden="true" />
+                  Download account data export
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -146,8 +279,21 @@ export default function DataExportRequestPage() {
 
             {latestRequest?.status === "pending" && (
               <p className="mt-3 text-xs text-foreground-muted">
-                Your latest request is pending and will be processed
+                Your latest request has been received and will be processed
                 asynchronously.
+              </p>
+            )}
+
+            {latestRequest?.status === "processing" && (
+              <p className="mt-3 text-xs text-foreground-muted">
+                Your export is currently being assembled. This can take a few
+                moments.
+              </p>
+            )}
+
+            {latestRequest?.status === "ready" && (
+              <p className="mt-3 text-xs text-foreground-muted">
+                Your export is ready and can be downloaded from this page.
               </p>
             )}
           </CardContent>
