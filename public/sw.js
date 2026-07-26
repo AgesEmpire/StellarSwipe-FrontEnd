@@ -4,7 +4,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body ?? "",
     icon: "/favicon.ico",
-    badge: "/favicon.ico",
+    badge: "/badge-icon.png",
     data: { url: data.url ?? "/" },
     tag: data.tag ?? "stellarswipe",
     renotify: true,
