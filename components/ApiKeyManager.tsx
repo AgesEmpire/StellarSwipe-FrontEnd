@@ -60,6 +60,8 @@ function ApiKeyRow({
   onRevoke: (id: string) => void;
   isRevoking: boolean;
 }) {
+  const [confirming, setConfirming] = useState(false);
+
   const createdDate = new Date(apiKey.createdAt).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -72,6 +74,18 @@ function ApiKeyRow({
         day: "numeric",
       })
     : "Never";
+
+  function handleRevokeClick() {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    onRevoke(apiKey.id);
+  }
+
+  function handleCancelConfirm() {
+    setConfirming(false);
+  }
 
   return (
     <li className="flex flex-col gap-1 rounded-lg border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -93,17 +107,47 @@ function ApiKeyRow({
           </span>
         </div>
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={isRevoking}
-        onClick={() => onRevoke(apiKey.id)}
-        className="shrink-0 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
-        aria-label={`Revoke API key ${apiKey.name}`}
-      >
-        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-        Revoke
-      </Button>
+      {confirming ? (
+        <div
+          className="shrink-0 flex items-center gap-1.5 text-xs"
+          data-testid={`revoke-confirm-${apiKey.id}`}
+        >
+          <span className="text-destructive">Revoke this key?</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isRevoking}
+            onClick={handleRevokeClick}
+            className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+            aria-label={`Confirm revoke API key ${apiKey.name}`}
+            data-testid={`revoke-confirm-button-${apiKey.id}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {isRevoking ? "Revoking…" : "Confirm revoke"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCancelConfirm}
+            aria-label={`Cancel revoke API key ${apiKey.name}`}
+            data-testid={`revoke-cancel-button-${apiKey.id}`}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isRevoking}
+          onClick={handleRevokeClick}
+          className="shrink-0 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+          aria-label={`Revoke API key ${apiKey.name}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          Revoke
+        </Button>
+      )}
     </li>
   );
 }
