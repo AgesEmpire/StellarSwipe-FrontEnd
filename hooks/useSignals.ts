@@ -21,3 +21,16 @@ export function useSignals() {
       Math.min(1000 * Math.pow(2, attemptIndex), 10000),
   });
 }
+
+/**
+ * @deprecated Use `useSignals` instead. This shim exists for backwards
+ * compatibility and will be removed in a future release.
+ */
+export function useSignalFeed() {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      '[StellarSwipe] "useSignalFeed" is deprecated. Use "useSignals" instead.'
+    );
+  }
+  return useSignals();
+}
