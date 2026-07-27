@@ -1,9 +1,9 @@
 "use client";
 
 import { Component, ErrorInfo, ReactNode } from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
+import { RetryStateCard } from "@/components/ui/RetryStateCard";
 
 interface Props {
   children: ReactNode;
@@ -36,34 +36,12 @@ export class RouteErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center"
-        >
-          <AlertTriangle
-            className="h-10 w-10 text-destructive"
-            aria-hidden="true"
-          />
-          <div>
-            <p className="font-semibold text-destructive">
-              {this.props.featureName} unavailable
-            </p>
-            <p className="mt-2 text-sm text-foreground-muted">
-              Something went wrong in {this.props.featureName}. Other sections
-              are unaffected.
-            </p>
-          </div>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={this.handleRetry}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw size={16} aria-hidden="true" />
-            Retry
-          </Button>
-        </div>
+        <RetryStateCard
+          title={`${this.props.featureName} unavailable`}
+          description={`Something went wrong in ${this.props.featureName}. Other sections are unaffected.`}
+          onRetry={this.handleRetry}
+          icon={<AlertTriangle className="h-10 w-10 text-destructive" aria-hidden="true" />}
+        />
       );
     }
 
