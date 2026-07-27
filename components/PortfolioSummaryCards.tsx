@@ -4,10 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PortfolioSummaryCardsSkeleton } from "@/components/DashboardWidgetSkeletons";
 
 export function PortfolioSummaryCards() {
-  const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL } =
+  const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL, isLoading } =
     usePortfolioStore();
+
+  if (isLoading) {
+    return <PortfolioSummaryCardsSkeleton />;
+  }
 
   const totalPnL = totalRealizedPnL + totalUnrealizedPnL;
   const pnlPercent =

@@ -4,6 +4,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PnLWidgetSkeleton } from "@/components/DashboardWidgetSkeletons";
 
 export function PnLWidget() {
   const { totalRealizedPnL, totalUnrealizedPnL, totalValue, isLoading } =
@@ -17,20 +18,7 @@ export function PnLWidget() {
   const isPositiveUnrealized = totalUnrealizedPnL >= 0;
 
   if (isLoading) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <h2 className="text-base font-semibold text-foreground">
-            P&L Overview
-          </h2>
-        </CardHeader>
-        <CardContent>
-          <div className="flex h-32 items-center justify-center">
-            <p className="text-sm text-muted-foreground">Loading P&L data...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <PnLWidgetSkeleton />;
   }
 
   return (
