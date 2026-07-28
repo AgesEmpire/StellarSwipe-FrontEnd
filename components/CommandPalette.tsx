@@ -42,6 +42,7 @@ export function CommandPalette({
   const router = useRouter();
   const { toggle: toggleTheme } = useThemeStore();
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -147,6 +148,31 @@ export function CommandPalette({
         onClose();
         return;
       }
+      if (e.key === "Tab") {
+        const container = dialogRef.current;
+        if (!container) return;
+        const focusable = Array.from(
+          container.querySelectorAll<HTMLElement>(
+            "input, button, [href], [tabindex]:not([tabindex='-1'])"
+          )
+        ).filter((el) => !el.hasAttribute("disabled"));
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey) {
+          if (active === first || !container.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (active === last || !container.contains(active)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+        return;
+      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
@@ -177,7 +203,10 @@ export function CommandPalette({
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-popover shadow-2xl overflow-hidden">
+      <div
+        ref={dialogRef}
+        className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-popover shadow-2xl overflow-hidden"
+      >
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <Search
             size={15}
@@ -190,7 +219,7 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search routes and actions…"
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none rounded focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Search command palette"
             aria-autocomplete="list"
             aria-controls="command-palette-list"

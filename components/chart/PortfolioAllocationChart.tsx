@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { cn } from "@/lib/utils";
+import { PortfolioAllocationChartSkeleton } from "@/components/DashboardWidgetSkeletons";
 
 interface PortfolioAllocationChartProps {
   className?: string;
@@ -96,22 +97,7 @@ export function PortfolioAllocationChart({
   }, [chartData, width, height]);
 
   if (isLoading) {
-    return (
-      <Card className={cn("w-full", className)}>
-        <CardHeader>
-          <h2 className="text-base font-semibold text-foreground">
-            Portfolio Allocation
-          </h2>
-        </CardHeader>
-        <CardContent>
-          <div className="flex h-48 items-center justify-center">
-            <p className="text-sm text-muted-foreground">
-              Loading portfolio data...
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <PortfolioAllocationChartSkeleton className={className} />;
   }
 
   if (assets.length === 0) {

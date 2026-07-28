@@ -25,6 +25,7 @@ export function WebhookSettings() {
     updateRetryConfig,
   } = useWebhookStore();
   const [url, setUrl] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<WebhookEventType[]>([
     "new_signal",
   ]);
@@ -34,8 +35,17 @@ export function WebhookSettings() {
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleAdd = () => {
-    if (!url.trim() || !url.startsWith("http")) return;
-    addWebhook(url.trim(), selectedEvents);
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setUrlError("Enter a webhook URL before adding it.");
+      return;
+    }
+    if (!/^https?:\/\/.+/.test(trimmed)) {
+      setUrlError("Webhook URL must start with http:// or https://.");
+      return;
+    }
+    setUrlError(null);
+    addWebhook(trimmed, selectedEvents);
     setUrl("");
   };
 
@@ -92,11 +102,27 @@ export function WebhookSettings() {
         <input
           type="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(e) => {
+            setUrl(e.target.value);
+            if (urlError) setUrlError(null);
+          }}
           placeholder="https://your-app.com/webhook"
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className={`w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring ${
+            urlError ? "border-destructive focus:ring-destructive" : ""
+          }`}
           aria-label="Webhook URL"
+          aria-invalid={urlError ? "true" : undefined}
+          aria-describedby={urlError ? "webhook-url-error" : undefined}
         />
+        {urlError && (
+          <p
+            id="webhook-url-error"
+            role="alert"
+            className="text-xs text-destructive"
+          >
+            {urlError}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {EVENT_OPTIONS.map((opt) => (
             <button

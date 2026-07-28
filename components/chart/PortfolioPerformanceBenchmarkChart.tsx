@@ -9,6 +9,7 @@ import {
   type PortfolioValuePoint,
 } from "@/lib/benchmark";
 import { cn } from "@/lib/utils";
+import { PortfolioPerformanceBenchmarkChartSkeleton } from "@/components/DashboardWidgetSkeletons";
 
 interface PortfolioPerformanceBenchmarkChartProps {
   className?: string;
@@ -43,7 +44,7 @@ function createSmoothPath(
 export function PortfolioPerformanceBenchmarkChart({
   className,
 }: PortfolioPerformanceBenchmarkChartProps) {
-  const { totalValue, assets } = usePortfolioStore();
+  const { totalValue, assets, isLoading } = usePortfolioStore();
   const [showBenchmark, setShowBenchmark] = useState(true);
 
   const xlmHistory = useXLMPriceHistory({ points: 30, interval: "day" });
@@ -135,6 +136,10 @@ export function PortfolioPerformanceBenchmarkChart({
       ),
     };
   }, [portfolioPoints, benchmarkPoints]);
+
+  if (isLoading) {
+    return <PortfolioPerformanceBenchmarkChartSkeleton className={className} />;
+  }
 
   if (assets.length === 0) {
     return null;

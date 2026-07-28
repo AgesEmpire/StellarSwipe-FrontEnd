@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, AlertTriangle, KeyRound, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -157,44 +158,83 @@ function ApiKeyRow({
 function CreateKeyForm({ onCreated }: { onCreated: (token: string) => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { mutate, isPending } = useMutation({
     mutationFn: (keyName: string) => createApiKey(keyName),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });
       setName("");
+      setSubmitError(null);
       onCreated(created.plainToken);
+    },
+    onError: (error) => {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create API key. Please try again."
+      );
     },
   });
 
+  const errorMessage = validationError ?? submitError;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) mutate(name.trim());
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setValidationError("Enter a name for this key before creating it.");
+      return;
+    }
+    setValidationError(null);
+    setSubmitError(null);
+    mutate(trimmed);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
-      <label htmlFor="api-key-name" className="sr-only">
-        Key name
-      </label>
-      <input
-        id="api-key-name"
-        type="text"
-        placeholder="Key name (e.g. My Trading Bot)"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        maxLength={64}
-        className="flex-1 min-w-0 rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      />
-      <Button
-        type="submit"
-        size="sm"
-        disabled={isPending || !name.trim()}
-        className="gap-1.5 shrink-0"
-      >
-        <Plus className="h-4 w-4" aria-hidden="true" />
-        {isPending ? "Creating…" : "Create"}
-      </Button>
+    <form onSubmit={handleSubmit} noValidate>
+      <div className="flex gap-2">
+        <label htmlFor="api-key-name" className="sr-only">
+          Key name
+        </label>
+        <input
+          id="api-key-name"
+          type="text"
+          placeholder="Key name (e.g. My Trading Bot)"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (validationError) setValidationError(null);
+          }}
+          maxLength={64}
+          aria-invalid={errorMessage ? "true" : undefined}
+          aria-describedby={errorMessage ? "api-key-name-error" : undefined}
+          className={cn(
+            "flex-1 min-w-0 rounded-md border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            errorMessage &&
+              "border-destructive focus-visible:ring-destructive"
+          )}
+        />
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isPending}
+          className="gap-1.5 shrink-0"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {isPending ? "Creating…" : "Create"}
+        </Button>
+      </div>
+      {errorMessage && (
+        <p
+          id="api-key-name-error"
+          role="alert"
+          className="mt-1.5 text-xs text-destructive"
+        >
+          {errorMessage}
+        </p>
+      )}
     </form>
   );
 }
