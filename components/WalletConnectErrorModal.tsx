@@ -12,7 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
-export type WalletConnectErrorReason = "not_found" | "error" | null;
+export type WalletConnectErrorReason =
+  | "not_found"
+  | "error"
+  | "timeout"
+  | null;
 
 interface WalletConnectErrorModalProps {
   open: boolean;
@@ -44,6 +48,16 @@ const RECOVERY_STEPS: Record<
       "Check that you are on a supported network",
       "Disable other wallet extensions that may conflict",
       "Try again — if the issue persists, reload the page",
+    ],
+  },
+  timeout: {
+    title: "Connection Timed Out",
+    description:
+      "Your wallet didn't respond within 20 seconds, so the request was cancelled.",
+    steps: [
+      "Check for a Freighter approval popup that may be hidden behind this window",
+      "Make sure Freighter is unlocked",
+      "Try connecting again — wait for the prompt to fully load",
     ],
   },
 };
