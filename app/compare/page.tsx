@@ -17,6 +17,7 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageTransition } from "@/components/PageTransition";
 import { useComparisonStore } from "@/store/useComparisonStore";
 import { MetricToggleBar } from "@/components/comparison/MetricToggleBar";
@@ -303,21 +304,18 @@ function ComparePageContent() {
           </AnimatePresence>
 
           {signals.length === 0 ? (
-            /* Empty state */
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <GitCompare className="h-12 w-12 text-gray-700 mb-4" />
-              <h2 className="text-xl font-semibold text-gray-400 mb-2">
-                No signals selected
-              </h2>
-              <p className="text-gray-500 text-sm mb-6 max-w-sm">
-                Add up to 3 signals to compare their metrics, entry/exit points,
-                and performance side-by-side.
-              </p>
-              <Button onClick={() => setAddPanelOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Your First Signal
-              </Button>
-            </div>
+            <EmptyState
+              className="py-24"
+              icon={<GitCompare className="h-8 w-8 text-sky-400/80" />}
+              title="No signals selected"
+              description="Add up to 3 signals to compare their metrics, entry/exit points, and performance side-by-side."
+              action={
+                <Button onClick={() => setAddPanelOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Your First Signal
+                </Button>
+              }
+            />
           ) : (
             <>
               {/* Metric toggles */}
