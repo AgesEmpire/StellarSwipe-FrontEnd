@@ -71,7 +71,11 @@ export function AppShell({ children }: AppShellProps) {
     return (
       <PageTransition>
         <OnboardingFlow />
-        <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-background text-foreground">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background p-4 text-foreground sm:gap-8 sm:p-8"
+        >
           <motion.div
             initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -20 }}
             animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
@@ -118,9 +122,12 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <PageTransition>
-      {/* `div` here because <main id="main-content"> lives in the root layout */}
-      <div className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
-        <header className="mx-auto mb-6 flex w-full max-w-7xl items-center justify-between sm:mb-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-screen bg-background px-3 py-4 text-foreground sm:px-6 sm:py-8 lg:px-8"
+      >
+        <header className="mx-auto mb-6 flex w-full max-w-7xl items-center justify-between gap-3 sm:mb-8">
           <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
             StellarSwipe
           </h1>
@@ -141,9 +148,11 @@ export function AppShell({ children }: AppShellProps) {
 
         <div className="mx-auto w-full max-w-7xl">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
-            <div className="flex flex-col gap-4 min-w-0">
+            <div className="flex min-w-0 flex-col gap-4">
               {/* Signal feed streamed in via Suspense */}
-              <SignalFeedErrorBoundary>{children}</SignalFeedErrorBoundary>
+              <SignalFeedErrorBoundary>
+                <div className="min-w-0">{children}</div>
+              </SignalFeedErrorBoundary>
 
               <PortfolioErrorBoundary>
                 <div className="flex w-full max-w-md flex-col items-center gap-3 px-4 sm:px-0">
@@ -193,7 +202,7 @@ export function AppShell({ children }: AppShellProps) {
           walletBalance={250}
           portfolioBalance={portfolioBalance}
         />
-      </div>
+      </main>
     </PageTransition>
   );
 }
