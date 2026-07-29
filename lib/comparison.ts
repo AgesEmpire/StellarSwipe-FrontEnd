@@ -64,7 +64,7 @@ export function calculateAbsoluteChange(
   current: number,
   prior: number | null | undefined
 ): number {
-  if (!prior) return current;
+  if (prior == null) return current;
   const change = current - prior;
   return parseFloat(change.toFixed(2));
 }

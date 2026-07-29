@@ -33,6 +33,14 @@ interface PeriodComparisonWidgetProps {
     suffix?: string;
   }>;
 
+  /** Controlled granularity (optional - defaults to internal state) */
+  granularity?: ComparisonGranularity;
+  /** Callback when granularity changes (required if granularity is controlled) */
+  onGranularityChange?: (granularity: ComparisonGranularity) => void;
+  
+  /** Demo mode indicator - shows badge when true */
+  isDemo?: boolean;
+  
   className?: string;
 }
 
@@ -56,10 +64,17 @@ export function PeriodComparisonWidget({
   priorWinRate,
   priorTotalTrades,
   additionalMetrics = [],
+  granularity: controlledGranularity,
+  onGranularityChange,
+  isDemo = false,
   className,
 }: PeriodComparisonWidgetProps) {
-  const [granularity, setGranularity] = React.useState<ComparisonGranularity>("month");
+  const [internalGranularity, setInternalGranularity] = React.useState<ComparisonGranularity>("month");
   const now = new Date();
+  
+  // Use controlled granularity if provided, otherwise use internal state
+  const granularity = controlledGranularity ?? internalGranularity;
+  const setGranularity = onGranularityChange ?? setInternalGranularity;
 
   // Generate comparison data for each metric
   const pnlComparison = useMemo(
@@ -104,17 +119,30 @@ export function PeriodComparisonWidget({
     <Card className={className}>
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="flex items-center gap-2">
             <h3 className="font-semibold text-foreground">Period Comparison</h3>
-            <p className="text-xs text-foreground-muted mt-1">
-              {formatDateRange(currentPeriodRange.start, currentPeriodRange.end)}
-            </p>
+            {isDemo && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                Demo
+              </span>
+            )}
           </div>
-          <ComparisonGranularitySelector
-            value={granularity}
-            onChange={setGranularity}
-          />
+          <div className="flex items-center gap-3">
+            {isDemo && (
+              <span className="text-xs text-foreground-muted hidden sm:inline">
+                Simulated prior data
+              </span>
+            )}
+            <ComparisonGranularitySelector
+              value={granularity}
+              onChange={setGranularity}
+            />
+          </div>
         </div>
+        <p className="text-xs text-foreground-muted mt-1">
+          {formatDateRange(currentPeriodRange.start, currentPeriodRange.end)}
+        </p>
 
         {/* Incomplete Period Warning */}
         {hasIncompleteData && (
