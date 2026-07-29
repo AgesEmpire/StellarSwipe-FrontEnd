@@ -139,7 +139,7 @@ export default function DataExportRequestPage() {
       setRequests((current) => {
         const updated = current.map((request) =>
           request.id === nextRequest.id
-            ? { ...request, status: "processing" }
+            ? { ...request, status: "processing" as ExportStatus }
             : request
         );
         writeRequests(updated);
@@ -163,8 +163,8 @@ export default function DataExportRequestPage() {
           request.id === nextRequest.id
             ? {
                 ...request,
-                status: "ready",
-                downloadUrl: objectUrl,
+                status: "ready" as ExportStatus,
+                downloadUrl: objectUrl ?? undefined,
                 downloadFileName: `account-data-export-${new Date().toISOString()}.json`,
               }
             : request

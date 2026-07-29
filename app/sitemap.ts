@@ -5,15 +5,6 @@ function resolveSiteUrl(): string {
   return env?.trim() || "http://localhost:3000";
 }
 
-type ChangeFrequency = "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
-
-type SitemapEntry = {
-  url: string;
-  lastModified?: string | Date;
-  changeFrequency?: ChangeFrequency;
-  priority?: number;
-};
-
 // Public, static-ish routes to expose.
 const STATIC_PUBLIC_PATHS: string[] = [
   "/",
@@ -38,23 +29,19 @@ const KNOWN_PROVIDER_IDS: string[] = ["provider-1"];
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = resolveSiteUrl();
 
-  const entries: SitemapEntry[] = [
+  const entries: MetadataRoute.Sitemap = [
     ...STATIC_PUBLIC_PATHS.map((path) => ({
       url: `${siteUrl}${path}`,
-      changeFrequency: "weekly",
+      changeFrequency: "weekly" as const,
       priority:
         path === "/" ? 1.0 : path === "/leaderboard" ? 0.9 : path === "/provider/" ? 0.7 : 0.7,
     })),
     ...KNOWN_PROVIDER_IDS.map((providerId) => ({
       url: `${siteUrl}/provider/${encodeURIComponent(providerId)}`,
-      changeFrequency: "weekly",
+      changeFrequency: "weekly" as const,
       priority: 0.7,
     })),
   ];
 
-  return {
-    // Next expects these entries under `items`.
-    items: entries,
-  };
+  return entries;
 }
-
