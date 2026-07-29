@@ -64,7 +64,7 @@ interface TransactionState {
   reset: () => void;
 }
 
-export const useTransactionStore = create<TransactionState>()((set) => ({
+export const useTransactionStore = create<TransactionState>()((set, get) => ({
   success: null,
   showSuccess: false,
   error: null,

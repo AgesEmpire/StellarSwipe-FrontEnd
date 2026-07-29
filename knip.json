@@ -11,13 +11,7 @@
     "src/**/*.{ts,tsx}"
   ],
   "ignore": ["components/ui/**", "**/*.test.{ts,tsx}", "**/__tests__/**"],
-  "ignoreExports": [
-    "store/useDemoModeStore.ts:toggleDemoMode",
-    "store/usePerformanceMonitoringStore.ts:trimArray",
-    "store/usePerformanceMonitoringStore.ts:buildNetworkBreakdown",
-    "store/usePositionLimitStore.ts:togglePositionLimit",
-    "store/usePortfolioStore.ts:usePortfolioStore"
-  ],
+
   "ignoreDependencies": [
     "eslint-config-next",
     "@testing-library/react",
