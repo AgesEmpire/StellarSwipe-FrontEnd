@@ -89,7 +89,7 @@ export function Navbar() {
       category: "Navigation" as const,
       handler: () => router.push(href),
     })),
-  ] as const, [router, toggleTheme]);
+  ], [router, toggleTheme]);
 
   useKeyboardShortcuts(shortcuts);
 
