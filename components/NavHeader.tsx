@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export function NavHeader() {
   const pathname = usePathname();
@@ -33,6 +34,7 @@ export function NavHeader() {
           >
             Signals
           </Link>
+          <CommandPalette />
         </div>
       </div>
     </nav>

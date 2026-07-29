@@ -113,6 +113,42 @@
     --radius: 0.75rem;
 
     /*
+     * Typography Scale
+     * ────────────────
+     * Semantic sizes used instead of ad-hoc text-* combinations. Each pairs
+     * a font-size with a line-height tuned for that size.
+     */
+    --text-display-size: 2.25rem;   --text-display-line: 2.5rem;
+    --text-heading-size:  1.5rem;   --text-heading-line: 2rem;
+    --text-subheading-size: 1.125rem; --text-subheading-line: 1.625rem;
+    --text-body-size:     0.9375rem; --text-body-line: 1.5rem;
+    --text-caption-size:  0.8125rem; --text-caption-line: 1.25rem;
+    --text-label-size:    0.75rem;  --text-label-line: 1rem;
+
+    /*
+     * Spacing Scale
+     * ─────────────
+     * Named aliases over Tailwind's default 4px-based scale, for use where a
+     * semantic name reads clearer than a raw multiplier (gap-[--space-md]).
+     */
+    --space-xs:  0.5rem;
+    --space-sm:  0.75rem;
+    --space-md:  1rem;
+    --space-lg:  1.5rem;
+    --space-xl:  2rem;
+    --space-2xl: 3rem;
+
+    /*
+     * Elevation Scale
+     * ───────────────
+     * Shadow tokens layered on the surface tokens above; higher numbers sit
+     * further above the page canvas (dialogs, popovers, dropdowns).
+     */
+    --shadow-1: 0 1px 2px 0 hsl(var(--overlay) / 0.06);
+    --shadow-2: 0 2px 8px -2px hsl(var(--overlay) / 0.12), 0 1px 2px -1px hsl(var(--overlay) / 0.08);
+    --shadow-3: 0 8px 24px -4px hsl(var(--overlay) / 0.18), 0 2px 6px -2px hsl(var(--overlay) / 0.1);
+
+    /*
      * Z-Index Scale
      * ─────────────
      * Consistent layering so modals, dropdowns, toasts, and overlays
@@ -291,4 +327,44 @@
   .z-modal     { z-index: var(--z-modal); }
   .z-toast     { z-index: var(--z-toast); }
   .z-loading   { z-index: var(--z-loading); }
+
+  /* Typography scale utilities — see :root token block for values */
+  .text-display    { font-size: var(--text-display-size); line-height: var(--text-display-line); font-weight: 700; }
+  .text-heading     { font-size: var(--text-heading-size); line-height: var(--text-heading-line); font-weight: 600; }
+  .text-subheading  { font-size: var(--text-subheading-size); line-height: var(--text-subheading-line); font-weight: 600; }
+  .text-body        { font-size: var(--text-body-size); line-height: var(--text-body-line); font-weight: 400; }
+  .text-caption     { font-size: var(--text-caption-size); line-height: var(--text-caption-line); font-weight: 400; }
+  .text-label       { font-size: var(--text-label-size); line-height: var(--text-label-line); font-weight: 500; letter-spacing: 0.01em; }
+
+  /* Elevation utilities — see :root token block for values */
+  .shadow-elevation-1 { box-shadow: var(--shadow-1); }
+  .shadow-elevation-2 { box-shadow: var(--shadow-2); }
+  .shadow-elevation-3 { box-shadow: var(--shadow-3); }
+
+  /* Shimmer sweep used by skeleton loading states (see #512) */
+  @keyframes shimmer-sweep {
+    from { background-position: -150% 0; }
+    to   { background-position: 150% 0; }
+  }
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06) 20%,
+      hsl(var(--foreground) / 0.14) 40%,
+      transparent 60%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-sweep 1.8s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer::after { animation: none; }
+  }
 }

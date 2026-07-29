@@ -64,12 +64,12 @@ function NetworkRow({
       : type.charAt(0).toUpperCase() + type.slice(1);
 
   return (
-    <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
-      <span className="text-foreground-muted">{label}</span>
-      <span className="tabular-nums text-foreground">
+    <tr className="bg-white/5 text-sm">
+      <td className="rounded-l-lg px-3 py-2 text-foreground-muted">{label}</td>
+      <td className="rounded-r-lg px-3 py-2 text-right tabular-nums text-foreground">
         {count} calls · avg {avgApiMs} ms
-      </span>
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -77,17 +77,25 @@ function HeatmapCanvas({ points }: { points: { x: number; y: number }[] }) {
   return (
     <div
       className="relative aspect-[9/16] w-full max-w-xs overflow-hidden rounded-xl border border-white/10 bg-slate-900"
-      aria-label="Interaction heatmap"
+      role="img"
+      aria-label={
+        points.length === 0
+          ? "Interaction heatmap: no interactions recorded yet"
+          : `Interaction heatmap: ${points.length} recorded interactions, concentrated toward ${
+              points.reduce((a, b) => a + b.y, 0) / points.length < 50 ? "the top" : "the bottom"
+            } of the screen`
+      }
     >
       {points.map((p, i) => (
         <div
           key={`${p.x}-${p.y}-${i}`}
+          aria-hidden="true"
           className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/40 blur-sm"
           style={{ left: `${p.x}%`, top: `${p.y}%` }}
         />
       ))}
       {points.length === 0 && (
-        <div className="flex h-full items-center justify-center text-xs text-foreground-muted">
+        <div className="flex h-full items-center justify-center text-xs text-foreground-muted" aria-hidden="true">
           No interactions recorded yet
         </div>
       )}
@@ -241,21 +249,29 @@ export function PerformanceDashboard() {
           {routeStats.length === 0 ? (
             <p className="text-sm text-foreground-muted">No route data yet.</p>
           ) : (
-            <ul className="space-y-2">
-              {routeStats.map((r) => (
-                <li
-                  key={r.route}
-                  className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm"
-                >
-                  <Link href={r.route} className="font-mono text-sky-400 hover:underline">
-                    {r.route}
-                  </Link>
-                  <span className="tabular-nums text-foreground">
-                    {r.avgMs} ms · {r.count}×
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <table className="w-full border-separate border-spacing-y-2 text-sm">
+              <caption className="sr-only">Average page load time by route</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="sr-only">Route</th>
+                  <th scope="col" className="sr-only">Average load time and sample count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {routeStats.map((r) => (
+                  <tr key={r.route} className="bg-white/5">
+                    <td className="rounded-l-lg px-3 py-2">
+                      <Link href={r.route} className="font-mono text-sky-400 hover:underline">
+                        {r.route}
+                      </Link>
+                    </td>
+                    <td className="rounded-r-lg px-3 py-2 text-right tabular-nums text-foreground">
+                      {r.avgMs} ms · {r.count}×
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
 
@@ -264,22 +280,34 @@ export function PerformanceDashboard() {
             <Wifi className="h-4 w-4 text-sky-400" />
             Network type impact
           </h2>
-          <div className="space-y-2">
-            {(Object.entries(summary.networkBreakdown) as [
-              NetworkConnectionType,
-              { count: number; avgApiMs: number },
-            ][])
-              .filter(([, v]) => v.count > 0)
-              .map(([type, stats]) => (
-                <NetworkRow
-                  key={type}
-                  type={type}
-                  count={stats.count}
-                  avgApiMs={stats.avgApiMs}
-                />
-              ))}
-            {summary.apiResponses.length === 0 && (
+          <div>
+            {summary.apiResponses.length === 0 ? (
               <p className="text-sm text-foreground-muted">No API data yet.</p>
+            ) : (
+              <table className="w-full border-separate border-spacing-y-2">
+                <caption className="sr-only">API calls and average response time by network type</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="sr-only">Network type</th>
+                    <th scope="col" className="sr-only">Call count and average response time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Object.entries(summary.networkBreakdown) as [
+                    NetworkConnectionType,
+                    { count: number; avgApiMs: number },
+                  ][])
+                    .filter(([, v]) => v.count > 0)
+                    .map(([type, stats]) => (
+                      <NetworkRow
+                        key={type}
+                        type={type}
+                        count={stats.count}
+                        avgApiMs={stats.avgApiMs}
+                      />
+                    ))}
+                </tbody>
+              </table>
             )}
           </div>
         </section>
