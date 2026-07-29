@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { toast } from "@/lib/toast";
 import { useBookmarkStore } from "@/store/useBookmarkStore";
+import { saveBookmark, removeBookmark as removeBookmarkApi } from "@/lib/bookmarkApi";
 
 function showUndoToast({
   title,
@@ -15,9 +16,7 @@ function showUndoToast({
   undoLabel?: string;
   onUndo: () => void;
 }) {
-  let toastId = "";
-
-  toastId = toast.info(title, {
+  return toast.info(title, {
     description,
     duration: 4500,
     action: {
@@ -25,15 +24,12 @@ function showUndoToast({
       onClick: onUndo,
     },
   });
-
-  return toastId;
 }
 
 export function useBookmarkActions() {
-  const addBookmark = useBookmarkStore((state) => state.addBookmark);
-  const restoreBookmark = useBookmarkStore((state) => state.addBookmark);
-  const removeBookmark = useBookmarkStore((state) => state.removeBookmark);
-  const toggleBookmark = useBookmarkStore((state) => state.toggleBookmark);
+  const storeAddBookmark = useBookmarkStore((state) => state.addBookmark);
+  const storeRemoveBookmark = useBookmarkStore((state) => state.removeBookmark);
+  const toggleStoreBookmark = useBookmarkStore((state) => state.toggleBookmark);
   const hasBookmark = useBookmarkStore((state) => state.hasBookmark);
   const createFolder = useBookmarkStore((state) => state.createFolder);
   const renameFolder = useBookmarkStore((state) => state.renameFolder);
@@ -45,29 +41,70 @@ export function useBookmarkActions() {
     (state) => state.removeSignalFromFolder
   );
 
+  /**
+   * Optimistic bookmark — immediately updates the local store, then syncs
+   * with the server. Rolls back on failure.
+   */
   const bookmark = useCallback(
-    (id: string) => {
-      addBookmark(id);
-      toast.success("Bookmarked", {
-        description: "Saved to your bookmark list.",
-        duration: 2500,
-      });
+    async (id: string) => {
+      storeAddBookmark(id);
+
+      try {
+        await saveBookmark(id);
+        toast.success("Bookmarked", {
+          description: "Saved to your bookmark list.",
+          duration: 2500,
+        });
+      } catch (err) {
+        // Rollback: remove the bookmark we just added
+        storeRemoveBookmark(id);
+        const message =
+          err instanceof Error ? err.message : "Failed to sync bookmark.";
+        toast.error("Sync delayed", {
+          description: message,
+          duration: 4000,
+        });
+      }
     },
-    [addBookmark]
+    [storeAddBookmark, storeRemoveBookmark]
   );
 
+  /**
+   * Optimistic unbookmark — immediately removes locally, syncs with server,
+   * and shows an undo toast. Rolls back on failure.
+   */
   const unbookmark = useCallback(
-    (id: string, label: string) => {
-      removeBookmark(id);
+    async (id: string, label: string) => {
+      storeRemoveBookmark(id);
+
       const toastId = showUndoToast({
         title: "Bookmark removed",
         description: `${label} was removed from your saved signals.`,
-        onUndo: () => restoreBookmark(id),
+        onUndo: () => {
+          // Undo: re-add locally + sync
+          storeAddBookmark(id);
+          saveBookmark(id).catch(() => {
+            // Silent — the local state is already restored
+          });
+        },
       });
+
+      try {
+        await removeBookmarkApi(id);
+      } catch (err) {
+        // Rollback on sync failure
+        storeAddBookmark(id);
+        const message =
+          err instanceof Error ? err.message : "Failed to sync bookmark removal.";
+        toast.error("Sync delayed", {
+          description: message,
+          duration: 4000,
+        });
+      }
 
       return toastId;
     },
-    [removeBookmark, restoreBookmark]
+    [storeRemoveBookmark, storeAddBookmark]
   );
 
   const toggleBookmarkWithUndo = useCallback(
@@ -75,8 +112,7 @@ export function useBookmarkActions() {
       if (hasBookmark(id)) {
         return unbookmark(id, label);
       }
-      bookmark(id);
-      return null;
+      return bookmark(id) as unknown as string;
     },
     [bookmark, hasBookmark, unbookmark]
   );
@@ -143,7 +179,7 @@ export function useBookmarkActions() {
     toggleBookmark: (id: string, label: string) =>
       toggleBookmarkWithUndo(id, label),
     hasBookmark,
-    directToggleBookmark: toggleBookmark,
+    directToggleBookmark: toggleStoreBookmark,
     createFolder: handleCreateFolder,
     renameFolder: handleRenameFolder,
     deleteFolder: handleDeleteFolder,
