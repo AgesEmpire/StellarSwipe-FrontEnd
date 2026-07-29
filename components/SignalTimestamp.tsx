@@ -8,7 +8,5 @@ interface SignalTimestampProps {
 
 export function SignalTimestamp({ updatedAt }: SignalTimestampProps) {
   const label = useRelativeTime(updatedAt);
-  return (
-    <span className="text-xs text-muted-foreground">Updated {label}</span>
-  );
+  return <span className="text-xs text-muted-foreground">Updated {label}</span>;
 }

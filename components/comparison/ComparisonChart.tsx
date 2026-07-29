@@ -1,6 +1,6 @@
 "use client";
 
-import type { Signal } from "@/lib/api";
+import type { Signal } from "@/lib/api-types.generated";
 
 interface ComparisonChartProps {
   signals: Signal[];
@@ -13,8 +13,8 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
 
   const metrics = [
     { label: "Confidence", getValue: (s: Signal) => s.confidence },
-    { label: "R/R Ratio", getValue: (s: Signal) => parseFloat(s.stats?.riskReward ?? "0") || 0, scale: 10 },
-    { label: "Target ∆%", getValue: (s: Signal) => s.stats ? ((s.stats.targetPrice - s.stats.entryPrice) / s.stats.entryPrice) * 100 : 0, scale: 100 },
+    { label: "R/R Ratio", getValue: (s: Signal) => 0, scale: 10 },
+    { label: "Target ∆%", getValue: (s: Signal) => 0, scale: 100 },
   ];
 
   return (
@@ -40,7 +40,9 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
                 const pct = Math.min((val / maxVal) * 100, 100);
                 return (
                   <div key={signal.id} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-300 w-16 truncate shrink-0">{signal.asset}</span>
+                    <span className="text-xs text-gray-300 w-16 truncate shrink-0">
+                      {signal.ticker}
+                    </span>
                     <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
@@ -49,6 +51,8 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
                     </div>
                     <span className="text-xs font-mono text-gray-300 w-12 text-right shrink-0">
                       {val.toFixed(1)}{unit}
+                      {val.toFixed(1)}
+                      {label === "Confidence" ? "%" : ""}
                     </span>
                   </div>
                 );

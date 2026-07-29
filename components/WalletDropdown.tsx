@@ -4,22 +4,41 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, LogOut, ChevronDown, RefreshCw } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  LogOut,
+  PlusCircle,
+  RefreshCw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
+function truncate(key: string) {
+  return `${key.slice(0, 6)}...${key.slice(-4)}`;
+}
+
 export function WalletDropdown() {
-  const { publicKey, disconnect } = useWallet();
+  const {
+    publicKey,
+    wallets,
+    activePublicKey,
+    switchWallet,
+    connectAnother,
+    disconnect,
+    disconnectAll,
+    isConnecting,
+  } = useWallet();
   const { refetch } = usePortfolio();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshed, setRefreshed] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const truncated = publicKey
-    ? `${publicKey.slice(0, 6)}...${publicKey.slice(-4)}`
-    : "";
+  const ref = useRef<HTMLDivElement>(null);
+
+  const truncated = publicKey ? truncate(publicKey) : "";
 
   const handleCopy = useCallback(async () => {
     if (!publicKey) return;
@@ -46,64 +65,48 @@ export function WalletDropdown() {
     }
   }, [isRefreshing, refetch]);
 
-  // Close on outside click
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        handleClose();
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) handleClose();
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  // Close on Escape + keyboard navigation within menu
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent) {
       if (e.key === "Escape") {
         handleClose();
         return;
       }
-
-      // Arrow-based navigation within the menu
       if (open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
         e.preventDefault();
         const menu = menuRef.current;
         if (!menu) return;
-
         const items = Array.from(
           menu.querySelectorAll<HTMLElement>('[role="menuitem"]')
         );
-        if (items.length === 0) return;
-
-        const currentIndex = items.indexOf(document.activeElement as HTMLElement);
-        let nextIndex: number;
-
-        if (e.key === "ArrowDown") {
-          nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
-        } else {
-          nextIndex =
-            currentIndex < 0
-              ? items.length - 1
-              : (currentIndex - 1 + items.length) % items.length;
-        }
-
-        items[nextIndex]?.focus();
+        if (!items.length) return;
+        const idx = items.indexOf(document.activeElement as HTMLElement);
+        const next =
+          e.key === "ArrowDown"
+            ? idx < 0
+              ? 0
+              : (idx + 1) % items.length
+            : idx < 0
+            ? items.length - 1
+            : (idx - 1 + items.length) % items.length;
+        items[next]?.focus();
       }
     }
-
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  // Focus first menuitem when dropdown opens
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() => {
-      const menu = menuRef.current;
-      if (!menu) return;
-      const firstItem = menu.querySelector<HTMLElement>('[role="menuitem"]');
-      firstItem?.focus();
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [open]);
@@ -116,26 +119,19 @@ export function WalletDropdown() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={
-          publicKey
-            ? `Wallet menu for ${truncated}. Click to open wallet actions.`
-            : "Wallet menu"
-        }
+        aria-label={publicKey ? `Wallet menu for ${truncated}` : "Wallet menu"}
         className="font-mono gap-2"
       >
-        {/* Connection status dot */}
-        <span
-          className="relative flex h-2 w-2 shrink-0"
-          aria-hidden="true"
-          title="Wallet connected"
-        >
+        <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
         </span>
-
-        {/* Address — hidden on very small screens */}
         <span className="hidden xs:inline">{truncated}</span>
-
+        {wallets.length > 1 && (
+          <span className="rounded-full bg-blue-500/20 px-1.5 text-[10px] text-blue-400 font-semibold">
+            {wallets.length}
+          </span>
+        )}
         <ChevronDown
           aria-hidden="true"
           className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
@@ -147,23 +143,76 @@ export function WalletDropdown() {
           ref={menuRef}
           role="menu"
           aria-label="Wallet options"
-          className="absolute right-0 mt-2 w-72 rounded-xl border bg-popover shadow-lg p-2 flex flex-col gap-1 z-50"
+          className="absolute end-0 mt-2 w-80 rounded-xl border bg-popover shadow-lg p-2 flex flex-col gap-1 z-50"
         >
-          {/* Connection status header */}
-          <div className="px-3 py-2 flex items-center gap-2">
-            <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-            </span>
-            <span className="text-xs font-medium text-green-400">Connected</span>
-          </div>
+          {/* Connected wallets list */}
+          {wallets.length > 0 && (
+            <div className="px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Connected wallets
+              </p>
+              <ul className="flex flex-col gap-1" role="list">
+                {wallets.map((w) => {
+                  const isActive = w.publicKey === activePublicKey;
+                  return (
+                    <li key={w.publicKey}>
+                      <button
+                        role="menuitem"
+                        tabIndex={0}
+                        onClick={() => {
+                          if (!isActive) switchWallet(w.publicKey);
+                        }}
+                        aria-label={
+                          isActive
+                            ? `Active wallet: ${truncate(w.publicKey)}`
+                            : `Switch to wallet: ${truncate(w.publicKey)}`
+                        }
+                        className={cn(
+                          "w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-mono transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          isActive
+                            ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                            : "hover:bg-accent text-muted-foreground"
+                        )}
+                      >
+                        <span>{truncate(w.publicKey)}</span>
+                        {isActive && (
+                          <Check
+                            className="h-3 w-3 text-blue-400"
+                            aria-label="Active"
+                          />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
-          {/* Full address */}
+          <hr className="border-border" />
+
+          {/* Add another wallet */}
+          <button
+            role="menuitem"
+            tabIndex={0}
+            onClick={() => {
+              handleClose();
+              connectAnother();
+            }}
+            disabled={isConnecting}
+            aria-label="Connect another wallet"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-60"
+          >
+            <PlusCircle className="h-4 w-4 text-blue-400" aria-hidden="true" />
+            Connect another wallet
+          </button>
+
+          <hr className="border-border" />
+
+          {/* Full active address */}
           <p className="px-3 py-2 text-xs font-mono text-muted-foreground break-all select-all">
             {publicKey}
           </p>
-
-          <hr className="border-border" />
 
           {/* Refresh balance */}
           <button
@@ -173,7 +222,7 @@ export function WalletDropdown() {
             disabled={isRefreshing}
             aria-label={
               isRefreshing
-                ? "Refreshing wallet balance..."
+                ? "Refreshing wallet balance…"
                 : refreshed
                 ? "Balance refreshed"
                 : "Refresh wallet balance"
@@ -193,7 +242,7 @@ export function WalletDropdown() {
             )}
             <span aria-live="polite">
               {isRefreshing
-                ? "Refreshing..."
+                ? "Refreshing…"
                 : refreshed
                 ? "Balance updated"
                 : "Refresh balance"}
@@ -216,7 +265,9 @@ export function WalletDropdown() {
             {copied ? "Copied!" : "Copy address"}
           </button>
 
-          {/* Disconnect */}
+          <hr className="border-border" />
+
+          {/* Disconnect active */}
           <button
             role="menuitem"
             tabIndex={0}
@@ -224,16 +275,31 @@ export function WalletDropdown() {
               disconnect();
               setOpen(false);
             }}
-            aria-label="Disconnect wallet"
+            aria-label="Disconnect active wallet"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
           >
             <LogOut aria-hidden="true" className="h-4 w-4" />
             Disconnect
           </button>
+
+          {/* Disconnect all */}
+          {wallets.length > 1 && (
+            <button
+              role="menuitem"
+              tabIndex={0}
+              onClick={() => {
+                disconnectAll();
+                setOpen(false);
+              }}
+              aria-label="Disconnect all wallets"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-destructive/80 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+            >
+              <LogOut aria-hidden="true" className="h-4 w-4" />
+              Disconnect all
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
-
-

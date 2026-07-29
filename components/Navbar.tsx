@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Zap } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
@@ -9,17 +9,32 @@ import { WalletDropdown } from "@/components/WalletDropdown";
 import { WalletSelectionModal } from "@/components/WalletSelectionModal";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { CommandPalette } from "@/components/CommandPalette";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
-  { href: "/signals", label: "Signals" },
+  { href: "/app", label: "Signals" },
+  { href: "/journal", label: "Journal" },
+  { href: "/bookmarks", label: "Bookmarks" },
   { href: "/providers", label: "Providers" },
   { href: "/tax-report", label: "Tax Report" },
 ];
 
 export function Navbar() {
-  const { connected, isConnecting } = useWallet();
+  const { connected, isConnecting, connect } = useWallet();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <>
@@ -63,11 +78,16 @@ export function Navbar() {
                 size="sm"
                 disabled={isConnecting}
                 onClick={() => setWalletModalOpen(true)}
-                aria-label={isConnecting ? "Connecting wallet…" : "Connect wallet"}
+                aria-label={
+                  isConnecting ? "Connecting wallet…" : "Connect wallet"
+                }
                 className="gap-2"
               >
                 {isConnecting && (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  <Loader2
+                    className="h-3.5 w-3.5 animate-spin"
+                    aria-hidden="true"
+                  />
                 )}
                 {isConnecting ? "Connecting…" : "Connect Wallet"}
               </Button>
@@ -79,6 +99,15 @@ export function Navbar() {
       <WalletSelectionModal
         open={walletModalOpen}
         onClose={() => setWalletModalOpen(false)}
+      />
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onConnectWallet={() => {
+          if (connected) return;
+          setWalletModalOpen(true);
+        }}
       />
     </>
   );

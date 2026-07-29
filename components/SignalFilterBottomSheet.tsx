@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import {
   FilterDirection,
   useSignalFilterStore,
 } from "@/store/useSignalFilterStore";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const DIRECTIONS: { label: string; value: FilterDirection }[] = [
   { label: "All", value: "ALL" },
@@ -48,54 +49,11 @@ export function SignalFilterBottomSheet({
     reset,
   } = useSignalFilterStore();
 
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Focus the close button when the sheet opens
-  useEffect(() => {
-    if (open) {
-      // Small delay so the animation has started
-      const id = setTimeout(() => closeButtonRef.current?.focus(), 80);
-      return () => clearTimeout(id);
-    }
-  }, [open]);
-
-  // Trap focus inside the sheet while open
-  useEffect(() => {
-    if (!open) return;
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-
-      const sheet = sheetRef.current;
-      if (!sheet) return;
-
-      const focusable = sheet.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  const sheetRef = useFocusTrap({
+    isActive: open,
+    // Focus the close button when the sheet opens
+    initialFocus: 'button[aria-label="Close filters"]',
+  });
 
   // Prevent body scroll while sheet is open
   useEffect(() => {
@@ -108,8 +66,8 @@ export function SignalFilterBottomSheet({
       document.body.style.overflow = "";
     };
   }, [open]);
-
-  const isActive = direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
+  const isActive =
+    direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
 
   return (
     <AnimatePresence>
@@ -176,7 +134,6 @@ export function SignalFilterBottomSheet({
                   </button>
                 )}
                 <button
-                  ref={closeButtonRef}
                   onClick={onClose}
                   aria-label="Close filters"
                   className="rounded-full p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"

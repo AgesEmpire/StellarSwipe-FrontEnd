@@ -11,7 +11,10 @@ export function NavHeader() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-sticky border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-lg font-bold tracking-tight text-foreground hover:text-accent-primary transition-colors">
+        <Link
+          href="/"
+          className="text-lg font-bold tracking-tight text-foreground hover:text-accent-primary transition-colors"
+        >
           StellarSwipe
         </Link>
 
@@ -29,7 +32,9 @@ export function NavHeader() {
             href="/app"
             className={cn(
               "text-sm font-medium transition-colors hover:text-accent-primary",
-              pathname === "/app" ? "text-accent-primary" : "text-foreground-muted"
+              pathname === "/app"
+                ? "text-accent-primary"
+                : "text-foreground-muted"
             )}
           >
             Signals

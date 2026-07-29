@@ -21,12 +21,27 @@ export interface CopyButtonProps
  *
  * Works across browsers via the Clipboard API with a legacy execCommand
  * fallback (see useClipboard hook).
+ *
+ * @example
+ * // Standalone copy button with a custom label
+ * <CopyButton value={walletAddress} label="Copy address" />
+ *
+ * @example
+ * // Keep the "Copied!" state for 5 seconds
+ * <CopyButton value={txHash} label="Copy tx hash" resetDelay={5000} />
+ *
+ * @example
+ * // Inside a toolbar, icon-only appearance via className
+ * <CopyButton
+ *   value={apiKey}
+ *   label="Copy API key"
+ *   className="border-0 bg-transparent p-1"
+ * />
+ *
+ * @see {@link https://storybook.stellarswipe.dev/?path=/docs/ui-copybutton--docs Storybook — CopyButton}
  */
 const CopyButton = React.forwardRef<HTMLButtonElement, CopyButtonProps>(
-  (
-    { value, label = "Copy", resetDelay = 2000, className, ...props },
-    ref
-  ) => {
+  ({ value, label = "Copy", resetDelay = 2000, className, ...props }, ref) => {
     const { copied, copy } = useClipboard({ resetDelay });
 
     return (
@@ -46,7 +61,8 @@ const CopyButton = React.forwardRef<HTMLButtonElement, CopyButtonProps>(
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:pointer-events-none disabled:opacity-50",
           // Copied state
-          copied && "border-accent-success/40 bg-accent-success/10 text-accent-success",
+          copied &&
+            "border-accent-success/40 bg-accent-success/10 text-accent-success",
           className
         )}
         {...props}
