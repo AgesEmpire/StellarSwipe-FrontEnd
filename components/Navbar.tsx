@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2, Zap } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,9 @@ import { WalletSelectionModal } from "@/components/WalletSelectionModal";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CommandPalette } from "@/components/CommandPalette";
+import { KeyboardShortcutsHelpModal } from "@/components/KeyboardShortcutsHelpModal";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useThemeStore } from "@/store/useThemeStore";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -20,11 +24,25 @@ const NAV_LINKS = [
   { href: "/tax-report", label: "Tax Report" },
 ];
 
+const routeShortcuts: Record<string, string> = {
+  "n": "/app",
+  "b": "/bookmarks",
+  "h": "/",
+  "j": "/journal",
+  "p": "/providers",
+  "t": "/tax-report",
+  "c": "/compare",
+  "s": "/backtest-sim",
+};
+
 export function Navbar() {
+  const router = useRouter();
   const { connected, isConnecting, connect } = useWallet();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
 
+  // Open command palette on Cmd+K
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -35,6 +53,45 @@ export function Navbar() {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const toggleTheme = useThemeStore((state) => state.toggle);
+
+  // Global keyboard shortcuts
+  const shortcuts = useMemo(() => [
+    {
+      key: "?",
+      description: "Open keyboard shortcuts overlay",
+      category: "Modals" as const,
+      handler: () => setHelpModalOpen(true),
+    },
+    {
+      key: "n",
+      description: "New journal entry",
+      category: "Actions" as const,
+      handler: () => router.push("/journal"),
+    },
+    {
+      key: "t",
+      description: "Toggle theme",
+      category: "Actions" as const,
+      handler: () => toggleTheme(),
+    },
+    {
+      key: "r",
+      description: "Refresh page",
+      category: "Actions" as const,
+      handler: () => router.refresh(),
+    },
+    // Sequential navigation shortcuts: G then [key]
+    ...Object.entries(routeShortcuts).map(([key, href]) => ({
+      key: `g then ${key}`,
+      description: `Go to ${NAV_LINKS.find((l) => l.href === href)?.label ?? href}`,
+      category: "Navigation" as const,
+      handler: () => router.push(href),
+    })),
+  ] as const, [router, toggleTheme]);
+
+  useKeyboardShortcuts(shortcuts);
 
   return (
     <>
@@ -67,8 +124,21 @@ export function Navbar() {
             ))}
           </ul>
 
-          {/* Language Selector & Wallet CTA */}
+          {/* Right side controls */}
           <div className="flex items-center gap-2">
+            {/* Help/shortcuts button */}
+            <button
+              onClick={() => setHelpModalOpen(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-foreground-muted hover:text-foreground hover:bg-surface-high/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 group"
+              aria-label="Keyboard shortcuts (?)"
+              title="Keyboard shortcuts (?)"
+            >
+              <kbd className="inline-flex h-4 min-w-[18px] items-center justify-center rounded-[3px] border border-border bg-accent/50 px-1 text-[9px] font-semibold text-foreground shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]">
+                ?
+              </kbd>
+              <span className="sr-only sm:not-sr-only">Shortcuts</span>
+            </button>
+
             <ThemeToggle />
             <LanguageSelector />
             {connected ? (
@@ -108,6 +178,11 @@ export function Navbar() {
           if (connected) return;
           setWalletModalOpen(true);
         }}
+      />
+
+      <KeyboardShortcutsHelpModal
+        open={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
       />
     </>
   );
