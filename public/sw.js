@@ -4,13 +4,14 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body ?? "",
     icon: "/favicon.ico",
-    badge: "/favicon.ico",
+    badge: "/badge-icon.png",
     data: { url: data.url ?? "/" },
     tag: data.tag ?? "stellarswipe",
     renotify: true,
   };
 
-  const showPromise = caches.open("notification-preferences")
+  const showPromise = caches
+    .open("notification-preferences")
     .then((cache) => cache.match("/preferences"))
     .then((response) => (response ? response.json() : null))
     .then((prefs) => {

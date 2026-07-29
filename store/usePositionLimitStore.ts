@@ -32,4 +32,5 @@ export const usePositionLimitStore = create<PositionLimitState>()(
 );
 
 /** Returns `true` once localStorage has been read and state is stable. */
-export const usePositionLimitHydrated = () => usePositionLimitStore((s) => s._hasHydrated);
+export const usePositionLimitHydrated = () =>
+  usePositionLimitStore((s) => s._hasHydrated);

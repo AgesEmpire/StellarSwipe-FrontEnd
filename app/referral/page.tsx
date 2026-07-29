@@ -1,50 +1,69 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react'
+import React, { useState } from "react";
 
-const BASE_REFERRAL_URL = 'https://app.example.com/referral/ABC123'
+const BASE_REFERRAL_URL = "https://app.example.com/referral/ABC123";
 
-export const UTM_CHANNELS = [
-  { key: 'twitter',  label: 'Twitter',  source: 'twitter',  medium: 'social' },
-  { key: 'telegram', label: 'Telegram', source: 'telegram', medium: 'social' },
-  { key: 'whatsapp', label: 'WhatsApp', source: 'whatsapp', medium: 'messaging' },
-  { key: 'email',    label: 'Email',    source: 'email',    medium: 'email' },
-] as const
+const UTM_CHANNELS = [
+  { key: "twitter", label: "Twitter", source: "twitter", medium: "social" },
+  { key: "telegram", label: "Telegram", source: "telegram", medium: "social" },
+  {
+    key: "whatsapp",
+    label: "WhatsApp",
+    source: "whatsapp",
+    medium: "messaging",
+  },
+  { key: "email", label: "Email", source: "email", medium: "email" },
+] as const;
 
-export type ChannelKey = typeof UTM_CHANNELS[number]['key']
+type ChannelKey = (typeof UTM_CHANNELS)[number]["key"];
 
-export function buildReferralLink(baseUrl: string, channel: ChannelKey): string {
-  const ch = UTM_CHANNELS.find((c) => c.key === channel)
-  if (!ch) return baseUrl
+function buildReferralLink(baseUrl: string, channel: ChannelKey): string {
+  const ch = UTM_CHANNELS.find((c) => c.key === channel);
+  if (!ch) return baseUrl;
   const params = new URLSearchParams({
-    utm_source:   ch.source,
-    utm_medium:   ch.medium,
-    utm_campaign: 'referral',
-    utm_content:  channel,
-  })
-  return `${baseUrl}?${params.toString()}`
+    utm_source: ch.source,
+    utm_medium: ch.medium,
+    utm_campaign: "referral",
+    utm_content: channel,
+  });
+  return `${baseUrl}?${params.toString()}`;
 }
 
-export default function ReferralPage() {
-  const [copied, setCopied] = useState(false)
-  const [selectedChannel, setSelectedChannel] = useState<ChannelKey>('twitter')
-  const referrals = [
-    { id: 'r1', email: 'alice@example.com', status: 'verified', earned: 10, channel: 'twitter' },
-    { id: 'r2', email: 'bob@example.com',   status: 'pending',  earned: 0,  channel: 'telegram' },
-  ]
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
-  const generatedLink = buildReferralLink(BASE_REFERRAL_URL, selectedChannel)
+function ReferralPageInner() {
+  const [copied, setCopied] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<ChannelKey>("twitter");
+  const referrals = [
+    {
+      id: "r1",
+      email: "alice@example.com",
+      status: "verified",
+      earned: 10,
+      channel: "twitter",
+    },
+    {
+      id: "r2",
+      email: "bob@example.com",
+      status: "pending",
+      earned: 0,
+      channel: "telegram",
+    },
+  ];
+
+  const generatedLink = buildReferralLink(BASE_REFERRAL_URL, selectedChannel);
 
   const copy = async () => {
-    await navigator.clipboard.writeText(generatedLink)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+    await navigator.clipboard.writeText(generatedLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const channelCounts = referrals.reduce<Record<string, number>>((acc, r) => {
-    acc[r.channel] = (acc[r.channel] ?? 0) + 1
-    return acc
-  }, {})
+    acc[r.channel] = (acc[r.channel] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="p-6">
@@ -52,10 +71,16 @@ export default function ReferralPage() {
 
       {/* UTM link generator */}
       <div className="bg-white/5 p-4 rounded mb-4">
-        <p className="text-sm text-gray-400 mb-2">Generate referral link with UTM tracking</p>
+        <p className="text-sm text-gray-400 mb-2">
+          Generate referral link with UTM tracking
+        </p>
 
         {/* Channel selector */}
-        <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label="Select channel">
+        <div
+          className="flex flex-wrap gap-2 mb-3"
+          role="group"
+          aria-label="Select channel"
+        >
           {UTM_CHANNELS.map((ch) => (
             <button
               key={ch.key}
@@ -64,8 +89,8 @@ export default function ReferralPage() {
               data-testid={`channel-${ch.key}`}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                 selectedChannel === ch.key
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                  ? "bg-purple-500 text-white"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
               }`}
             >
               {ch.label}
@@ -88,7 +113,7 @@ export default function ReferralPage() {
             data-testid="copy-link-btn"
             aria-label="Copy referral link"
           >
-            {copied ? 'Copied!' : 'Copy'}
+            {copied ? "Copied!" : "Copy"}
           </button>
         </div>
       </div>
@@ -98,7 +123,10 @@ export default function ReferralPage() {
         <h2 className="font-semibold mb-2">Active Referrals</h2>
         <div className="space-y-2">
           {referrals.map((r) => (
-            <div key={r.id} className="flex items-center justify-between p-2 bg-black/20 rounded">
+            <div
+              key={r.id}
+              className="flex items-center justify-between p-2 bg-black/20 rounded"
+            >
               <div>
                 <div className="text-sm">{r.email}</div>
                 <div className="text-xs text-gray-400">
@@ -116,10 +144,17 @@ export default function ReferralPage() {
         <h2 className="font-semibold mb-2">Performance by Channel</h2>
         <div className="space-y-1">
           {UTM_CHANNELS.map((ch) => (
-            <div key={ch.key} className="flex items-center justify-between text-sm">
+            <div
+              key={ch.key}
+              className="flex items-center justify-between text-sm"
+            >
               <span className="text-gray-300">{ch.label}</span>
-              <span className="text-gray-400" data-testid={`channel-count-${ch.key}`}>
-                {channelCounts[ch.key] ?? 0} referral{(channelCounts[ch.key] ?? 0) !== 1 ? 's' : ''}
+              <span
+                className="text-gray-400"
+                data-testid={`channel-count-${ch.key}`}
+              >
+                {channelCounts[ch.key] ?? 0} referral
+                {(channelCounts[ch.key] ?? 0) !== 1 ? "s" : ""}
               </span>
             </div>
           ))}
@@ -127,9 +162,20 @@ export default function ReferralPage() {
       </div>
 
       <div className="mt-4 text-sm text-gray-400">
-        By participating you agree to the{' '}
-        <a href="#" className="text-purple-400">Referral Terms &amp; Conditions</a>.
+        By participating you agree to the{" "}
+        <a href="#" className="text-purple-400">
+          Referral Terms &amp; Conditions
+        </a>
+        .
       </div>
     </div>
-  )
+  );
+}
+
+export default function ReferralPage() {
+  return (
+    <RouteErrorBoundary featureName="Referrals">
+      <ReferralPageInner />
+    </RouteErrorBoundary>
+  );
 }

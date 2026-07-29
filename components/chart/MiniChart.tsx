@@ -34,7 +34,10 @@ function createSmoothPath(points: { x: number; y: number }[]): string {
   return path;
 }
 
-function createAreaPath(points: { x: number; y: number }[], height: number): string {
+function createAreaPath(
+  points: { x: number; y: number }[],
+  height: number
+): string {
   const linePath = createSmoothPath(points);
   if (!linePath) return "";
 
@@ -53,7 +56,8 @@ export function MiniChart({
   className = "",
 }: MiniChartProps) {
   const { path, areaPath, isPositive, gradientId } = useMemo(() => {
-    if (!data.length) return { path: "", areaPath: "", isPositive: true, gradientId: "" };
+    if (!data.length)
+      return { path: "", areaPath: "", isPositive: true, gradientId: "" };
 
     const values = data;
     const min = Math.min(...values);
@@ -71,7 +75,12 @@ export function MiniChart({
     const positive = values[values.length - 1] >= values[0];
     const id = `mini-chart-gradient-${Math.random().toString(36).slice(2, 9)}`;
 
-    return { path: linePath, areaPath: areaPathVal, isPositive: positive, gradientId: id };
+    return {
+      path: linePath,
+      areaPath: areaPathVal,
+      isPositive: positive,
+      gradientId: id,
+    };
   }, [data, width, height, showArea]);
 
   if (!data.length) return null;
@@ -84,7 +93,9 @@ export function MiniChart({
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      aria-label={`Mini chart showing ${isPositive ? "positive" : "negative"} trend`}
+      aria-label={`Mini chart showing ${
+        isPositive ? "positive" : "negative"
+      } trend`}
       role="img"
       className={`overflow-visible ${className}`}
     >

@@ -41,6 +41,7 @@ interface TransactionState {
   clearError: () => void;
   setPreservedInput: (input: Record<string, unknown> | null) => void;
   addTransaction: (transaction: TransactionHistoryItem) => void;
+  bulkAddTransactions: (transactions: TransactionHistoryItem[]) => void;
   updateTransactionStatus: (
     id: string,
     status: TransactionStatus,
@@ -100,20 +101,20 @@ export const useTransactionStore = create<TransactionState>()((set) => ({
   setSuccess: (details) =>
     set({ success: details, showSuccess: true, error: null, showError: false }),
 
-  clearSuccess: () =>
-    set({ success: null, showSuccess: false }),
+  clearSuccess: () => set({ success: null, showSuccess: false }),
 
   setError: (error) =>
     set({ error, showError: true, success: null, showSuccess: false }),
 
-  clearError: () =>
-    set({ error: null, showError: false }),
+  clearError: () => set({ error: null, showError: false }),
 
-  setPreservedInput: (input) =>
-    set({ preservedInput: input }),
+  setPreservedInput: (input) => set({ preservedInput: input }),
 
   addTransaction: (transaction) =>
     set((state) => ({ history: [transaction, ...state.history] })),
+
+  bulkAddTransactions: (transactions) =>
+    set((state) => ({ history: [...transactions, ...state.history] })),
 
   updateTransactionStatus: (id, status, outcome) =>
     set((state) => ({

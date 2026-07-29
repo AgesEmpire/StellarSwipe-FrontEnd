@@ -1,8 +1,18 @@
 "use client";
 
-import { useOnboardingStore, useOnboardingHydrated, ONBOARDING_TOTAL_STEPS } from "@/store/useOnboardingStore";
+import {
+  useOnboardingStore,
+  useOnboardingHydrated,
+  ONBOARDING_TOTAL_STEPS,
+} from "@/store/useOnboardingStore";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Wallet, LayoutList, ArrowLeftRight, X } from "lucide-react";
+import {
+  ChevronRight,
+  Wallet,
+  LayoutList,
+  ArrowLeftRight,
+  X,
+} from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface OnboardingStep {
@@ -33,7 +43,8 @@ const STEPS: OnboardingStep[] = [
 ];
 
 export function OnboardingFlow() {
-  const { dismissed, currentStep, setCompleted, setDismissed, setCurrentStep } = useOnboardingStore();
+  const { dismissed, currentStep, setCompleted, setDismissed, setCurrentStep } =
+    useOnboardingStore();
   const isHydrated = useOnboardingHydrated();
   const focusTrapRef = useFocusTrap({ isActive: true });
 
@@ -59,23 +70,29 @@ export function OnboardingFlow() {
       role="dialog"
       aria-modal="true"
       aria-label="Welcome to StellarSwipe"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4"
     >
-      <div ref={focusTrapRef} className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-black/50">
+      <div
+        ref={focusTrapRef}
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-auto rounded-3xl border border-white/10 bg-slate-950 p-4 shadow-2xl shadow-black/50 sm:max-h-none sm:p-6"
+      >
         <button
           type="button"
           onClick={setDismissed}
           aria-label="Skip onboarding"
-          className="absolute right-4 top-4 rounded-full p-1.5 text-slate-500 hover:text-slate-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="absolute right-3 top-3 rounded-full p-1.5 text-slate-500 transition-colors hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 sm:right-4 sm:top-4"
         >
           <X size={16} aria-hidden="true" />
         </button>
 
-        <div className="mb-4 flex items-center gap-1.5" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+        <div
+          className="mb-4 flex items-center gap-1.5"
+          aria-label={`Step ${step + 1} of ${STEPS.length}`}
+        >
           {STEPS.map((_, i) => (
             <div
               key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${
+              className={`h-1 flex-1 rounded-full transition-all duration-200 ${
                 i <= step ? "bg-sky-500" : "bg-white/10"
               }`}
             />
@@ -83,7 +100,7 @@ export function OnboardingFlow() {
         </div>
 
         <p className="mb-4 text-xs text-foreground-muted">
-          Step {step + 1} of {STEPS.length} &middot; {progressPercent}% complete
+          Step {step + 1} of {STEPS.length} · {progressPercent}% complete
         </p>
 
         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-400">
@@ -91,21 +108,25 @@ export function OnboardingFlow() {
         </div>
 
         <h2 className="mb-2 text-lg font-semibold text-white">{current.title}</h2>
-        <p className="mb-6 text-sm leading-relaxed text-slate-400">{current.description}</p>
+        <p className="mb-5 text-sm leading-relaxed text-slate-400 sm:mb-6">
+          {current.description}
+        </p>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
             onClick={setDismissed}
-            className="text-xs text-slate-500 hover:text-slate-300 underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded"
+            className="rounded text-xs text-slate-500 underline transition-colors hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           >
-            Skip
+            Skip for now
           </button>
           <Button
             onClick={handleNext}
             size="sm"
-            className="flex items-center gap-1.5"
-            aria-label={isLast ? "Finish onboarding" : `Next: ${STEPS[step + 1]?.title}`}
+            className="flex min-h-10 items-center justify-center gap-1.5 px-4"
+            aria-label={
+              isLast ? "Finish onboarding" : `Next: ${STEPS[step + 1]?.title}`
+            }
           >
             {isLast ? "Get started" : "Next"}
             <ChevronRight size={14} aria-hidden="true" />

@@ -60,7 +60,10 @@ export function SignalFeedFilters({
         <div className="h-4 w-16 rounded bg-surface-high animate-pulse" />
         <div className="flex gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-7 w-16 rounded-full bg-surface-high animate-pulse" />
+            <div
+              key={i}
+              className="h-7 w-16 rounded-full bg-surface-high animate-pulse"
+            />
           ))}
         </div>
       </section>
@@ -133,7 +136,9 @@ export function SignalFeedFilters({
           <button
             key={providerLabel}
             type="button"
-            onClick={() => setProvider(provider === providerLabel ? "" : providerLabel)}
+            onClick={() =>
+              setProvider(provider === providerLabel ? "" : providerLabel)
+            }
             aria-pressed={provider === providerLabel}
             className={cn(
               "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
@@ -149,7 +154,10 @@ export function SignalFeedFilters({
 
       <div className="flex flex-wrap items-center gap-3">
         {/* Direction pills */}
-        <fieldset className="flex items-center gap-1" aria-label="Filter by direction">
+        <fieldset
+          className="flex items-center gap-1"
+          aria-label="Filter by direction"
+        >
           {DIRECTIONS.map(({ label, value }) => (
             <button
               key={value}
@@ -235,7 +243,8 @@ export function SignalFeedFilters({
       {/* Active filter summary */}
       {isActive && (
         <p className="text-[11px] text-gray-500" aria-live="polite">
-          Showing: {[
+          Showing:{" "}
+          {[
             direction !== "ALL" && `Direction: ${direction}`,
             asset && `Asset: ${asset}`,
             provider && `Provider: ${provider}`,
@@ -303,7 +312,11 @@ export function SignalFeedFilters({
         )}
 
         {presets.length > 0 && (
-          <ul className="flex flex-wrap gap-2" role="list" aria-label="Saved filter presets">
+          <ul
+            className="flex flex-wrap gap-2"
+            role="list"
+            aria-label="Saved filter presets"
+          >
             {presets.map((preset) => (
               <li key={preset.name} className="flex items-center gap-1">
                 <button

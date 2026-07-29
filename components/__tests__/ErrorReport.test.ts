@@ -6,7 +6,10 @@
 
 const SUPPORT_EMAIL = "support@stellarswipe.io";
 
-function buildReportHref(digest: string | undefined, eventId: string | null): string {
+function buildReportHref(
+  digest: string | undefined,
+  eventId: string | null
+): string {
   const subject = encodeURIComponent("Error Report – StellarSwipe");
   const body = encodeURIComponent(
     [

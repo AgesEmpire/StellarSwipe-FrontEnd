@@ -1,15 +1,16 @@
 /**
  * Simple i18n system with JSON-based locale files
  */
+import * as Sentry from "@sentry/nextjs";
 
-export type Locale = 'en' | 'ng' | 'es' | 'fr' | 'de' | 'zh' | 'ar';
+export type Locale = "en" | "ng" | "es" | "fr" | "de" | "zh" | "ar";
 
-const LOCALE_KEY = 'stellarswipe:locale';
-const DEFAULT_LOCALE: Locale = 'en';
-const SUPPORTED_LOCALES: Locale[] = ['en', 'ng', 'es', 'fr', 'de', 'zh', 'ar'];
+const LOCALE_KEY = "stellarswipe:locale";
+const DEFAULT_LOCALE: Locale = "en";
+const SUPPORTED_LOCALES: Locale[] = ["en", "ng", "es", "fr", "de", "zh", "ar"];
 
 /** RTL locales — consumers should apply dir="rtl" when active */
-export const RTL_LOCALES: Locale[] = ['ar'];
+export const RTL_LOCALES: Locale[] = ["ar"];
 
 export function isRTL(locale: Locale): boolean {
   return RTL_LOCALES.includes(locale);
@@ -17,29 +18,39 @@ export function isRTL(locale: Locale): boolean {
 
 /** BCP-47 tags for Intl APIs */
 export const LOCALE_BCP47: Record<Locale, string> = {
-  en: 'en-US',
-  ng: 'yo-NG',
-  es: 'es-ES',
-  fr: 'fr-FR',
-  de: 'de-DE',
-  zh: 'zh-CN',
-  ar: 'ar-SA',
+  en: "en-US",
+  ng: "yo-NG",
+  es: "es-ES",
+  fr: "fr-FR",
+  de: "de-DE",
+  zh: "zh-CN",
+  ar: "ar-SA",
 };
 
 /** Format a number according to the current locale */
-export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
-  return new Intl.NumberFormat(LOCALE_BCP47[currentLocale], options).format(value);
+export function formatNumber(
+  value: number,
+  options?: Intl.NumberFormatOptions
+): string {
+  return new Intl.NumberFormat(LOCALE_BCP47[currentLocale], options).format(
+    value
+  );
 }
 
 /** Format a date according to the current locale */
-export function formatDate(date: Date | string | number, options?: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat(LOCALE_BCP47[currentLocale], options).format(new Date(date));
+export function formatDate(
+  date: Date | string | number,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  return new Intl.DateTimeFormat(LOCALE_BCP47[currentLocale], options).format(
+    new Date(date)
+  );
 }
 
 /** Format currency according to the current locale */
-export function formatCurrency(value: number, currency = 'USD'): string {
+export function formatCurrency(value: number, currency = "USD"): string {
   return new Intl.NumberFormat(LOCALE_BCP47[currentLocale], {
-    style: 'currency',
+    style: "currency",
     currency,
     minimumFractionDigits: 2,
   }).format(value);
@@ -54,13 +65,13 @@ let fallbackTranslations: Record<string, any> = {};
  * e.g., "signals.buy_signal" -> translations.signals.buy_signal
  */
 function getNestedValue(obj: any, path: string): string | undefined {
-  const keys = path.split('.');
+  const keys = path.split(".");
   let current = obj;
   for (const key of keys) {
     if (current?.[key] === undefined) return undefined;
     current = current[key];
   }
-  return typeof current === 'string' ? current : undefined;
+  return typeof current === "string" ? current : undefined;
 }
 
 /**
@@ -72,7 +83,7 @@ async function loadLocale(locale: Locale): Promise<Record<string, any>> {
     if (!response.ok) throw new Error(`Failed to load ${locale} locale`);
     return await response.json();
   } catch (err) {
-    console.error(`Error loading locale ${locale}:`, err);
+    Sentry.captureException(err);
     return {};
   }
 }
@@ -81,13 +92,14 @@ async function loadLocale(locale: Locale): Promise<Record<string, any>> {
  * Initialize i18n system
  */
 export async function initI18n() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
 
   // Load stored locale or use default
   const stored = localStorage.getItem(LOCALE_KEY);
-  currentLocale = (stored && SUPPORTED_LOCALES.includes(stored as Locale)
-    ? stored as Locale
-    : DEFAULT_LOCALE);
+  currentLocale =
+    stored && SUPPORTED_LOCALES.includes(stored as Locale)
+      ? (stored as Locale)
+      : DEFAULT_LOCALE;
 
   // Load fallback (English) first
   fallbackTranslations = await loadLocale(DEFAULT_LOCALE);
@@ -105,12 +117,15 @@ export async function initI18n() {
  */
 export async function setLocale(locale: Locale) {
   if (!SUPPORTED_LOCALES.includes(locale)) {
-    console.warn(`Unsupported locale: ${locale}`);
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console
+      console.warn(`Unsupported locale: ${locale}`);
+    }
     return;
   }
 
   currentLocale = locale;
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     localStorage.setItem(LOCALE_KEY, locale);
   }
 
@@ -134,7 +149,11 @@ export function t(key: string): string {
   // Fall back to English
   value = getNestedValue(fallbackTranslations, key);
   if (value) {
-    if (process.env.NODE_ENV === "development" && currentLocale !== DEFAULT_LOCALE) {
+    if (
+      process.env.NODE_ENV === "development" &&
+      currentLocale !== DEFAULT_LOCALE
+    ) {
+      // eslint-disable-next-line no-console
       console.warn(
         `[i18n] Missing translation key "${key}" for locale "${currentLocale}". Falling back to "${DEFAULT_LOCALE}".`
       );
@@ -144,6 +163,7 @@ export function t(key: string): string {
 
   // Key missing from all locales
   if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console
     console.warn(
       `[i18n] Missing translation key "${key}" in locale "${currentLocale}" (no fallback found).`
     );

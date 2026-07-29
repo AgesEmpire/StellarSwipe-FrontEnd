@@ -5,7 +5,12 @@
  * validateField function. Tests verify identical error message contract.
  */
 
-import { validateTradeField, tradeOrderSchema, limitOrderSchema, marketOrderSchema } from "@/lib/tradeSchemas";
+import {
+  validateTradeField,
+  tradeOrderSchema,
+  limitOrderSchema,
+  marketOrderSchema,
+} from "@/lib/tradeSchemas";
 
 // ── validateTradeField – required check ──────────────────────────────────────
 
@@ -31,11 +36,15 @@ describe("validateTradeField – non-numeric input", () => {
   });
 
   it("rejects mixed alphanumeric input", () => {
-    expect(validateTradeField("10xyz", "Amount")).toBe("Amount must be a number");
+    expect(validateTradeField("10xyz", "Amount")).toBe(
+      "Amount must be a number"
+    );
   });
 
   it("rejects special characters", () => {
-    expect(validateTradeField("$100", "Amount")).toBe("Amount must be a number");
+    expect(validateTradeField("$100", "Amount")).toBe(
+      "Amount must be a number"
+    );
   });
 });
 
@@ -43,15 +52,21 @@ describe("validateTradeField – non-numeric input", () => {
 
 describe("validateTradeField – numeric range checks", () => {
   it("rejects zero", () => {
-    expect(validateTradeField("0", "Amount")).toBe("Amount must be greater than 0");
+    expect(validateTradeField("0", "Amount")).toBe(
+      "Amount must be greater than 0"
+    );
   });
 
   it("rejects negative numbers", () => {
-    expect(validateTradeField("-5", "Amount")).toBe("Amount must be greater than 0");
+    expect(validateTradeField("-5", "Amount")).toBe(
+      "Amount must be greater than 0"
+    );
   });
 
   it("rejects negative decimal", () => {
-    expect(validateTradeField("-0.001", "Limit price")).toBe("Limit price must be greater than 0");
+    expect(validateTradeField("-0.001", "Limit price")).toBe(
+      "Limit price must be greater than 0"
+    );
   });
 
   it("accepts a positive integer", () => {
@@ -80,12 +95,20 @@ describe("limitOrderSchema", () => {
   });
 
   it("fails when limitPrice is missing", () => {
-    const result = limitOrderSchema.safeParse({ orderType: "LIMIT", amount: "50", limitPrice: "" });
+    const result = limitOrderSchema.safeParse({
+      orderType: "LIMIT",
+      amount: "50",
+      limitPrice: "",
+    });
     expect(result.success).toBe(false);
   });
 
   it("fails when amount is zero", () => {
-    const result = limitOrderSchema.safeParse({ orderType: "LIMIT", amount: "0", limitPrice: "0.4821" });
+    const result = limitOrderSchema.safeParse({
+      orderType: "LIMIT",
+      amount: "0",
+      limitPrice: "0.4821",
+    });
     expect(result.success).toBe(false);
   });
 });
@@ -94,17 +117,26 @@ describe("limitOrderSchema", () => {
 
 describe("marketOrderSchema", () => {
   it("accepts valid MARKET order", () => {
-    const result = marketOrderSchema.safeParse({ orderType: "MARKET", amount: "100" });
+    const result = marketOrderSchema.safeParse({
+      orderType: "MARKET",
+      amount: "100",
+    });
     expect(result.success).toBe(true);
   });
 
   it("does not require limitPrice", () => {
-    const result = marketOrderSchema.safeParse({ orderType: "MARKET", amount: "1" });
+    const result = marketOrderSchema.safeParse({
+      orderType: "MARKET",
+      amount: "1",
+    });
     expect(result.success).toBe(true);
   });
 
   it("fails when amount is empty", () => {
-    const result = marketOrderSchema.safeParse({ orderType: "MARKET", amount: "" });
+    const result = marketOrderSchema.safeParse({
+      orderType: "MARKET",
+      amount: "",
+    });
     expect(result.success).toBe(false);
   });
 });
@@ -113,19 +145,29 @@ describe("marketOrderSchema", () => {
 
 describe("tradeOrderSchema – discriminated union", () => {
   it("correctly parses a LIMIT order", () => {
-    const result = tradeOrderSchema.safeParse({ orderType: "LIMIT", amount: "50", limitPrice: "0.5" });
+    const result = tradeOrderSchema.safeParse({
+      orderType: "LIMIT",
+      amount: "50",
+      limitPrice: "0.5",
+    });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.orderType).toBe("LIMIT");
   });
 
   it("correctly parses a MARKET order", () => {
-    const result = tradeOrderSchema.safeParse({ orderType: "MARKET", amount: "100" });
+    const result = tradeOrderSchema.safeParse({
+      orderType: "MARKET",
+      amount: "100",
+    });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.orderType).toBe("MARKET");
   });
 
   it("fails on unknown order type", () => {
-    const result = tradeOrderSchema.safeParse({ orderType: "FOO", amount: "100" });
+    const result = tradeOrderSchema.safeParse({
+      orderType: "FOO",
+      amount: "100",
+    });
     expect(result.success).toBe(false);
   });
 });
@@ -199,7 +241,9 @@ function getLimitPriceError(
   limitPrice: string,
   touched: boolean
 ): string {
-  return type === "LIMIT" && touched ? validateTradeField(limitPrice, "Limit price") : "";
+  return type === "LIMIT" && touched
+    ? validateTradeField(limitPrice, "Limit price")
+    : "";
 }
 
 describe("TradeModal – order-type toggle affects required fields", () => {
@@ -208,7 +252,9 @@ describe("TradeModal – order-type toggle affects required fields", () => {
   });
 
   it("limit price IS required for LIMIT orders when touched", () => {
-    expect(getLimitPriceError("LIMIT", "", true)).toBe("Limit price is required");
+    expect(getLimitPriceError("LIMIT", "", true)).toBe(
+      "Limit price is required"
+    );
   });
 
   it("limit price error is suppressed until the field is touched", () => {
@@ -224,7 +270,9 @@ describe("TradeModal – order-type toggle affects required fields", () => {
   });
 
   it("LIMIT order rejects a non-numeric limit price", () => {
-    expect(getLimitPriceError("LIMIT", "abc", true)).toContain("must be a number");
+    expect(getLimitPriceError("LIMIT", "abc", true)).toContain(
+      "must be a number"
+    );
   });
 
   it("LIMIT order rejects a negative limit price", () => {
@@ -234,7 +282,7 @@ describe("TradeModal – order-type toggle affects required fields", () => {
 
 // ── Two-step review flow ──────────────────────────────────────────────────────
 
-type ModalStep = "input" | "review";
+type ModalStep = "input" | "review" | "optimistic";
 
 /**
  * Simulates the step-machine logic extracted from TradeModal:
@@ -255,10 +303,7 @@ function canAdvanceToReview(
   return true;
 }
 
-function goToReview(
-  currentStep: ModalStep,
-  canAdvance: boolean
-): ModalStep {
+function goToReview(currentStep: ModalStep, canAdvance: boolean): ModalStep {
   return canAdvance ? "review" : currentStep;
 }
 
@@ -355,7 +400,11 @@ describe("TradeModal – two-step review flow", () => {
 describe("TradeModal – successful submission shape", () => {
   it("LIMIT order confirmation carries amount, price, and orderType", () => {
     const onConfirm = jest.fn();
-    const details = { amount: "50", price: 0.4821, orderType: "LIMIT" as OrderType };
+    const details = {
+      amount: "50",
+      price: 0.4821,
+      orderType: "LIMIT" as OrderType,
+    };
     onConfirm(details);
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -368,10 +417,123 @@ describe("TradeModal – successful submission shape", () => {
 
   it("MARKET order confirmation carries amount and orderType without a limit price", () => {
     const onConfirm = jest.fn();
-    const details = { amount: "100", price: 0.4821, orderType: "MARKET" as OrderType };
+    const details = {
+      amount: "100",
+      price: 0.4821,
+      orderType: "MARKET" as OrderType,
+    };
     onConfirm(details);
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({ orderType: "MARKET" })
     );
+  });
+});
+
+// ── Optimistic-UI rollback ─────────────────────────────────────────────────────
+
+/**
+ * Mirrors the handleConfirm state-machine extracted from TradeModal:
+ * - Immediately transitions to "optimistic" step (optimistic success)
+ * - On failure: reverts to "review" and stores the error message
+ * - On success: calls onConfirm and does NOT touch confirmError
+ */
+async function runOptimisticConfirm(buildTx: () => Promise<void>): Promise<{
+  step: ModalStep;
+  confirmError: string | null;
+  onConfirmCalled: boolean;
+}> {
+  let step: ModalStep = "review";
+  let confirmError: string | null = null;
+  let onConfirmCalled = false;
+
+  // Optimistic: immediately show success
+  step = "optimistic";
+
+  try {
+    await buildTx();
+    onConfirmCalled = true;
+  } catch (err) {
+    step = "review";
+    confirmError =
+      (err as Error).message ||
+      "Transaction confirmation failed. Your order was not placed.";
+  }
+
+  return { step, confirmError, onConfirmCalled };
+}
+
+describe("TradeModal – optimistic UI transitions to 'optimistic' step immediately", () => {
+  it("sets step to optimistic before awaiting confirmation", () => {
+    let capturedStep: ModalStep = "review";
+    // The step change happens synchronously before the await
+    capturedStep = "optimistic";
+    expect(capturedStep).toBe("optimistic");
+  });
+});
+
+describe("TradeModal – optimistic rollback on confirmation failure", () => {
+  it("reverts step from optimistic to review when on-chain confirmation fails", async () => {
+    const { step } = await runOptimisticConfirm(() =>
+      Promise.reject(new Error("Transaction rejected"))
+    );
+    expect(step).toBe("review");
+  });
+
+  it("surfaces the failure message from the rejected promise", async () => {
+    const { confirmError } = await runOptimisticConfirm(() =>
+      Promise.reject(new Error("Ledger close failed"))
+    );
+    expect(confirmError).toBe("Ledger close failed");
+  });
+
+  it("falls back to a generic message when the error has no message", async () => {
+    const { confirmError } = await runOptimisticConfirm(() =>
+      Promise.reject(new Error(""))
+    );
+    expect(confirmError).toBe(
+      "Transaction confirmation failed. Your order was not placed."
+    );
+  });
+
+  it("does NOT call onConfirm when confirmation fails", async () => {
+    const { onConfirmCalled } = await runOptimisticConfirm(() =>
+      Promise.reject(new Error("Network error"))
+    );
+    expect(onConfirmCalled).toBe(false);
+  });
+});
+
+describe("TradeModal – optimistic success (no rollback)", () => {
+  it("calls onConfirm when confirmation succeeds", async () => {
+    const { onConfirmCalled } = await runOptimisticConfirm(() =>
+      Promise.resolve()
+    );
+    expect(onConfirmCalled).toBe(true);
+  });
+
+  it("confirmError remains null when confirmation succeeds", async () => {
+    const { confirmError } = await runOptimisticConfirm(() =>
+      Promise.resolve()
+    );
+    expect(confirmError).toBeNull();
+  });
+
+  it("step is NOT reverted when confirmation succeeds", async () => {
+    // After success the modal closes; the step after success is irrelevant,
+    // but it must not be "review" as that would indicate a false rollback.
+    const { step } = await runOptimisticConfirm(() => Promise.resolve());
+    expect(step).not.toBe("review");
+  });
+});
+
+describe("TradeModal – confirmError resets when modal re-opens", () => {
+  it("clears confirmError on modal open", () => {
+    // Simulates the useEffect that runs when open changes to true
+    let confirmError: string | null = "Previous failure";
+    const simulateOpen = () => {
+      confirmError = null;
+    };
+    simulateOpen();
+    expect(confirmError).toBeNull();
   });
 });

@@ -37,7 +37,9 @@ describe("useBacktestPresetsStore – saving presets", () => {
 
   it("accumulates multiple presets", () => {
     useBacktestPresetsStore.getState().savePreset("First", SAMPLE_PARAMS);
-    useBacktestPresetsStore.getState().savePreset("Second", { ...SAMPLE_PARAMS, from: "2024-01-01" });
+    useBacktestPresetsStore
+      .getState()
+      .savePreset("Second", { ...SAMPLE_PARAMS, from: "2024-01-01" });
     expect(useBacktestPresetsStore.getState().presets).toHaveLength(2);
   });
 });
@@ -46,7 +48,9 @@ describe("useBacktestPresetsStore – listing presets", () => {
   beforeEach(() => {
     useBacktestPresetsStore.setState({ presets: [] });
     useBacktestPresetsStore.getState().savePreset("Alpha", SAMPLE_PARAMS);
-    useBacktestPresetsStore.getState().savePreset("Beta", { ...SAMPLE_PARAMS, feeBps: 20 });
+    useBacktestPresetsStore
+      .getState()
+      .savePreset("Beta", { ...SAMPLE_PARAMS, feeBps: 20 });
   });
 
   it("lists all saved presets", () => {
@@ -80,7 +84,9 @@ describe("useBacktestPresetsStore – reloading a preset", () => {
   });
 
   it("only removes the targeted preset, leaving others intact", () => {
-    useBacktestPresetsStore.getState().savePreset("Keep This", { ...SAMPLE_PARAMS, feeBps: 99 });
+    useBacktestPresetsStore
+      .getState()
+      .savePreset("Keep This", { ...SAMPLE_PARAMS, feeBps: 99 });
     const all = useBacktestPresetsStore.getState().presets;
     const idToRemove = all[0].id;
     useBacktestPresetsStore.getState().deletePreset(idToRemove);

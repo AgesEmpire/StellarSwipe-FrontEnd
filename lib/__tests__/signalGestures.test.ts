@@ -41,13 +41,21 @@ describe("computeTintOpacity – overlay opacity tracks drag distance", () => {
   });
 
   it("reaches max opacity at the threshold", () => {
-    expect(computeTintOpacity(TINT_THRESHOLD).green).toBeCloseTo(MAX_TINT_OPACITY);
-    expect(computeTintOpacity(-TINT_THRESHOLD).red).toBeCloseTo(MAX_TINT_OPACITY);
+    expect(computeTintOpacity(TINT_THRESHOLD).green).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
+    expect(computeTintOpacity(-TINT_THRESHOLD).red).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
   });
 
   it("clamps at max opacity past the threshold", () => {
-    expect(computeTintOpacity(TINT_THRESHOLD * 5).green).toBeCloseTo(MAX_TINT_OPACITY);
-    expect(computeTintOpacity(-TINT_THRESHOLD * 5).red).toBeCloseTo(MAX_TINT_OPACITY);
+    expect(computeTintOpacity(TINT_THRESHOLD * 5).green).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
+    expect(computeTintOpacity(-TINT_THRESHOLD * 5).red).toBeCloseTo(
+      MAX_TINT_OPACITY
+    );
   });
 
   it("honours a configurable threshold", () => {
@@ -86,5 +94,51 @@ describe("classifyArrowKey – arrow keys mirror swipe actions on a focused card
     expect(classifyArrowKey("ArrowDown", true)).toBe("none");
     expect(classifyArrowKey("a", true)).toBe("none");
     expect(classifyArrowKey("Tab", true)).toBe("none");
+  });
+});
+
+// ── classifyArrowKeyWithSettings – swapDirections support ─────────────────────
+
+import { classifyArrowKeyWithSettings } from "@/lib/signalGestures";
+
+describe("classifyArrowKeyWithSettings – default (swapDirections=false)", () => {
+  it("behaves identically to classifyArrowKey when swapDirections is false", () => {
+    expect(classifyArrowKeyWithSettings("ArrowRight", true, false)).toBe(
+      "trade"
+    );
+    expect(classifyArrowKeyWithSettings("ArrowLeft", true, false)).toBe("pass");
+    expect(classifyArrowKeyWithSettings("ArrowLeft", false, false)).toBe(
+      "none"
+    );
+    expect(classifyArrowKeyWithSettings("ArrowUp", true, false)).toBe("none");
+  });
+});
+
+describe("classifyArrowKeyWithSettings – swapped (swapDirections=true)", () => {
+  it("maps ArrowRight to pass when directions are swapped", () => {
+    expect(classifyArrowKeyWithSettings("ArrowRight", true, true)).toBe("pass");
+  });
+
+  it("maps ArrowLeft to trade when directions are swapped", () => {
+    expect(classifyArrowKeyWithSettings("ArrowLeft", true, true)).toBe("trade");
+  });
+
+  it("ArrowLeft still trades even when pass action is hidden (left=trade in swapped mode)", () => {
+    expect(classifyArrowKeyWithSettings("ArrowLeft", false, true)).toBe(
+      "trade"
+    );
+  });
+
+  it("ArrowRight is a no-op (pass) when pass action is hidden and directions are swapped", () => {
+    // pass is disabled, so ArrowRight→pass should be none
+    expect(classifyArrowKeyWithSettings("ArrowRight", false, true)).toBe(
+      "none"
+    );
+  });
+
+  it("ignores unrelated keys even when directions are swapped", () => {
+    expect(classifyArrowKeyWithSettings("ArrowUp", true, true)).toBe("none");
+    expect(classifyArrowKeyWithSettings("ArrowDown", true, true)).toBe("none");
+    expect(classifyArrowKeyWithSettings("Enter", true, true)).toBe("none");
   });
 });

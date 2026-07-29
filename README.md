@@ -13,6 +13,12 @@ Modern, responsive web app featuring:
 
 Connects to Soroban contracts for on-chain actions.
 
+## Security
+
+Found a vulnerability? Please don't open a public issue — see
+[SECURITY.md](SECURITY.md) for how to report it privately, supported
+versions, and our disclosure policy.
+
 ## Tech Stack
 
 - Next.js 15+ (App Router)
@@ -31,19 +37,32 @@ Connects to Soroban contracts for on-chain actions.
    git clone https://github.com/EndeMathew/StellarSwipe-frontend.git
    cd StellarSwipe-frontend
    npm install
+   ```
 
 Set environment variables (.env.local):
-    NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
-    NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
+NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
 
 Run dev server:
-  npm run dev
+npm run dev
 
 ### React Query Devtools
 
 When running locally (`npm run dev`), the [React Query Devtools](https://tanstack.com/query/latest/docs/framework/react/devtools) panel is automatically available — look for the floating TanStack logo in the corner of the app. Use it to inspect the live query cache, stale/fresh status, and refetch behaviour for hooks such as the signal feed (`["signals"]`).
 
 The devtools are mounted only when `NODE_ENV === "development"`; the import is dead-code-eliminated from production builds, so the panel never ships to users and requires no manual toggling.
+
+## Web Push Notifications
+
+Push subscriptions (`lib/notifications.ts`'s `subscribeToPush`) require a VAPID public key at `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in your `.env.local`. Without it, `subscribeToPush()` silently returns `null` and users can never subscribe.
+
+Generate a VAPID key pair locally:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Set the public key as `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and keep the private key server-side only (used by whatever service dispatches the push messages) — never prefix it with `NEXT_PUBLIC_` or commit it.
 
 ## Storybook
 
@@ -88,6 +107,7 @@ Stories are also used for **Chromatic visual regression** snapshots — any stor
 The CI bundle size check runs `ANALYZE=true npm run build` and compares output against `bundle-budget.json`.
 
 To raise a budget intentionally:
+
 1. Edit `bundle-budget.json` — increase `sizeKb` for the affected chunk.
 2. Add a comment in the PR description explaining the accepted regression.
 
@@ -104,16 +124,24 @@ Performance audits run automatically on every PR via Lighthouse CI (`lighthouser
 
 Budget thresholds (defined in `lighthouserc.js`):
 
-| Metric | Budget |
-|---|---|
-| Performance score | ≥ 0.70 |
-| LCP | ≤ 2500 ms |
-| CLS | ≤ 0.10 |
-| TBT | ≤ 300 ms |
+| Metric            | Budget    |
+| ----------------- | --------- |
+| Performance score | ≥ 0.70    |
+| LCP               | ≤ 2500 ms |
+| CLS               | ≤ 0.10    |
+| TBT               | ≤ 300 ms  |
 
 To adjust a budget: edit the `assertions` block in `lighthouserc.js` and document the reason in your PR.
 
 Lighthouse reports are uploaded as CI artifacts (`lighthouse-reports/`) for debugging failed runs.
+
+## Additional documentation
+
+Legacy implementation notes have been consolidated under `/docs` to reduce root clutter:
+
+- [`/docs/page-transitions/`](docs/page-transitions/) – page transition placeholder system docs
+- [`/docs/pull-to-refresh/`](docs/pull-to-refresh/) – pull-to-refresh gesture docs
+- [`/docs/project/`](docs/project/) – project-level implementation summaries and guidelines
 
 ## Worker Tracing
 
@@ -121,17 +149,19 @@ Asynchronous worker execution paths are instrumented via `src/tracing/worker-tra
 
 ### What is traced
 
-| Worker | Span name |
-|---|---|
-| `/api/signals` route handler | `worker:signals:fetch` |
-| Freighter wallet connect | `worker:wallet:connect` |
+| Worker                        | Span name                 |
+| ----------------------------- | ------------------------- |
+| `/api/signals` route handler  | `worker:signals:fetch`    |
+| Freighter wallet connect      | `worker:wallet:connect`   |
 | Signal price polling interval | `worker:signalPrice:poll` |
 
 ### API
 
 ```ts
 // Wrap any async function — returns its result, re-throws on error
-const data = await traceWorker("worker:my:task", async () => fetchData(), { page: 1 });
+const data = await traceWorker("worker:my:task", async () => fetchData(), {
+  page: 1,
+});
 
 // Manual span lifecycle
 const finish = startSpan("worker:my:task", { key: "value" });
@@ -155,7 +185,16 @@ In development (`NODE_ENV=development`) spans are logged to `console.debug`. Rep
 
 ### Running tests
 
-```bash
-npm test
-```
+Two test runners are configured:
 
+- **Jest** — runs the main test suites from store-level `__tests__` directories:
+  ```bash
+  npm test           # Jest (no coverage)
+  npm run test:coverage  # Jest with coverage
+  ```
+- **Vitest** — runs the comparison-tray suites at the project root `__tests__/`:
+  ```bash
+  npm run test:vitest
+  ```
+
+Both runners execute automatically in CI on every push/PR. The **Test (Jest)** step runs the main test suites, and the **Test (Vitest)** step runs the comparison-tray suites, ensuring that no regressions in the comparison-tray feature can merge undetected.

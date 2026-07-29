@@ -41,7 +41,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     function onLocaleChanged(e: Event) {
       const { locale } = (e as CustomEvent<{ locale: string }>).detail;
       document.documentElement.lang = locale;
-      document.documentElement.dir = isRTL(locale as Parameters<typeof isRTL>[0]) ? "rtl" : "ltr";
+      document.documentElement.dir = isRTL(
+        locale as Parameters<typeof isRTL>[0]
+      )
+        ? "rtl"
+        : "ltr";
     }
     window.addEventListener("locale-changed", onLocaleChanged);
     return () => window.removeEventListener("locale-changed", onLocaleChanged);

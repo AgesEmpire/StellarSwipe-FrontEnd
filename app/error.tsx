@@ -17,7 +17,6 @@ export default function Error({
   const [sentryEventId, setSentryEventId] = useState<string | null>(null);
 
   useEffect(() => {
-    console.error("[Route Error] Route-level error:", error);
     Sentry.captureException(error);
     setSentryEventId(Sentry.lastEventId() ?? null);
   }, [error]);
@@ -36,8 +35,8 @@ export default function Error({
         </h2>
 
         <p className="mb-4 text-sm text-foreground-muted">
-          This page encountered an error. Please try again or return to the
-          home page.
+          This page encountered an error. Please try again or return to the home
+          page.
         </p>
 
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -72,7 +71,10 @@ export default function Error({
   );
 }
 
-function buildReportHref(digest: string | undefined, eventId: string | null): string {
+function buildReportHref(
+  digest: string | undefined,
+  eventId: string | null
+): string {
   const subject = encodeURIComponent("Error Report – StellarSwipe");
   const body = encodeURIComponent(
     [

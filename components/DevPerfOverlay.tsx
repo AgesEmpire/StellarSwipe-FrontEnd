@@ -61,7 +61,9 @@ function useApiLatency() {
     if (typeof PerformanceObserver === "undefined") return;
 
     const observer = new PerformanceObserver((list) => {
-      const entries = list.getEntriesByType("resource") as PerformanceResourceTiming[];
+      const entries = list.getEntriesByType(
+        "resource"
+      ) as PerformanceResourceTiming[];
       const apiEntries = entries.filter(
         (e) => e.initiatorType === "fetch" && e.name.includes("/api/")
       );
@@ -96,7 +98,9 @@ function useCacheHitStatus() {
         return;
       }
       // A query is a "cache hit" when it has data and is not currently fetching
-      const hits = queries.filter((q) => q.state.data !== undefined && !q.state.fetchStatus);
+      const hits = queries.filter(
+        (q) => q.state.data !== undefined && !q.state.fetchStatus
+      );
       setCacheHit(hits.length > 0);
     }
 
@@ -147,11 +151,12 @@ function snapshotListenersAndTimers(): ListenerTimerSnapshot {
       budget--;
 
       // Check for React-internal event handler tracking
-      const key = Object.keys(node as Record<string, unknown>).find(
-        (k) => k.startsWith("__reactEventHandlers") || k.startsWith("__reactProps")
+      const key = Object.keys(node as unknown as Record<string, unknown>).find(
+        (k) =>
+          k.startsWith("__reactEventHandlers") || k.startsWith("__reactProps")
       );
       if (key) {
-        const handlers = (node as Record<string, unknown>)[key] as
+        const handlers = (node as unknown as Record<string, unknown>)[key] as
           | Record<string, unknown>
           | undefined;
         if (handlers) {
@@ -197,14 +202,20 @@ function patchIntervalsForDev(): void {
   // We keep a Map to track which interval IDs are still active.
   const active = new Map<ReturnType<typeof setInterval>, true>();
 
-  const patchedSetInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+  const patchedSetInterval = ((
+    handler: TimerHandler,
+    timeout?: number,
+    ...args: unknown[]
+  ) => {
     const id = origSetInterval(handler, timeout, ...args);
-    active.set(id, true);
+    active.set(id as any, true);
     activeIntervalCount = active.size;
-    return id;
+    return id as any;
   }) as typeof globalThis.setInterval;
 
-  const patchedClearInterval = ((id: ReturnType<typeof setInterval> | undefined) => {
+  const patchedClearInterval = ((
+    id: ReturnType<typeof setInterval> | undefined
+  ) => {
     if (id != null) {
       active.delete(id);
       activeIntervalCount = active.size;
@@ -284,7 +295,9 @@ function MetricRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-slate-500">{label}</span>
-      <span className={cn("font-mono font-semibold tabular-nums", statusColor)}>{value}</span>
+      <span className={cn("font-mono font-semibold tabular-nums", statusColor)}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -427,7 +440,9 @@ function DevPerfOverlayInner() {
       {showWaterfall && !minimised && (
         <div className="w-80 rounded-xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-sm flex flex-col max-h-80">
           <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
-            <span className="font-semibold text-slate-300">Network Waterfall</span>
+            <span className="font-semibold text-slate-300">
+              Network Waterfall
+            </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -447,26 +462,37 @@ function DevPerfOverlayInner() {
           </div>
           <div className="overflow-y-auto flex-1 space-y-2 pr-1 custom-scrollbar">
             {list.length === 0 ? (
-              <div className="text-slate-500 text-center py-4">No requests captured</div>
+              <div className="text-slate-500 text-center py-4">
+                No requests captured
+              </div>
             ) : (
               (() => {
                 const nowVal = performance.now();
                 const requestTimes = list.map((r) => {
                   const start = r.startTime;
                   const end =
-                    r.startTime + (r.duration !== null ? r.duration : nowVal - r.startTime);
+                    r.startTime +
+                    (r.duration !== null ? r.duration : nowVal - r.startTime);
                   return { start, end };
                 });
                 const minStart =
-                  requestTimes.length > 0 ? Math.min(...requestTimes.map((t) => t.start)) : 0;
+                  requestTimes.length > 0
+                    ? Math.min(...requestTimes.map((t) => t.start))
+                    : 0;
                 const maxEnd =
-                  requestTimes.length > 0 ? Math.max(...requestTimes.map((t) => t.end)) : 100;
+                  requestTimes.length > 0
+                    ? Math.max(...requestTimes.map((t) => t.end))
+                    : 100;
                 const totalDuration = maxEnd - minStart || 1;
 
                 return list.map((r, idx) => {
                   const times = requestTimes[idx];
-                  const leftPercent = ((times.start - minStart) / totalDuration) * 100;
-                  const widthPercent = Math.max(((times.end - times.start) / totalDuration) * 100, 2);
+                  const leftPercent =
+                    ((times.start - minStart) / totalDuration) * 100;
+                  const widthPercent = Math.max(
+                    ((times.end - times.start) / totalDuration) * 100,
+                    2
+                  );
 
                   let displayUrl = r.url;
                   try {
@@ -489,10 +515,18 @@ function DevPerfOverlayInner() {
                       : "text-yellow-400";
 
                   return (
-                    <div key={r.id} className="space-y-0.5 border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
+                    <div
+                      key={r.id}
+                      className="space-y-0.5 border-b border-white/5 pb-1.5 last:border-0 last:pb-0"
+                    >
                       <div className="flex items-center justify-between text-[9px] font-mono">
-                        <span className="text-slate-400 truncate max-w-[180px]" title={r.url}>
-                          <span className="text-slate-600 mr-1">{r.method}</span>
+                        <span
+                          className="text-slate-400 truncate max-w-[180px]"
+                          title={r.url}
+                        >
+                          <span className="text-slate-600 mr-1">
+                            {r.method}
+                          </span>
                           {displayUrl}
                         </span>
                         <div className="flex items-center gap-1.5 tabular-nums">
@@ -517,7 +551,10 @@ function DevPerfOverlayInner() {
                               ? "bg-red-500"
                               : "bg-yellow-500"
                           )}
-                          style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
+                          style={{
+                            left: `${leftPercent}%`,
+                            width: `${widthPercent}%`,
+                          }}
                         />
                       </div>
                     </div>
@@ -541,7 +578,11 @@ function DevPerfOverlayInner() {
           type="button"
           onClick={() => setMinimised((v) => !v)}
           aria-expanded={!minimised}
-          aria-label={minimised ? "Expand performance overlay" : "Minimise performance overlay"}
+          aria-label={
+            minimised
+              ? "Expand performance overlay"
+              : "Minimise performance overlay"
+          }
           className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
         >
           <span className="flex items-center gap-1.5 font-semibold text-slate-300">
@@ -552,9 +593,17 @@ function DevPerfOverlayInner() {
             </span>
           </span>
           {minimised ? (
-            <ChevronUp size={11} className="text-slate-500" aria-hidden="true" />
+            <ChevronUp
+              size={11}
+              className="text-slate-500"
+              aria-hidden="true"
+            />
           ) : (
-            <ChevronDown size={11} className="text-slate-500" aria-hidden="true" />
+            <ChevronDown
+              size={11}
+              className="text-slate-500"
+              aria-hidden="true"
+            />
           )}
         </button>
 
@@ -591,10 +640,14 @@ function DevPerfOverlayInner() {
                     </span>
                   )}
                   {leakTrend === "stable" && (
-                    <span className="text-[9px] text-emerald-400 font-semibold">STABLE</span>
+                    <span className="text-[9px] text-emerald-400 font-semibold">
+                      STABLE
+                    </span>
                   )}
                   {leakTrend === "decreasing" && (
-                    <span className="text-[9px] text-emerald-400 font-semibold">CLEANING</span>
+                    <span className="text-[9px] text-emerald-400 font-semibold">
+                      CLEANING
+                    </span>
                   )}
                   {leakTrend === "unknown" && (
                     <span className="text-[9px] text-slate-600">sampling…</span>
@@ -603,9 +656,7 @@ function DevPerfOverlayInner() {
                 <div className="flex items-center gap-2 text-[9px] font-mono tabular-nums text-slate-400">
                   <span>L:{leakSnapshot.listenerCount}</span>
                   <span>T:{leakSnapshot.timerCount}</span>
-                  <span className="text-slate-600">
-                    {leakSnapshot.total}
-                  </span>
+                  <span className="text-slate-600">{leakSnapshot.total}</span>
                 </div>
               </div>
             )}
@@ -626,4 +677,3 @@ function DevPerfOverlayInner() {
     </div>
   );
 }
-

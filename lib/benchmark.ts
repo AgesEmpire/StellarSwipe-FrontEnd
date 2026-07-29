@@ -19,7 +19,9 @@ export function computeBenchmarkSeries(
     return { portfolio: [], benchmark: [] };
   }
 
-  const sortedPortfolio = [...portfolioHistory].sort((a, b) => a.timestamp - b.timestamp);
+  const sortedPortfolio = [...portfolioHistory].sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
   const sortedXLM = [...xlmHistory].sort((a, b) => a.timestamp - b.timestamp);
 
   const benchmarkValues = sortedXLM.map((point) => {
@@ -46,7 +48,10 @@ export function generateMockPortfolioHistory(
   let value = initialValue;
   const now = Date.now();
 
-  history.push({ timestamp: now - (points - 1) * intervalMs, value: initialValue });
+  history.push({
+    timestamp: now - (points - 1) * intervalMs,
+    value: initialValue,
+  });
 
   for (let i = 1; i < points; i++) {
     const delta = (Math.random() - 0.48) * 0.15;
@@ -63,12 +68,18 @@ export function generateMockPortfolioHistory(
 export function computePerformanceDelta(
   portfolioHistory: PortfolioValuePoint[],
   xlmHistory: PricePoint[]
-): { portfolioReturn: number; benchmarkReturn: number; outperformance: number } | null {
+): {
+  portfolioReturn: number;
+  benchmarkReturn: number;
+  outperformance: number;
+} | null {
   if (portfolioHistory.length === 0 || xlmHistory.length === 0) {
     return null;
   }
 
-  const sortedPortfolio = [...portfolioHistory].sort((a, b) => a.timestamp - b.timestamp);
+  const sortedPortfolio = [...portfolioHistory].sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
   const sortedXLM = [...xlmHistory].sort((a, b) => a.timestamp - b.timestamp);
 
   const startPortfolio = sortedPortfolio[0].value;
@@ -76,7 +87,8 @@ export function computePerformanceDelta(
   const startXLM = sortedXLM[0].price;
   const endXLM = sortedXLM[sortedXLM.length - 1].price;
 
-  const portfolioReturn = ((endPortfolio - startPortfolio) / startPortfolio) * 100;
+  const portfolioReturn =
+    ((endPortfolio - startPortfolio) / startPortfolio) * 100;
   const benchmarkReturn = ((endXLM - startXLM) / startXLM) * 100;
 
   return {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import * as Sentry from "@sentry/nextjs";
 import {
   animate,
   motion,
@@ -28,23 +29,36 @@ import { SignalBadge } from "@/components/SignalBadge";
 import { SignalTimestamp } from "@/components/SignalTimestamp";
 import { TradeSkeleton } from "@/components/TradeSkeleton";
 import { TradeModal } from "@/components/TradeModal";
-import { SignalConflictNotice, type SignalConflictReason } from "@/components/SignalConflictNotice";
+import {
+  SignalConflictNotice,
+  type SignalConflictReason,
+} from "@/components/SignalConflictNotice";
 import { cn } from "@/lib/utils";
-import { MiniChart } from "./chart/MiniChart";
-import { CandlestickChart } from "./chart/CandlestickChart";
-import { useChartStyleStore } from "@/store/useChartStyleStore";
-import { BarChart2, LineChart } from "lucide-react";
+import { SignalSparkline } from "./chart/SignalSparkline";
+import { useDataSaverStore } from "@/store/useDataSaverStore";
+import { shouldDisableDecorativeAnimation } from "@/lib/dataSaver";
+import { GlossaryTerm } from "@/components/GlossaryTerm";
 import { PremiumSignalBadge } from "@/components/PremiumSignalBadge";
 import { ProviderRatingBadge } from "@/components/ProviderRatingBadge";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { useBookmarkActions } from "@/hooks/useBookmarkActions";
+import { useRecentlyViewedStore } from "@/store/useRecentlyViewedStore";
 import { useSnoozeActions } from "@/hooks/useSnoozeActions";
 import { DEFAULT_SNOOZE_DURATION_MS } from "@/store/useSnoozeStore";
-import { TINT_THRESHOLD, MAX_TINT_OPACITY, classifyArrowKey } from "@/lib/signalGestures";
+import {
+  TINT_THRESHOLD,
+  MAX_TINT_OPACITY,
+  classifyArrowKeyWithSettings,
+} from "@/lib/signalGestures";
+import {
+  useSwipeSettingsStore,
+  getEffectiveSwipeThreshold,
+  getEffectiveVelocityThreshold,
+} from "@/store/useSwipeSettingsStore";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
 import { useSignalPrice } from "@/hooks/useSignalPrice";
 import { toast } from "@/lib/toast";
-import type { Signal as ApiSignal } from "@/lib/api";
+import type { Signal } from "@/lib/api-types.generated";
 
 interface ROIPoint {
   value: number;
@@ -52,7 +66,7 @@ interface ROIPoint {
 
 interface SignalCardProps {
   loading?: boolean;
-  signalData?: ApiSignal;
+  signalData?: Signal;
   pair?: string;
   executionPrice?: number;
   confidence?: number;
@@ -89,8 +103,9 @@ const DEFAULT_ROI: ROIPoint[] = [
   { value: 4.2 },
 ];
 
-const SWIPE_THRESHOLD = 120;
-const VELOCITY_THRESHOLD = 780;
+// NOTE: swipe thresholds are now derived dynamically from the user's swipe settings.
+// The constants below are kept as a fallback reference only — actual values used
+// inside the component are obtained from useSwipeSettingsStore.
 
 export function SignalCard({
   loading = false,
@@ -98,7 +113,7 @@ export function SignalCard({
   pair,
   executionPrice = 0.4821,
   confidence = 87,
-  projectedTarget = 0.5310,
+  projectedTarget = 0.531,
   roiHistory = DEFAULT_ROI,
   analysis = "Momentum building after a strong volume breakout above the 50-day MA. RSI at 62 with room to run.",
   action = "BUY",
@@ -130,8 +145,17 @@ export function SignalCard({
   const shouldReduceMotion = useReducedMotion();
   const { isDemoMode } = useDemoModeStore();
   const { isRTL: rtl } = useI18n();
-  const { chartStyle, setChartStyle } = useChartStyleStore();
+  const dataSaverEnabled = useDataSaverStore((s) => s.dataSaverEnabled);
+  // Data Saver (#408) skips decorative animations *in addition to* the existing
+  // prefers-reduced-motion handling.
+  const decorativeMotionDisabled = shouldDisableDecorativeAnimation(
+    shouldReduceMotion ?? false,
+    dataSaverEnabled
+  );
   const fmt = usePriceFormat();
+  const { sensitivity, swapDirections } = useSwipeSettingsStore();
+  const SWIPE_THRESHOLD = getEffectiveSwipeThreshold(sensitivity);
+  const VELOCITY_THRESHOLD = getEffectiveVelocityThreshold(sensitivity);
   const executingRef = useRef(false);
   const shareMenuRef = useRef<HTMLDivElement>(null);
   const hasVibratedRef = useRef(false);
@@ -147,33 +171,57 @@ export function SignalCard({
 
   // #319: directional color tint that deepens as the card is dragged past the
   // tint threshold — green for trade (right), red for pass (left).
-  const tradeTintOpacity = useTransform(x, [0, TINT_THRESHOLD], [0, MAX_TINT_OPACITY]);
-  const passTintOpacity = useTransform(x, [0, -TINT_THRESHOLD], [0, MAX_TINT_OPACITY]);
+  const tradeTintOpacity = useTransform(
+    x,
+    [0, TINT_THRESHOLD],
+    [0, MAX_TINT_OPACITY]
+  );
+  const passTintOpacity = useTransform(
+    x,
+    [0, -TINT_THRESHOLD],
+    [0, MAX_TINT_OPACITY]
+  );
 
-  const { price, flash, relativeTime } = useSignalPrice(3000);
+  const { price, flash, relativeTime, stale } = useSignalPrice(3000);
   const signalId = signalIdProp ?? signalData?.id ?? pair ?? "signal-unknown";
-  const signalPair = pair ?? `${signalData?.asset ?? "XLM"}/USDC`;
+  const signalPair = pair ?? `${signalData?.ticker ?? "XLM"}/USDC`;
   const signalAction = signalData?.action ?? action;
   const signalConfidence = signalData?.confidence ?? confidence;
   const signalTimestamp = signalData?.timestamp
     ? new Date(signalData.timestamp)
     : timestamp;
   const signalProvider =
-    providerName ?? signalData?.providerName ?? signalData?.providerId ?? signalData?.asset ?? "Provider";
+    providerName ?? signalData?.provider ?? signalData?.ticker ?? "Provider";
   const badgeSignal =
-    signalAction === "BUY" ? "BUY" : signalAction === "SELL" ? "SELL" : "NEUTRAL";
+    signalAction === "BUY"
+      ? "BUY"
+      : signalAction === "SELL"
+      ? "SELL"
+      : "NEUTRAL";
 
   const isBookmarked = hasBookmark(signalId);
   const bookmarkedLabel = isBookmarked ? "Remove bookmark" : "Bookmark signal";
 
   const currentPrice = executionPrice;
-  const deltaValue = parseFloat((price.executionPrice - currentPrice).toFixed(4));
+  const deltaValue = parseFloat(
+    (price.executionPrice - currentPrice).toFixed(4)
+  );
   const deltaPercent = currentPrice
     ? parseFloat(((deltaValue / currentPrice) * 100).toFixed(2))
     : 0;
-  const deltaLabel = `${deltaPercent >= 0 ? "+" : ""}${deltaPercent.toFixed(2)}%`;
+  const deltaLabel = `${deltaPercent >= 0 ? "+" : ""}${deltaPercent.toFixed(
+    2
+  )}%`;
   const deltaAbsLabel = `${deltaValue >= 0 ? "+" : ""}${deltaValue.toFixed(4)}`;
   const deltaPositive = deltaValue >= 0;
+
+  const { addView } = useRecentlyViewedStore();
+
+  useEffect(() => {
+    if (detailsExpanded && signalId) {
+      addView(signalId);
+    }
+  }, [detailsExpanded, signalId, addView]);
 
   useEffect(() => {
     if (!copiedFeedback) return;
@@ -195,14 +243,18 @@ export function SignalCard({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
+      if (
+        shareMenuRef.current &&
+        !shareMenuRef.current.contains(event.target as Node)
+      ) {
         setShowShareMenu(false);
       }
     }
 
     if (showShareMenu) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showShareMenu]);
 
@@ -216,7 +268,10 @@ export function SignalCard({
 
   if (loading) return <TradeSkeleton />;
 
-  const roi = (((projectedTarget - executionPrice) / executionPrice) * 100).toFixed(2);
+  const roi = (
+    ((projectedTarget - executionPrice) / executionPrice) *
+    100
+  ).toFixed(2);
   const isPositive = parseFloat(roi) >= 0;
 
   function handlePass() {
@@ -243,7 +298,9 @@ export function SignalCard({
             dismissTimerRef.current = null;
           }
           setDismissPending(false);
-          setActionAnnouncement(`Restored ${signalAction} signal for ${signalPair}`);
+          setActionAnnouncement(
+            `Restored ${signalAction} signal for ${signalPair}`
+          );
         },
       },
     });
@@ -252,7 +309,9 @@ export function SignalCard({
   function handleExecuteTrade() {
     if (executingRef.current || dismissPending || dismissed) return;
     executingRef.current = true;
-    setActionAnnouncement(`Opening trade modal for ${signalAction} ${signalPair}`);
+    setActionAnnouncement(
+      `Opening trade modal for ${signalAction} ${signalPair}`
+    );
     setModalOpen(true);
   }
 
@@ -280,26 +339,36 @@ export function SignalCard({
     executingRef.current = false;
   }
 
-  function handleModalConfirm(details: { amount: string; price: number; orderType: string }) {
+  function handleModalConfirm(details: {
+    amount: string;
+    price: number;
+    orderType: string;
+  }) {
     setModalOpen(false);
     executingRef.current = false;
     const size = parseFloat(details.amount || "0");
     toast.success(`${signalAction} position opened`, {
-      description: `Entry $${details.price.toFixed(4)} · Size ${size > 0 ? size.toFixed(2) : "—"} XLM`,
+      description: `Entry $${details.price.toFixed(4)} · Size ${
+        size > 0 ? size.toFixed(2) : "—"
+      } XLM`,
       duration: 5000,
     });
     onTrade?.(signalPair, executionPrice);
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    const arrowAction = classifyArrowKey(e.key, showPassAction);
+    const arrowAction = classifyArrowKeyWithSettings(
+      e.key,
+      showPassAction,
+      swapDirections
+    );
     if (arrowAction === "trade") {
       e.preventDefault();
-      flashSwipeFeedback(1);
+      flashSwipeFeedback(swapDirections ? -1 : 1);
       handleExecuteTrade();
     } else if (arrowAction === "pass") {
       e.preventDefault();
-      flashSwipeFeedback(-1);
+      flashSwipeFeedback(swapDirections ? 1 : -1);
       handlePass();
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -308,26 +377,34 @@ export function SignalCard({
   }
 
   function handleCopyLink() {
-    const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}?signal=${signalPair}&price=${executionPrice}&target=${projectedTarget}&signal_type=${signalAction}`;
+    const shareUrl = `${
+      typeof window !== "undefined" ? window.location.origin : ""
+    }?signal=${signalPair}&price=${executionPrice}&target=${projectedTarget}&signal_type=${signalAction}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedFeedback(true);
     setShowShareMenu(false);
   }
 
   function handleShare() {
-    const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}?signal=${signalPair}&price=${executionPrice}&target=${projectedTarget}&signal_type=${signalAction}`;
+    const shareUrl = `${
+      typeof window !== "undefined" ? window.location.origin : ""
+    }?signal=${signalPair}&price=${executionPrice}&target=${projectedTarget}&signal_type=${signalAction}`;
     const shareText = `Check out this ${signalAction} signal for ${signalPair} on StellarSwipe: ${shareUrl}`;
 
     if (navigator.share) {
-      navigator.share({
-        title: "StellarSwipe Signal",
-        text: shareText,
-        url: shareUrl,
-      }).catch((err) => {
-        if (err.name !== "AbortError") console.error("Share failed:", err);
-      });
+      navigator
+        .share({
+          title: "StellarSwipe Signal",
+          text: shareText,
+          url: shareUrl,
+        })
+        .catch((err) => {
+          if (err.name !== "AbortError") Sentry.captureException(err);
+        });
     } else {
-      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+        shareText
+      )}`;
       window.open(twitterUrl, "_blank", "width=550,height=420");
     }
     setShowShareMenu(false);
@@ -336,20 +413,31 @@ export function SignalCard({
   function handleDragEnd(_: unknown, info: PanInfo) {
     const offsetX = info.offset.x;
     const velocityX = info.velocity.x;
-    const fastSwipe = Math.abs(velocityX) > VELOCITY_THRESHOLD && Math.abs(offsetX) > 40;
+    const fastSwipe =
+      Math.abs(velocityX) > VELOCITY_THRESHOLD && Math.abs(offsetX) > 40;
 
-    // In RTL, swipe directions are mirrored: right=pass, left=trade
-    const tradeSwipe = rtl ? offsetX < -SWIPE_THRESHOLD : offsetX > SWIPE_THRESHOLD;
-    const tradeVelocity = rtl
+    // Effective direction: RTL and/or swapDirections each independently flip
+    // the left/right meaning. XOR-ing them covers all four combinations.
+    const effectivelyFlipped = rtl !== swapDirections; // XOR: flipped when exactly one is true
+
+    // In RTL or when directions are swapped: right=pass, left=trade
+    const tradeSwipe = effectivelyFlipped
+      ? offsetX < -SWIPE_THRESHOLD
+      : offsetX > SWIPE_THRESHOLD;
+    const tradeVelocity = effectivelyFlipped
       ? offsetX < -SWIPE_THRESHOLD * 0.4 && velocityX < -VELOCITY_THRESHOLD
       : offsetX > SWIPE_THRESHOLD * 0.4 && velocityX > VELOCITY_THRESHOLD;
-    const tradeFast = fastSwipe && (rtl ? velocityX < 0 : velocityX > 0);
+    const tradeFast =
+      fastSwipe && (effectivelyFlipped ? velocityX < 0 : velocityX > 0);
 
-    const passSwipe = rtl ? offsetX > SWIPE_THRESHOLD : offsetX < -SWIPE_THRESHOLD;
-    const passVelocity = rtl
+    const passSwipe = effectivelyFlipped
+      ? offsetX > SWIPE_THRESHOLD
+      : offsetX < -SWIPE_THRESHOLD;
+    const passVelocity = effectivelyFlipped
       ? offsetX > SWIPE_THRESHOLD * 0.4 && velocityX > VELOCITY_THRESHOLD
       : offsetX < -SWIPE_THRESHOLD * 0.4 && velocityX < -VELOCITY_THRESHOLD;
-    const passFast = fastSwipe && (rtl ? velocityX > 0 : velocityX < 0);
+    const passFast =
+      fastSwipe && (effectivelyFlipped ? velocityX > 0 : velocityX < 0);
 
     if (tradeSwipe || tradeVelocity || tradeFast) {
       handleExecuteTrade();
@@ -376,12 +464,17 @@ export function SignalCard({
           dragConstraints={{ left: -180, right: 180 }}
           dragElastic={0.15}
           dragTransition={{ bounceStiffness: 600, bounceDamping: 22 }}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            exit={{ x: 0, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
-            whileTap={{ cursor: "grabbing" }}
-            aria-disabled={dismissPending}
-          >
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          exit={{
+            x: 0,
+            opacity: 0,
+            scale: 0.85,
+            transition: { duration: 0.25 },
+          }}
+          whileTap={{ cursor: "grabbing" }}
+          aria-disabled={dismissPending}
+        >
           {/* #319: drag-direction color tint — opacity tracks drag distance */}
           <motion.div
             className="pointer-events-none absolute inset-0 z-0 rounded-2xl bg-green-500"
@@ -436,20 +529,31 @@ export function SignalCard({
             tabIndex={0}
             onKeyDown={handleKeyDown}
             role="article"
-            aria-label={`${signalAction} signal for ${signalPair} at ${executionPrice} with ${signalConfidence}% confidence. Press Enter or right arrow to trade${showPassAction ? ", left arrow to pass" : ""}.`}
+            aria-label={`${signalAction} signal for ${signalPair} at ${executionPrice} with ${signalConfidence}% confidence. Press Enter or right arrow to trade${
+              showPassAction ? ", left arrow to pass" : ""
+            }.`}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-base sm:text-lg">{signalPair}</span>
+                  <span className="font-semibold text-base sm:text-lg">
+                    {signalPair}
+                  </span>
                   {isPremium && (
-                    <PremiumSignalBadge hasAccess={hasAccess} requiredStake={requiredStake} />
+                    <PremiumSignalBadge
+                      hasAccess={hasAccess}
+                      requiredStake={requiredStake}
+                    />
                   )}
                   <span className="hidden sm:inline-flex">
                     <ProviderRatingBadge
                       trustScore={providerReputation}
                       winRate={providerReputation}
-                      totalSignals={providerStake ? Math.round(providerStake / 100) : undefined}
+                      totalSignals={
+                        providerStake
+                          ? Math.round(providerStake / 100)
+                          : undefined
+                      }
                     />
                   </span>
                 </div>
@@ -458,7 +562,10 @@ export function SignalCard({
                   <span aria-hidden="true">·</span>
                   <span>{signalAction}</span>
                   <span aria-hidden="true">·</span>
-                  <span>{signalConfidence}% confidence</span>
+                  <span>
+                    {signalConfidence}%{" "}
+                    <GlossaryTerm term="confidence">confidence</GlossaryTerm>
+                  </span>
                 </div>
               </div>
 
@@ -476,7 +583,9 @@ export function SignalCard({
                   disabled={dismissPending || dismissed}
                   className={cn(
                     "rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60",
-                    isBookmarked ? "bg-sky-500/15 text-sky-300" : "bg-white/5 text-slate-300 hover:bg-white/10"
+                    isBookmarked
+                      ? "bg-sky-500/15 text-sky-300"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10"
                   )}
                 >
                   <Bookmark size={18} aria-hidden="true" />
@@ -508,7 +617,11 @@ export function SignalCard({
                         className="w-full text-left px-3 py-2 text-sm hover:bg-muted rounded flex items-center gap-2"
                         aria-label="Copy link to clipboard"
                       >
-                        {copiedFeedback ? <Check size={14} className="text-accent-success" /> : "🔗"}
+                        {copiedFeedback ? (
+                          <Check size={14} className="text-accent-success" />
+                        ) : (
+                          "🔗"
+                        )}
                         {copiedFeedback ? "Copied!" : "Copy Link"}
                       </button>
                       <button
@@ -536,12 +649,20 @@ export function SignalCard({
               </div>
               <div>
                 <p className="text-muted-foreground">Target</p>
-                <p className="font-mono font-semibold">{fmt(projectedTarget)}</p>
+                <p className="font-mono font-semibold">
+                  {fmt(projectedTarget)}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground">ROI</p>
-                <p className={cn("font-semibold", isPositive ? "text-accent-success" : "text-accent-danger")}>
-                  {isPositive ? "+" : ""}{roi}%
+                <p
+                  className={cn(
+                    "font-semibold",
+                    isPositive ? "text-accent-success" : "text-accent-danger"
+                  )}
+                >
+                  {isPositive ? "+" : ""}
+                  {roi}%
                 </p>
               </div>
             </div>
@@ -550,8 +671,14 @@ export function SignalCard({
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">Live delta</p>
                 <motion.div
-                  animate={{ scale: flash ? 1.02 : 1 }}
-                  transition={{ duration: 0.2 }}
+                  animate={{
+                    scale: flash && !decorativeMotionDisabled ? 1.02 : 1,
+                  }}
+                  transition={
+                    decorativeMotionDisabled
+                      ? { duration: 0 }
+                      : { duration: 0.2 }
+                  }
                   className={cn(
                     "inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold",
                     deltaPositive
@@ -560,11 +687,23 @@ export function SignalCard({
                   )}
                 >
                   <span>{deltaLabel}</span>
-                  <span className="text-foreground-muted">({deltaAbsLabel})</span>
+                  <span className="text-foreground-muted">
+                    ({deltaAbsLabel})
+                  </span>
                 </motion.div>
               </div>
               <div className="text-right text-[11px] text-foreground-muted">
-                {relativeTime}
+                {stale ? (
+                  <span
+                    role="status"
+                    aria-live="polite"
+                    className="text-accent-warning"
+                  >
+                    Price may be outdated
+                  </span>
+                ) : (
+                  relativeTime
+                )}
               </div>
             </div>
 
@@ -576,20 +715,7 @@ export function SignalCard({
               ) : (
                 <Minus size={16} className="text-foreground-subtle" />
               )}
-              {chartStyle === "candlestick" ? (
-                <CandlestickChart data={roiHistory.map((p) => p.value)} className="flex-1" />
-              ) : (
-                <MiniChart data={roiHistory.map((p) => p.value)} className="flex-1" />
-              )}
-              <button
-                type="button"
-                onClick={() => setChartStyle(chartStyle === "line" ? "candlestick" : "line")}
-                aria-label={`Switch to ${chartStyle === "line" ? "candlestick" : "line"} chart`}
-                aria-pressed={chartStyle === "candlestick"}
-                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              >
-                {chartStyle === "line" ? <BarChart2 size={14} aria-hidden="true" /> : <LineChart size={14} aria-hidden="true" />}
-              </button>
+              <SignalSparkline data={roiHistory.map((p) => p.value)} />
             </div>
 
             {/* ── Issue #102: Expandable detail section with smooth animation ── */}
@@ -604,7 +730,7 @@ export function SignalCard({
               <motion.span
                 animate={{ rotate: detailsExpanded ? 180 : 0 }}
                 transition={
-                  shouldReduceMotion
+                  decorativeMotionDisabled
                     ? { duration: 0 }
                     : { duration: 0.2, ease: "easeInOut" }
                 }
@@ -619,33 +745,54 @@ export function SignalCard({
                 <motion.div
                   id={`signal-details-${signalId}`}
                   key="signal-details"
-                  initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, height: 0 }}
-                  animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
-                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                  initial={
+                    decorativeMotionDisabled
+                      ? { opacity: 1 }
+                      : { opacity: 0, height: 0 }
+                  }
+                  animate={
+                    decorativeMotionDisabled
+                      ? { opacity: 1 }
+                      : { opacity: 1, height: "auto" }
+                  }
+                  exit={
+                    decorativeMotionDisabled
+                      ? { opacity: 0 }
+                      : { opacity: 0, height: 0 }
+                  }
                   transition={
-                    shouldReduceMotion
+                    decorativeMotionDisabled
                       ? { duration: 0 }
                       : { duration: 0.28, ease: [0.4, 0, 0.2, 1] }
                   }
                   style={{ overflow: "hidden" }}
                 >
                   <div className="flex flex-col gap-3 pt-1">
-                    <p className="text-sm text-muted-foreground leading-relaxed">{analysis}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {analysis}
+                    </p>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
             {isPremium && !hasAccess && (
               <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-sm">
-                <p className="font-medium text-accent-warning">Premium signal locked</p>
+                <p className="font-medium text-accent-warning">
+                  Premium signal locked
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Stake at least {requiredStake.toLocaleString()} XLM to unlock full analysis and trade execution.
+                  Stake at least {requiredStake.toLocaleString()} XLM to unlock
+                  full analysis and trade execution.
                 </p>
               </div>
             )}
 
             {conflictReason && (
-              <SignalConflictNotice reason={conflictReason} onRefresh={onPass} onChooseAnother={onPass} />
+              <SignalConflictNotice
+                reason={conflictReason}
+                onRefresh={onPass}
+                onChooseAnother={onPass}
+              />
             )}
 
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -669,14 +816,24 @@ export function SignalCard({
                   Pass
                 </Button>
               )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExecuteTrade}
-                  disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason || dismissPending || dismissed}
-                  className="flex-1 active:scale-95"
-                  aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
-                >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExecuteTrade}
+                disabled={
+                  modalOpen ||
+                  (isPremium && !hasAccess) ||
+                  !!conflictReason ||
+                  dismissPending ||
+                  dismissed
+                }
+                className="flex-1 active:scale-95"
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${
+                  isDemoMode ? " (demo)" : ""
+                }${
+                  isPremium && !hasAccess ? " (locked — stake required)" : ""
+                }${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+              >
                 <Zap size={16} className="mr-1" />
                 {isDemoMode ? "Demo Trade" : "Execute Trade"}
               </Button>

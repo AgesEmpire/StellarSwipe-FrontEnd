@@ -106,7 +106,7 @@ describe("check-translations CI script", () => {
   it("passes for a locale that has all base keys", () => {
     const { output } = runScript(FIXTURE_LOCALES);
     // fr.json has all keys from en.json
-    expect(output).toContain('[OK]');
+    expect(output).toContain("[OK]");
     expect(output).toMatch(/Locale "fr" — all \d+ keys present/);
   });
 
