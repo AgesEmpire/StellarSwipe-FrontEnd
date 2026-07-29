@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   BookmarkX,
@@ -302,7 +303,33 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
     removeSignalFromFolder,
   } = useBookmarkActions();
 
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const folderParam = searchParams.get("folder");
+  const [selectedFolderId, setSelectedFolderIdState] = useState<
+    string | null
+  >(folderParam);
+
+  // Keep local selection in sync with back/forward navigation and deep links.
+  useEffect(() => {
+    setSelectedFolderIdState(folderParam);
+  }, [folderParam]);
+
+  // If a deep-linked folder no longer exists once hydrated, fall back silently.
+  useEffect(() => {
+    if (!isHydrated || !selectedFolderId) return;
+    if (!folders.some((f) => f.id === selectedFolderId)) {
+      setSelectedFolder(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, folders]);
+
+  const setSelectedFolder = (id: string | null) => {
+    setSelectedFolderIdState(id);
+    router.replace(id ? `/bookmarks?folder=${id}` : "/bookmarks", {
+      scroll: false,
+    });
+  };
 
   const selectedFolder = selectedFolderId
     ? folders.find((f) => f.id === selectedFolderId) ?? null
@@ -335,7 +362,7 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
     const folder = folders.find((f) => f.id === folderId);
     deleteFolder(folderId, folder?.name ?? "Unknown");
     if (selectedFolderId === folderId) {
-      setSelectedFolderId(null);
+      setSelectedFolder(null);
     }
   };
 
@@ -375,7 +402,7 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
               <FolderList
                 folders={folders}
                 selectedFolderId={selectedFolderId}
-                onSelectFolder={setSelectedFolderId}
+                onSelectFolder={setSelectedFolder}
                 onRenameFolder={handleRenameFolder}
                 onDeleteFolder={handleDeleteFolder}
                 onCreateFolder={handleCreateFolder}

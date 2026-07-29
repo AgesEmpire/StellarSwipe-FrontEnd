@@ -7,10 +7,13 @@ import {
   type LeaderboardTimeRange,
 } from "@/hooks/useLeaderboard";
 import { SignalProvider } from "@/lib/types";
-import { Loader2, ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, Trophy } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { LeaderboardErrorBoundary } from "@/components/LeaderboardErrorBoundary";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type SortField = "rank" | "overallScore" | "winRate" | "recentPerformance";
 type SortDirection = "asc" | "desc";
@@ -38,6 +41,7 @@ function LeaderboardPageInner() {
     error,
     timeRange,
     setTimeRange,
+    refetch,
   } = useLeaderboard();
   const [sortField, setSortField] = useState<SortField>("rank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -105,7 +109,7 @@ function LeaderboardPageInner() {
     return (
       <PageTransition>
         <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <LoadingState label="Loading leaderboard…" />
         </main>
       </PageTransition>
     );
@@ -115,7 +119,11 @@ function LeaderboardPageInner() {
     return (
       <PageTransition>
         <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-          <p className="text-center text-red-500">Failed to load leaderboard</p>
+          <ErrorState
+            title="Failed to load leaderboard"
+            description="We couldn't reach the leaderboard service. Please try again."
+            onRetry={() => refetch()}
+          />
         </main>
       </PageTransition>
     );
@@ -245,9 +253,12 @@ function LeaderboardPageInner() {
           </div>
 
           {sortedProviders.length === 0 && (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground">No providers available</p>
-            </div>
+            <EmptyState
+              title="No providers available"
+              description="Once signal providers appear on the leaderboard, they'll show up here."
+              icon={<Trophy className="h-7 w-7 text-muted-foreground" />}
+              className="py-10"
+            />
           )}
         </main>
       </PageTransition>

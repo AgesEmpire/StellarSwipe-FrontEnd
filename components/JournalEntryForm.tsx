@@ -4,8 +4,19 @@ import { useState } from "react";
 import { useTransactionStore } from "@/store/useTransactionStore";
 import { journalEntrySchema, type JournalEntry } from "@/lib/journalSchema";
 import { Button } from "@/components/ui/button";
-import { Plus, AlertCircle } from "lucide-react";
+import { FormField } from "@/components/FormField";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
+
+/** Validates a single journal field against the shared zod schema, live. */
+function validateField(field: keyof JournalEntry, value: string): string | null {
+  const shape = journalEntrySchema.shape as Record<string, { safeParse: (v: unknown) => { success: boolean; error?: { issues: { message: string }[] } } }>;
+  const fieldSchema = shape[field as string];
+  if (!fieldSchema) return null;
+  const result = fieldSchema.safeParse(value);
+  if (result.success) return null;
+  return result.error?.issues[0]?.message ?? "Invalid value";
+}
 
 export function JournalEntryForm() {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,6 +30,14 @@ export function JournalEntryForm() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const updateField = (field: keyof JournalEntry, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear a stale submit-time error as soon as the user edits the field again.
+    setErrors((prev) =>
+      prev[field] ? { ...prev, [field]: "" } : prev
+    );
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,98 +104,72 @@ export function JournalEntryForm() {
         onSubmit={handleSubmit}
         className="grid grid-cols-1 gap-4 sm:grid-cols-2"
       >
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Date</label>
-          <input
-            type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.date && (
-            <p className="text-[10px] text-red-400">{errors.date}</p>
-          )}
-        </div>
+        <FormField
+          label="Date"
+          name="date"
+          type="date"
+          required
+          value={formData.date || ""}
+          onChange={(v) => updateField("date", v)}
+          validate={(v) => validateField("date", v)}
+          error={errors.date}
+        />
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">
-            Asset Pair
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. XLM/USDC"
-            value={formData.assetPair || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, assetPair: e.target.value })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.assetPair && (
-            <p className="text-[10px] text-red-400">{errors.assetPair}</p>
-          )}
-        </div>
+        <FormField
+          label="Asset Pair"
+          name="assetPair"
+          required
+          placeholder="e.g. XLM/USDC"
+          helperText="Format: BASE/QUOTE"
+          value={formData.assetPair || ""}
+          onChange={(v) => updateField("assetPair", v)}
+          validate={(v) => validateField("assetPair", v)}
+          error={errors.assetPair}
+        />
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Amount</label>
-          <input
-            type="text"
-            placeholder="0.00"
-            value={formData.amount || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, amount: e.target.value })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.amount && (
-            <p className="text-[10px] text-red-400">{errors.amount}</p>
-          )}
-        </div>
+        <FormField
+          label="Amount"
+          name="amount"
+          required
+          placeholder="0.00"
+          value={formData.amount || ""}
+          onChange={(v) => updateField("amount", v)}
+          validate={(v) => validateField("amount", v)}
+          error={errors.amount}
+        />
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Price</label>
-          <input
-            type="text"
-            placeholder="0.00"
-            value={formData.price || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, price: e.target.value })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.price && (
-            <p className="text-[10px] text-red-400">{errors.price}</p>
-          )}
-        </div>
+        <FormField
+          label="Price"
+          name="price"
+          required
+          placeholder="0.00"
+          value={formData.price || ""}
+          onChange={(v) => updateField("price", v)}
+          validate={(v) => validateField("price", v)}
+          error={errors.price}
+        />
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Token</label>
-          <input
-            type="text"
-            placeholder="e.g. XLM"
-            value={formData.token || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, token: e.target.value })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.token && (
-            <p className="text-[10px] text-red-400">{errors.token}</p>
-          )}
-        </div>
+        <FormField
+          label="Token"
+          name="token"
+          required
+          placeholder="e.g. XLM"
+          value={formData.token || ""}
+          onChange={(v) => updateField("token", v)}
+          validate={(v) => validateField("token", v)}
+          error={errors.token}
+        />
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Fee</label>
-          <input
-            type="text"
-            placeholder="0.00"
-            value={formData.fee || ""}
-            onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
-            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.fee && (
-            <p className="text-[10px] text-red-400">{errors.fee}</p>
-          )}
-        </div>
+        <FormField
+          label="Fee"
+          name="fee"
+          placeholder="0.00"
+          helperText="Leave blank for no fee"
+          value={formData.fee || ""}
+          onChange={(v) => updateField("fee", v)}
+          validate={(v) => (v ? validateField("fee", v) : null)}
+          error={errors.fee}
+        />
 
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-400">Status</label>

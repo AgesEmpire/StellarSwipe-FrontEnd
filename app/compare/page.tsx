@@ -17,6 +17,8 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { PageTransition } from "@/components/PageTransition";
 import { useComparisonStore } from "@/store/useComparisonStore";
 import { MetricToggleBar } from "@/components/comparison/MetricToggleBar";
@@ -245,14 +247,14 @@ function ComparePageContent() {
             </div>
           </div>
 
-          {/* Add signal panel */}
+          {/* Add signal panel — inline on tablet/desktop */}
           <AnimatePresence>
             {addPanelOpen && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden mb-6"
+                className="hidden overflow-hidden mb-6 sm:block"
               >
                 <div className="rounded-xl border border-white/10 bg-gray-900 p-4">
                   <div className="flex items-center justify-between mb-4">
@@ -268,6 +270,24 @@ function ComparePageContent() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Add signal panel — bottom sheet on mobile */}
+          <BottomSheet
+            open={addPanelOpen}
+            onClose={() => setAddPanelOpen(false)}
+            ariaLabel="Select signals to compare"
+            className="sm:hidden"
+            title="Select signals to compare"
+            headerExtra={
+              <span className="text-xs text-gray-500">
+                {signals.length}/3 selected
+              </span>
+            }
+          >
+            <div className="px-4 pb-6">
+              <AddSignalPanel />
+            </div>
+          </BottomSheet>
 
           {/* Limit-reached banner */}
           <AnimatePresence>
@@ -303,21 +323,19 @@ function ComparePageContent() {
           </AnimatePresence>
 
           {signals.length === 0 ? (
-            /* Empty state */
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <GitCompare className="h-12 w-12 text-gray-700 mb-4" />
-              <h2 className="text-xl font-semibold text-gray-400 mb-2">
-                No signals selected
-              </h2>
-              <p className="text-gray-500 text-sm mb-6 max-w-sm">
-                Add up to 3 signals to compare their metrics, entry/exit points,
-                and performance side-by-side.
-              </p>
-              <Button onClick={() => setAddPanelOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Your First Signal
-              </Button>
-            </div>
+            <EmptyState
+              ariaLabel="No signals selected"
+              title="No signals selected"
+              description="Add up to 3 signals to compare their metrics, entry/exit points, and performance side-by-side."
+              icon={<GitCompare className="h-8 w-8 text-gray-500" />}
+              className="py-24"
+              action={
+                <Button onClick={() => setAddPanelOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Your First Signal
+                </Button>
+              }
+            />
           ) : (
             <>
               {/* Metric toggles */}
