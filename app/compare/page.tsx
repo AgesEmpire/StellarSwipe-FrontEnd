@@ -454,14 +454,21 @@ function ComparePageContent() {
                   {/* Placeholder slot when fewer than 3 */}
                   {canAdd() && (
                     <div
-                      className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-white/10 min-h-[200px] cursor-pointer hover:border-white/20 transition-colors print:hidden"
+                      className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-white/10 min-h-[200px] cursor-pointer hover:border-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 print:hidden"
                       style={{ minWidth: 200 }}
                       onClick={() => setAddPanelOpen(true)}
                       role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setAddPanelOpen(true);
+                        }
+                      }}
                       aria-label="Add another signal"
                     >
-                      <div className="text-center text-gray-600">
-                        <Plus className="h-8 w-8 mx-auto mb-2" />
+                      <div className="text-center text-gray-400">
+                        <Plus className="h-8 w-8 mx-auto mb-2" aria-hidden="true" />
                         <p className="text-sm">Add signal</p>
                       </div>
                     </div>

@@ -114,6 +114,30 @@
 }
 
 @layer base {
+  /*
+   * Baseline visible focus indicator for every interactive element.
+   * Many custom clickable elements (divs with role="button", etc.) only
+   * get a focus ring when a component remembers to add one explicitly —
+   * this guarantees a visible outline everywhere as a safety net, while
+   * components that already define their own focus-visible ring classes
+   * simply layer on top of it.
+   */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="switch"]:focus-visible,
+  [role="checkbox"]:focus-visible,
+  [role="menuitem"]:focus-visible {
+    outline: 2px solid hsl(var(--ring, 199 89% 48%));
+    outline-offset: 2px;
+  }
+
   @media (forced-colors: active) {
     :root {
       color-scheme: dark;

@@ -139,6 +139,7 @@ function CreateFolderForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Folder name"
+        aria-label="New folder name"
         className="flex h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-1 focus:ring-sky-400"
         maxLength={40}
       />
@@ -148,7 +149,7 @@ function CreateFolderForm({
         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sky-400 hover:bg-white/10 disabled:opacity-40"
         aria-label="Create folder"
       >
-        <Check className="h-4 w-4" />
+        <Check className="h-4 w-4" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -156,7 +157,7 @@ function CreateFolderForm({
         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted hover:bg-white/10"
         aria-label="Cancel"
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </form>
   );
@@ -191,6 +192,7 @@ function RenameFolderForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Folder name"
+        aria-label="Rename folder"
         className="flex h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-1 focus:ring-sky-400"
         maxLength={40}
       />
@@ -200,7 +202,7 @@ function RenameFolderForm({
         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sky-400 hover:bg-white/10 disabled:opacity-40"
         aria-label="Save name"
       >
-        <Check className="h-4 w-4" />
+        <Check className="h-4 w-4" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -208,7 +210,7 @@ function RenameFolderForm({
         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted hover:bg-white/10"
         aria-label="Cancel"
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </form>
   );
@@ -261,14 +263,15 @@ function FolderList({
 
       <button
         onClick={() => onSelectFolder(null)}
+        aria-pressed={selectedFolderId === null}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
           selectedFolderId === null
             ? "bg-sky-400/10 text-sky-400"
             : "text-foreground-muted hover:bg-white/5 hover:text-foreground"
         )}
       >
-        <FolderIcon className="h-4 w-4 shrink-0" />
+        <FolderIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span>All bookmarks</span>
       </button>
 
@@ -288,14 +291,15 @@ function FolderList({
           ) : (
             <button
               onClick={() => onSelectFolder(folder.id)}
+              aria-pressed={selectedFolderId === folder.id}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
                 selectedFolderId === folder.id
                   ? "bg-sky-400/10 text-sky-400"
                   : "text-foreground-muted hover:bg-white/5 hover:text-foreground"
               )}
             >
-              <FolderIcon className="h-4 w-4 shrink-0" />
+              <FolderIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span className="flex-1 truncate">{folder.name}</span>
               <span className="text-xs text-foreground-muted">
                 {folder.signalIds.length}

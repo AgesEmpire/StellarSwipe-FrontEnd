@@ -259,7 +259,10 @@ export function CSVImportModal() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {CSV_COLUMNS.map((col) => (
                   <div key={col} className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-500 flex items-center justify-between">
+                    <label
+                      htmlFor={`csv-column-map-${col}`}
+                      className="text-xs font-medium text-slate-500 flex items-center justify-between"
+                    >
                       {col}
                       {[
                         "Date",
@@ -274,6 +277,7 @@ export function CSVImportModal() {
                       )}
                     </label>
                     <select
+                      id={`csv-column-map-${col}`}
                       value={mapping[col] || ""}
                       onChange={(e) =>
                         setMapping({ ...mapping, [col]: e.target.value })
