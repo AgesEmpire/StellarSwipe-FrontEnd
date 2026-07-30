@@ -27,6 +27,8 @@ import {
   downloadComparisonCsv,
   downloadComparisonImage,
 } from "@/lib/exportComparison";
+import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
+import { toast } from "@/lib/toast";
 
 const ComparisonCard = dynamic(
   () =>
@@ -104,6 +106,9 @@ function ComparePageContent() {
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exportingImage, setExportingImage] = useState(false);
+  const [pendingExport, setPendingExport] = useState<
+    "csv" | "image" | "pdf" | null
+  >(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -135,28 +140,100 @@ function ComparePageContent() {
 
   const handleCopyShareLink = async () => {
     const url = window.location.href;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("Share link copied", {
+        description: "Anyone with this link will see the same comparison.",
+        duration: 2500,
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy link", {
+        description: "Your browser blocked clipboard access. Copy the URL from the address bar instead.",
+        duration: 4000,
+      });
+    }
   };
 
   const bestValues = computeBestValues(signals);
 
-  const handleExportPDF = () => {
-    window.print();
+  const tickerSummary = signals.map((s) => s.ticker).join(", ");
+
+  const exportPreviewConfig: Record<
+    "csv" | "image" | "pdf",
+    {
+      title: string;
+      description: string;
+      confirmLabel: string;
+      items: { label: string; value: string }[];
+    }
+  > = {
+    csv: {
+      title: "Export comparison as CSV",
+      description:
+        "A spreadsheet with one row per signal will download to your device.",
+      confirmLabel: "Download CSV",
+      items: [
+        { label: "Format", value: "CSV (.csv)" },
+        { label: "Signals included", value: tickerSummary || "—" },
+        { label: "Filename", value: "signal-comparison.csv" },
+      ],
+    },
+    image: {
+      title: "Export comparison as image",
+      description:
+        "A PNG snapshot of the current comparison table will download to your device.",
+      confirmLabel: "Download image",
+      items: [
+        { label: "Format", value: "PNG image" },
+        { label: "Signals included", value: tickerSummary || "—" },
+        { label: "Filename", value: "signal-comparison.png" },
+      ],
+    },
+    pdf: {
+      title: "Export comparison as PDF",
+      description:
+        "Your browser's print dialog will open — choose \"Save as PDF\" to export.",
+      confirmLabel: "Open print dialog",
+      items: [
+        { label: "Format", value: "PDF (via print)" },
+        { label: "Signals included", value: tickerSummary || "—" },
+      ],
+    },
   };
 
-  const handleExportCsv = () => {
-    downloadComparisonCsv(signals);
-  };
+  const handleExportPDF = () => setPendingExport("pdf");
+  const handleExportCsv = () => setPendingExport("csv");
+  const handleExportImage = () => setPendingExport("image");
 
-  const handleExportImage = async () => {
-    if (!tableRef.current) return;
-    setExportingImage(true);
-    try {
-      await downloadComparisonImage(tableRef.current);
-    } finally {
-      setExportingImage(false);
+  const runPendingExport = async () => {
+    if (pendingExport === "csv") {
+      downloadComparisonCsv(signals);
+      toast.success("CSV downloaded", {
+        description: `${signals.length} signal${signals.length === 1 ? "" : "s"} exported.`,
+      });
+      return;
+    }
+
+    if (pendingExport === "image") {
+      if (!tableRef.current) {
+        throw new Error("Nothing to capture — the comparison table isn't visible.");
+      }
+      setExportingImage(true);
+      try {
+        await downloadComparisonImage(tableRef.current);
+        toast.success("Image downloaded", {
+          description: "A PNG snapshot was saved to your device.",
+        });
+      } finally {
+        setExportingImage(false);
+      }
+      return;
+    }
+
+    if (pendingExport === "pdf") {
+      window.print();
     }
   };
 
@@ -178,7 +255,7 @@ function ComparePageContent() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 print:hidden">
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
               {signals.length > 0 && (
                 <>
                   <Button
@@ -405,6 +482,21 @@ function ComparePageContent() {
           )}
         </div>
       </main>
+
+      {/* Export preview & confirmation dialog */}
+      {pendingExport && (
+        <ExportPreviewDialog
+          open={pendingExport !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingExport(null);
+          }}
+          title={exportPreviewConfig[pendingExport].title}
+          description={exportPreviewConfig[pendingExport].description}
+          items={exportPreviewConfig[pendingExport].items}
+          confirmLabel={exportPreviewConfig[pendingExport].confirmLabel}
+          onConfirm={runPendingExport}
+        />
+      )}
 
       {/* Print styles */}
       <style jsx global>{`
