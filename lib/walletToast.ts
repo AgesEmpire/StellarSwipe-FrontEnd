@@ -37,6 +37,12 @@ export const walletToast = {
       description: "Could not connect to your wallet. Please try again.",
     }),
 
+  timeout: () =>
+    toast.error("Connection timed out", {
+      description:
+        "Your wallet didn't respond in time. Check for a pending approval popup, then try again.",
+    }),
+
   signError: () =>
     toast.error("Signing failed", {
       description: "An error occurred while signing the transaction.",
