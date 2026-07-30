@@ -1,15 +1,30 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
 import { PageTransitionPlaceholder } from "@/components/PageTransitionPlaceholder";
 import { TradeStatusBanner } from "@/components/TradeStatusBanner";
-import { DevPerfOverlay } from "@/components/DevPerfOverlay";
-import { AnalyticsDebugConsole } from "@/components/AnalyticsDebugConsole";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
 import { ComparisonTray } from "@/components/ComparisonTray";
+
+// Dev-only overlays (~950 lines combined) render null in production but were
+// previously statically imported into every page's root layout bundle. They
+// only ever render for developers, so ship them as a lazily-loaded chunk
+// instead of inflating the initial payload for every real user.
+const DevPerfOverlay = dynamic(
+  () => import("@/components/DevPerfOverlay").then((m) => m.DevPerfOverlay),
+  { ssr: false }
+);
+const AnalyticsDebugConsole = dynamic(
+  () =>
+    import("@/components/AnalyticsDebugConsole").then(
+      (m) => m.AnalyticsDebugConsole
+    ),
+  { ssr: false }
+);
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
