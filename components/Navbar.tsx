@@ -22,6 +22,7 @@ const NAV_LINKS = [
   { href: "/bookmarks", label: "Bookmarks" },
   { href: "/providers", label: "Providers" },
   { href: "/tax-report", label: "Tax Report" },
+  { href: "/preferences", label: "Preferences" },
 ];
 
 const routeShortcuts: Record<string, string> = {
