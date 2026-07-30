@@ -12,8 +12,10 @@ import {
   TrendingUp,
   TrendingDown,
   UserMinus,
+  Inbox,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageTransition } from "@/components/PageTransition";
 import { UnfollowDialog } from "@/components/UnfollowDialog";
 import { useUnfollowDialog } from "@/hooks/useUnfollowDialog";
@@ -202,9 +204,12 @@ export default function ProviderProfilePage() {
           </h2>
 
           {paginatedSignals.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              No signals available
-            </p>
+            <EmptyState
+              className="py-8"
+              icon={<Inbox className="h-8 w-8 text-sky-400/80" />}
+              title="No signals available"
+              description="This provider hasn't published any signals yet. Check back later."
+            />
           ) : (
             <div className="space-y-3">
               {paginatedSignals.map((signal) => (
