@@ -32,6 +32,46 @@ interface BookmarksPageProps {
   initialSignals: Signal[];
 }
 
+type BookmarkSortOrder = "newest" | "oldest" | "confidence" | "ticker";
+type BookmarkActionFilter = "ALL" | "BUY" | "SELL" | "HOLD";
+
+const SORT_OPTIONS: { label: string; value: BookmarkSortOrder }[] = [
+  { label: "Newest first", value: "newest" },
+  { label: "Oldest first", value: "oldest" },
+  { label: "Highest confidence", value: "confidence" },
+  { label: "Ticker A–Z", value: "ticker" },
+];
+
+const ACTION_FILTERS: { label: string; value: BookmarkActionFilter }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Buy", value: "BUY" },
+  { label: "Sell", value: "SELL" },
+  { label: "Hold", value: "HOLD" },
+];
+
+function sortSignals(
+  signals: Signal[],
+  sortOrder: BookmarkSortOrder
+): Signal[] {
+  const copy = [...signals];
+  switch (sortOrder) {
+    case "newest":
+      return copy.sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+    case "oldest":
+      return copy.sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+    case "confidence":
+      return copy.sort((a, b) => b.confidence - a.confidence);
+    case "ticker":
+      return copy.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    default:
+      return copy;
+  }
+}
+
 function BookmarksEmptyState() {
   return (
     <EmptyState
@@ -290,6 +330,78 @@ function FolderList({
   );
 }
 
+function FilterSortBar({
+  actionFilter,
+  onActionFilterChange,
+  sortOrder,
+  onSortOrderChange,
+  resultCount,
+}: {
+  actionFilter: BookmarkActionFilter;
+  onActionFilterChange: (value: BookmarkActionFilter) => void;
+  sortOrder: BookmarkSortOrder;
+  onSortOrderChange: (value: BookmarkSortOrder) => void;
+  resultCount: number;
+}) {
+  return (
+    <div
+      className="mb-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+      role="group"
+      aria-label="Filter and sort bookmarks"
+    >
+      <div
+        className="flex flex-wrap items-center gap-1.5"
+        role="group"
+        aria-label="Filter by action"
+      >
+        {ACTION_FILTERS.map((filter) => {
+          const selected = actionFilter === filter.value;
+          return (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => onActionFilterChange(filter.value)}
+              aria-pressed={selected}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+                selected
+                  ? "border-sky-400/40 bg-sky-400/10 text-sky-300"
+                  : "border-white/10 bg-white/5 text-foreground-muted hover:bg-white/10 hover:text-foreground"
+              )}
+            >
+              {filter.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor="bookmark-sort"
+          className="text-xs uppercase tracking-wider text-foreground-muted"
+        >
+          Sort
+        </label>
+        <select
+          id="bookmark-sort"
+          value={sortOrder}
+          onChange={(e) => onSortOrderChange(e.target.value as BookmarkSortOrder)}
+          className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-foreground-muted" aria-live="polite">
+          {resultCount} shown
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
   const bookmarks = useBookmarkStore((state) => state.bookmarks);
   const folders = useBookmarkStore((state) => state.folders);
@@ -306,14 +418,63 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const folderParam = searchParams.get("folder");
+  const sortParam = searchParams.get("sort") as BookmarkSortOrder | null;
+  const actionParam = searchParams.get("action") as BookmarkActionFilter | null;
   const [selectedFolderId, setSelectedFolderIdState] = useState<
     string | null
   >(folderParam);
+  const [sortOrder, setSortOrderState] = useState<BookmarkSortOrder>(
+    sortParam && SORT_OPTIONS.some((o) => o.value === sortParam)
+      ? sortParam
+      : "newest"
+  );
+  const [actionFilter, setActionFilterState] = useState<BookmarkActionFilter>(
+    actionParam && ACTION_FILTERS.some((o) => o.value === actionParam)
+      ? actionParam
+      : "ALL"
+  );
 
   // Keep local selection in sync with back/forward navigation and deep links.
   useEffect(() => {
     setSelectedFolderIdState(folderParam);
   }, [folderParam]);
+
+  const updateQuery = (
+    next: Partial<{
+      folder: string | null;
+      sort: BookmarkSortOrder;
+      action: BookmarkActionFilter;
+    }>
+  ) => {
+    const params = new URLSearchParams(searchParams.toString());
+    const folder = next.folder !== undefined ? next.folder : folderParam;
+    const sort = next.sort ?? sortOrder;
+    const action = next.action ?? actionFilter;
+
+    if (folder) params.set("folder", folder);
+    else params.delete("folder");
+
+    if (sort && sort !== "newest") params.set("sort", sort);
+    else params.delete("sort");
+
+    if (action && action !== "ALL") params.set("action", action);
+    else params.delete("action");
+
+    const query = params.toString();
+    router.replace(query ? `/bookmarks?${query}` : "/bookmarks", {
+      scroll: false,
+    });
+  };
+
+  const handleSortOrderChange = (value: BookmarkSortOrder) => {
+    setSortOrderState(value);
+    updateQuery({ sort: value });
+  };
+
+  const handleActionFilterChange = (value: BookmarkActionFilter) => {
+    setActionFilterState(value);
+    updateQuery({ action: value });
+  };
 
   // If a deep-linked folder no longer exists once hydrated, fall back silently.
   useEffect(() => {
@@ -326,9 +487,7 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
 
   const setSelectedFolder = (id: string | null) => {
     setSelectedFolderIdState(id);
-    router.replace(id ? `/bookmarks?folder=${id}` : "/bookmarks", {
-      scroll: false,
-    });
+    updateQuery({ folder: id });
   };
 
   const selectedFolder = selectedFolderId
@@ -344,9 +503,13 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
     filteredSignalIds = bookmarks;
   }
 
-  const bookmarkedSignals = initialSignals.filter((signal) =>
-    filteredSignalIds.includes(signal.id)
+  const bookmarkedSignalsUnsorted = initialSignals.filter(
+    (signal) =>
+      filteredSignalIds.includes(signal.id) &&
+      (actionFilter === "ALL" || signal.action === actionFilter)
   );
+
+  const bookmarkedSignals = sortSignals(bookmarkedSignalsUnsorted, sortOrder);
 
   const portfolioBalance = assets.reduce((sum, asset) => sum + asset.value, 0);
 
@@ -411,6 +574,15 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
           </aside>
 
           <div className="min-w-0 flex-1">
+            {isHydrated && bookmarks.length > 0 && (
+              <FilterSortBar
+                actionFilter={actionFilter}
+                onActionFilterChange={handleActionFilterChange}
+                sortOrder={sortOrder}
+                onSortOrderChange={handleSortOrderChange}
+                resultCount={bookmarkedSignals.length}
+              />
+            )}
             {!isHydrated ? (
               <BookmarksSkeleton />
             ) : bookmarkedSignals.length === 0 ? (
