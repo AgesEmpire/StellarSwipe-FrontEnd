@@ -1,40 +1,57 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
+import { X, Keyboard, Navigation, Zap, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { ShortcutKey } from "@/components/ShortcutKey";
 
 interface KeyboardShortcutsHelpModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const SHORTCUTS = [
+interface ShortcutGroup {
+  title: string;
+  icon: React.ElementType;
+  shortcuts: { keys: string; description: string }[];
+}
+
+const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    key: "?",
-    description: "Open this keyboard shortcuts overlay.",
+    title: "Navigation",
+    icon: Navigation,
+    shortcuts: [
+      { keys: "G then N", description: "Go to Signals feed" },
+      { keys: "G then B", description: "Go to Bookmarks" },
+      { keys: "G then H", description: "Go to Home" },
+      { keys: "G then J", description: "Go to Journal" },
+      { keys: "G then P", description: "Go to Providers" },
+      { keys: "G then T", description: "Go to Tax Report" },
+      { keys: "G then C", description: "Go to Compare" },
+      { keys: "G then S", description: "Go to Backtest Simulator" },
+    ],
   },
   {
-    key: "Arrow Up / Arrow Down",
-    description: "Move focus between signals in the feed.",
+    title: "Actions",
+    icon: Zap,
+    shortcuts: [
+      { keys: "N", description: "New journal entry" },
+      { keys: "T", description: "Toggle theme (light/dark)" },
+      { keys: "R", description: "Refresh signals feed" },
+      { keys: "Arrow Up / Arrow Down", description: "Move focus between signals" },
+      { keys: "Arrow Right / Enter", description: "Open trade modal for focused signal" },
+      { keys: "Arrow Left", description: "Pass on the focused signal" },
+    ],
   },
   {
-    key: "Arrow Right / Enter / Space",
-    description: "Open the trade modal for the focused signal.",
-  },
-  {
-    key: "Arrow Left",
-    description: "Pass on the focused signal.",
-  },
-  {
-    key: "Escape",
-    description: "Close this overlay or any open modal.",
-  },
-  {
-    key: "Enter",
-    description:
-      "Confirm the trade inside the open trade modal when focus is not on a form control.",
+    title: "Modals & Overlays",
+    icon: Layers,
+    shortcuts: [
+      { keys: "?", description: "Open this keyboard shortcuts overlay" },
+      { keys: "⌘K", description: "Open command palette" },
+      { keys: "Escape", description: "Close any open modal or overlay" },
+    ],
   },
 ];
 
@@ -69,7 +86,7 @@ export function KeyboardShortcutsHelpModal({
             aria-modal="true"
             aria-labelledby="keyboard-shortcuts-title"
             aria-describedby="keyboard-shortcuts-description"
-            className="relative z-overlay w-full max-w-xl overflow-hidden rounded-3xl border border-border bg-surface/95 p-6 shadow-2xl"
+            className="relative z-overlay w-full max-w-2xl overflow-hidden rounded-3xl border border-border bg-surface/95 p-6 shadow-2xl"
             initial={{ scale: 0.96, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 20 }}
@@ -82,20 +99,27 @@ export function KeyboardShortcutsHelpModal({
             }}
           >
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2
-                  id="keyboard-shortcuts-title"
-                  className="text-xl font-semibold text-foreground"
-                >
-                  Keyboard shortcuts
-                </h2>
-                <p
-                  id="keyboard-shortcuts-description"
-                  className="mt-2 text-sm leading-6 text-foreground-muted"
-                >
-                  A quick reference for the app&apos;s current keyboard
-                  controls.
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/50">
+                  <Keyboard className="h-5 w-5 text-foreground" aria-hidden="true" />
+                </div>
+                <div>
+                  <h2
+                    id="keyboard-shortcuts-title"
+                    className="text-xl font-semibold text-foreground"
+                  >
+                    Keyboard shortcuts
+                  </h2>
+                  <p
+                    id="keyboard-shortcuts-description"
+                    className="mt-1 text-sm leading-6 text-foreground-muted"
+                  >
+                    Press{" "}
+                    <ShortcutKey keys="?" size="sm" />{" "}
+                    anytime to open this overlay, or use the shortcuts below to
+                    navigate faster.
+                  </p>
+                </div>
               </div>
               <Button
                 variant="ghost"
@@ -108,22 +132,41 @@ export function KeyboardShortcutsHelpModal({
               </Button>
             </div>
 
-            <div className="mt-6 overflow-hidden rounded-3xl border border-border bg-background">
-              <dl className="divide-y divide-border">
-                {SHORTCUTS.map((shortcut) => (
-                  <div
-                    key={shortcut.key}
-                    className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <dt className="text-sm font-semibold text-foreground">
-                      {shortcut.key}
-                    </dt>
-                    <dd className="text-sm text-foreground-muted">
-                      {shortcut.description}
-                    </dd>
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+              {SHORTCUT_GROUPS.map((group) => (
+                <div key={group.title} className="overflow-hidden rounded-2xl border border-border bg-background">
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                    <group.icon className="h-4 w-4 text-foreground-muted" aria-hidden="true" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {group.title}
+                    </h3>
                   </div>
-                ))}
-              </dl>
+                  <dl className="divide-y divide-border">
+                    {group.shortcuts.map((shortcut) => (
+                      <div
+                        key={shortcut.keys}
+                        className="flex items-center justify-between gap-3 px-4 py-2.5"
+                      >
+                        <dt>
+                          <ShortcutKey keys={shortcut.keys} size="sm" />
+                        </dt>
+                        <dd className="text-right text-[12px] leading-snug text-foreground-muted">
+                          {shortcut.description}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-border bg-accent/20 px-4 py-3">
+              <p className="text-xs text-foreground-muted">
+                <strong className="text-foreground">Tip:</strong> Press{" "}
+                <ShortcutKey keys="G" size="sm" />{" "}
+                followed by another key to quickly navigate between pages. A
+                small indicator will show which key to press next.
+              </p>
             </div>
 
             <div className="mt-6 flex justify-end">
