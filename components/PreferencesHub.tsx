@@ -13,6 +13,7 @@ import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useFeedDensityStore } from "@/store/useFeedDensityStore";
 import { useThemeStore } from "@/store/useThemeStore";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { useGuidedTourStore } from "@/store/useGuidedTourStore";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
 
@@ -169,15 +170,23 @@ export function PreferencesHub() {
 
 function ReplayOnboardingRow() {
   const reset = useOnboardingStore((s) => s.reset);
+  const replayTour = useGuidedTourStore((s) => s.replay);
+
+  const handleReplay = () => {
+    reset();
+    replayTour();
+  };
+
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
         <p className="text-xs font-medium text-foreground">Guided tour</p>
         <p className="text-xs text-foreground-muted">
-          Replays the wallet, signal feed, and swipe walkthrough from the start.
+          Replays the intro walkthrough and the contextual spotlight tour of
+          the wallet, signal feed, and comparison view.
         </p>
       </div>
-      <Button size="sm" variant="outline" className="gap-1.5" onClick={reset}>
+      <Button size="sm" variant="outline" className="gap-1.5" onClick={handleReplay}>
         <RotateCcw size={13} aria-hidden="true" />
         Replay tour
       </Button>

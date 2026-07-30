@@ -11,6 +11,7 @@ import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
 import { ComparisonTray } from "@/components/ComparisonTray";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -90,6 +91,7 @@ export default function RootLayout({
           <AnalyticsDebugConsole />
           <ComparisonTray />
           <NotificationPermissionPrompt />
+          <GuidedTourSpotlight />
         </Providers>
       </body>
     </html>
