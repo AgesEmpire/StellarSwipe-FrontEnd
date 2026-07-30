@@ -10,6 +10,7 @@ import { AnalyticsDebugConsole } from "@/components/AnalyticsDebugConsole";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
 import { ComparisonTray } from "@/components/ComparisonTray";
+import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -88,6 +89,7 @@ export default function RootLayout({
           <DevPerfOverlay />
           <AnalyticsDebugConsole />
           <ComparisonTray />
+          <NotificationPermissionPrompt />
         </Providers>
       </body>
     </html>

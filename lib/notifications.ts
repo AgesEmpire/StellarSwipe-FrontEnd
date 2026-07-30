@@ -84,3 +84,32 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const raw = atob(base64);
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
+
+/**
+ * Human-readable copy for the three native `NotificationPermission` states,
+ * used by the permission prompt and preferences hub so status messaging
+ * stays consistent wherever it's surfaced.
+ */
+export function getPermissionStatusCopy(status: NotificationPermission): {
+  label: string;
+  description: string;
+} {
+  switch (status) {
+    case "granted":
+      return {
+        label: "Enabled",
+        description: "This device can receive push notifications.",
+      };
+    case "denied":
+      return {
+        label: "Blocked",
+        description:
+          "Notifications are blocked in your browser's site settings for this device.",
+      };
+    default:
+      return {
+        label: "Not enabled",
+        description: "Notifications haven't been requested on this device yet.",
+      };
+  }
+}
