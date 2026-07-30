@@ -34,6 +34,10 @@ interface TransactionState {
   showError: boolean;
   preservedInput: Record<string, unknown> | null;
   history: TransactionHistoryItem[];
+  /** IDs of entries that are currently being synced with the server. */
+  pendingIds: string[];
+  /** IDs of entries that failed to sync (optimistic update needs rollback). */
+  failedIds: string[];
 
   setSuccess: (details: TransactionDetails) => void;
   clearSuccess: () => void;
@@ -41,21 +45,33 @@ interface TransactionState {
   clearError: () => void;
   setPreservedInput: (input: Record<string, unknown> | null) => void;
   addTransaction: (transaction: TransactionHistoryItem) => void;
+  removeTransaction: (id: string) => void;
+  updateTransaction: (id: string, patch: Partial<TransactionHistoryItem>) => TransactionHistoryItem | null;
   bulkAddTransactions: (transactions: TransactionHistoryItem[]) => void;
   updateTransactionStatus: (
     id: string,
     status: TransactionStatus,
     outcome?: TransactionOutcome
   ) => void;
+  /** Mark an entry as pending sync. */
+  markPending: (id: string) => void;
+  /** Clear pending flag after successful sync. */
+  clearPending: (id: string) => void;
+  /** Mark an entry as failed and schedule it for retry. */
+  markFailed: (id: string) => void;
+  /** Remove failed marker. */
+  clearFailed: (id: string) => void;
   reset: () => void;
 }
 
-export const useTransactionStore = create<TransactionState>()((set) => ({
+export const useTransactionStore = create<TransactionState>()((set, get) => ({
   success: null,
   showSuccess: false,
   error: null,
   showError: false,
   preservedInput: null,
+  pendingIds: [],
+  failedIds: [],
   history: [
     {
       id: "tx-1",
@@ -113,6 +129,22 @@ export const useTransactionStore = create<TransactionState>()((set) => ({
   addTransaction: (transaction) =>
     set((state) => ({ history: [transaction, ...state.history] })),
 
+  removeTransaction: (id) =>
+    set((state) => ({
+      history: state.history.filter((item) => item.id !== id),
+    })),
+
+  updateTransaction: (id, patch) => {
+    set((state) => ({
+      history: state.history.map((item) =>
+        item.id === id ? { ...item, ...patch } : item
+      ),
+    }));
+    // Look up the updated item after the state has been updated
+    const updated = get().history.find((item) => item.id === id) ?? null;
+    return updated;
+  },
+
   bulkAddTransactions: (transactions) =>
     set((state) => ({ history: [...transactions, ...state.history] })),
 
@@ -135,6 +167,32 @@ export const useTransactionStore = create<TransactionState>()((set) => ({
       ),
     })),
 
+  markPending: (id) =>
+    set((state) => ({
+      pendingIds: state.pendingIds.includes(id)
+        ? state.pendingIds
+        : [...state.pendingIds, id],
+      failedIds: state.failedIds.filter((fid) => fid !== id),
+    })),
+
+  clearPending: (id) =>
+    set((state) => ({
+      pendingIds: state.pendingIds.filter((pid) => pid !== id),
+    })),
+
+  markFailed: (id) =>
+    set((state) => ({
+      failedIds: state.failedIds.includes(id)
+        ? state.failedIds
+        : [...state.failedIds, id],
+      pendingIds: state.pendingIds.filter((pid) => pid !== id),
+    })),
+
+  clearFailed: (id) =>
+    set((state) => ({
+      failedIds: state.failedIds.filter((fid) => fid !== id),
+    })),
+
   reset: () =>
     set({
       success: null,
@@ -143,5 +201,7 @@ export const useTransactionStore = create<TransactionState>()((set) => ({
       showError: false,
       preservedInput: null,
       history: [],
+      pendingIds: [],
+      failedIds: [],
     }),
 }));

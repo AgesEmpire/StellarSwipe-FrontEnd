@@ -3,7 +3,7 @@
 export function SignalCardSkeleton() {
   return (
     <div
-      className="animate-pulse rounded-3xl border border-white/10 bg-slate-900/80 p-4 sm:p-6"
+      className="skeleton-shimmer rounded-3xl border border-white/10 bg-slate-900/80 p-4 sm:p-6"
       role="status"
       aria-label="Loading signal"
     >

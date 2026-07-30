@@ -97,6 +97,24 @@ export function PortfolioAllocationChart({
   }, [chartData, width, height]);
 
   if (isLoading) {
+    return (
+      <Card className={cn("w-full", className)} role="status" aria-label="Loading portfolio allocation">
+        <CardHeader>
+          <h2 className="text-base font-semibold text-foreground">Portfolio Allocation</h2>
+        </CardHeader>
+        <CardContent>
+          <span className="sr-only">Loading portfolio allocation…</span>
+          <div className="flex h-48 items-center justify-center">
+            <div className="skeleton-shimmer h-36 w-36 rounded-full bg-surface-high" />
+          </div>
+          <div className="mt-4 space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="skeleton-shimmer h-4 w-full rounded bg-surface-high" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
     return <PortfolioAllocationChartSkeleton className={className} />;
   }
 

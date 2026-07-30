@@ -5,6 +5,8 @@ function resolveSiteUrl(): string {
   return env?.trim() || "http://localhost:3000";
 }
 
+
+
 // Public, static-ish routes to expose.
 const STATIC_PUBLIC_PATHS: string[] = [
   "/",

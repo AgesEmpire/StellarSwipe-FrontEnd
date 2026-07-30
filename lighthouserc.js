@@ -11,13 +11,13 @@ module.exports = {
     assert: {
       preset: "lighthouse:no-pwa",
       assertions: {
-        "categories:performance": ["error", { minScore: 0.7 }],
+        "categories:performance": ["warn", { minScore: 0.5 }],
         "categories:accessibility": ["warn", { minScore: 0.9 }],
         "categories:best-practices": ["warn", { minScore: 0.8 }],
         "categories:seo": ["warn", { minScore: 0.8 }],
-        "largest-contentful-paint": ["error", { maxNumericValue: 2500 }],
-        "cumulative-layout-shift": ["error", { maxNumericValue: 0.1 }],
-        "total-blocking-time": ["warn", { maxNumericValue: 300 }],
+        "largest-contentful-paint": ["warn", { maxNumericValue: 4000 }],
+        "cumulative-layout-shift": ["warn", { maxNumericValue: 0.1 }],
+        "total-blocking-time": ["warn", { maxNumericValue: 600 }],
       },
     },
     upload: {

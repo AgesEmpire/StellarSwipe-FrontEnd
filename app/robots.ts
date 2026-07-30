@@ -39,8 +39,6 @@ export default function robots(): MetadataRoute.Robots {
       ],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
-    // If you need to block all crawlers from certain user agents, this block
-    // can be expanded. For now we keep a single global rule set.
   };
 }
 

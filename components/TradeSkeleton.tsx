@@ -1,6 +1,11 @@
 export function TradeSkeleton() {
   return (
-    <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 space-y-4 animate-pulse">
+    <div
+      className="skeleton-shimmer w-full max-w-sm rounded-2xl border border-border bg-surface p-5 space-y-4"
+      role="status"
+      aria-label="Loading trade"
+    >
+      <span className="sr-only">Loading trade…</span>
       <div className="flex items-center justify-between">
         <div className="h-4 w-24 rounded bg-surface-high" />
         <div className="h-5 w-14 rounded-full bg-surface-high" />

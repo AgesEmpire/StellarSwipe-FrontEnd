@@ -250,11 +250,7 @@ export default function BacktestTool() {
 
       {/* Actions */}
       <div className="flex gap-3 mb-6" data-testid="backtest-actions">
-        <Button
-          onClick={handleRun}
-          disabled={loading}
-          className="bg-purple-500 text-white"
-        >
+        <Button onClick={handleRun} disabled={loading} className="bg-purple-500 text-white">
           {loading ? "Running…" : "Run Simulation"}
         </Button>
         <Button

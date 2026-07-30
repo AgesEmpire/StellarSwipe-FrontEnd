@@ -17,7 +17,7 @@ import type {
 } from "@/lib/api-types.generated";
 
 function warn(deprecated: string, replacement: string) {
-  // eslint-disable-next-line no-console -- intentional deprecation warning
+  // eslint-disable-next-line no-console
   console.warn(
     `[StellarSwipe] "${deprecated}" is deprecated and will be removed in a future release. ` +
       `Use "${replacement}" instead.`

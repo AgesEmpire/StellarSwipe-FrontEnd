@@ -137,7 +137,7 @@ export default function DataExportRequestPage() {
 
     window.setTimeout(() => {
       setRequests((current) => {
-        const updated = current.map((request) =>
+        const updated: ExportRequest[] = current.map((request) =>
           request.id === nextRequest.id
             ? { ...request, status: "processing" as ExportStatus }
             : request
@@ -159,7 +159,7 @@ export default function DataExportRequestPage() {
       });
 
       setRequests((current) => {
-        const updated = current.map((request) =>
+        const updated: ExportRequest[] = current.map((request) =>
           request.id === nextRequest.id
             ? {
                 ...request,

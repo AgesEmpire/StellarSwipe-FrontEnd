@@ -1,6 +1,6 @@
-# Empty State Inventory
+# Empty, Loading & Error State Inventory
 
-This inventory captures empty states audited across the app, including current copy and migration status to the shared `EmptyState` component.
+This inventory captures empty states audited across the app, including current copy and migration status to the shared `EmptyState` component. It also tracks the shared loading and error state components (`components/ui/loading-state.tsx`, `components/ui/error-state.tsx`).
 
 | Location                                          | Current Empty Copy                                                                                | Status                                  |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------- |
@@ -15,6 +15,16 @@ This inventory captures empty states audited across the app, including current c
 | `components/performance/PerformanceDashboard.tsx` | "No interactions recorded yet" / "No route data yet" / "No API data yet" / "No crashes recorded." | Migrated to shared `EmptyState`         |
 | `components/WebhookSettings.tsx`                  | "No webhooks configured."                                                                         | Migrated to shared `EmptyState`         |
 | `components/AnalyticsDebugConsole.tsx`            | "No matching events" / "No events yet"                                                            | Migrated to shared `EmptyState`         |
+| `app/leaderboard/page.tsx`                        | "No providers available"                                                                           | Migrated to shared `EmptyState`         |
+| `app/compare/page.tsx`                            | "No signals selected"                                                                               | Migrated to shared `EmptyState`         |
+
+## Loading & error states
+
+- `app/leaderboard/page.tsx` uses `LoadingState` (spinner) while fetching and `ErrorState` (with a retry button wired to `refetch`) on failure.
+- `components/bookmarks/BookmarksPage.tsx` uses a local `BookmarksSkeleton` for the pre-hydration loading state.
+- `components/signal/SignalFeed.tsx` uses `SignalErrorState`, which is network/timeout-aware — reach for it only when the error carries that typed signal-fetch context; use the generic `ErrorState` everywhere else.
+
+New pages/sections should default to `LoadingState`/`SkeletonRows` (`components/ui/loading-state.tsx`) and `ErrorState` (`components/ui/error-state.tsx`) so copy, spacing, and retry affordances stay consistent with the `EmptyState` pattern above.
 
 ## Copy & CTA conventions
 

@@ -33,22 +33,24 @@ export function ProgressiveSection({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const schedule:typeof globalThis.requestIdleCallback | undefined =
-      "requestIdleCallback" in window
-        ? window.requestIdleCallback.bind(window)
-        : undefined;
+    const hasIdleCallback = "requestIdleCallback" in window;
 
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timer: number | undefined;
+    let idleId: number | undefined;
+
     const idleCallback = () => setRendered(true);
 
-    if (schedule) {
-      schedule(idleCallback, { timeout: delay });
+    if (hasIdleCallback) {
+      idleId = window.requestIdleCallback(idleCallback, { timeout: delay });
     } else {
-      timer = setTimeout(idleCallback, delay);
+      timer = window.setTimeout(idleCallback, delay);
     }
 
     return () => {
       if (timer) clearTimeout(timer);
+      if (idleId != null && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
     };
   }, [delay]);
 

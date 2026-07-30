@@ -38,7 +38,7 @@ class RouteErrorCatcher extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // eslint-disable-next-line no-console -- intentional error logging in boundary
+    // eslint-disable-next-line no-console
     console.error(`[RouteErrorBoundary] Error in route "${this.props.routeName}":`, error, errorInfo);
   }
 
