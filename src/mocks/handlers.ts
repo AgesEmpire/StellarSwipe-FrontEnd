@@ -98,10 +98,12 @@ export const handlers = [
     }
 
     return HttpResponse.json({
-      signals: mockSignals,
+      items: mockSignals,
       page,
       pageSize,
       total: mockSignals.length,
+      hasMore: false,
+      nextPage: null,
     });
   }),
 

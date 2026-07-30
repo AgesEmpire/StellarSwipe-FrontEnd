@@ -38,8 +38,12 @@ describe("PortfolioAllocationChart", () => {
       clear: jest.fn(),
     });
 
-    render(<PortfolioAllocationChart />);
-    expect(screen.getByText("Loading portfolio data...")).toBeTruthy();
+    const { container } = render(<PortfolioAllocationChart />);
+    // Component renders a skeleton with loading aria-label
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Loading portfolio allocation")
+    ).toBeInTheDocument();
   });
 
   it("renders empty state", () => {

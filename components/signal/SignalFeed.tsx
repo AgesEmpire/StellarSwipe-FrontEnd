@@ -29,6 +29,7 @@ import { fetchSignals } from "@/lib/api";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
 import {
+  clampSplitRatio,
   computeSplitRatioFromClientX,
   persistSplitRatio,
   readPersistedSplitRatio,
@@ -268,9 +269,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   }, [signals, selectedSignalId]);
 
   const updateSplitRatio = useCallback((nextRatio: number) => {
-    setSplitRatio(nextRatio);
+    const clamped = clampSplitRatio(nextRatio);
+    setSplitRatio(clamped);
     if (typeof window !== "undefined") {
-      persistSplitRatio(window.localStorage, nextRatio);
+      persistSplitRatio(window.localStorage, clamped);
     }
   }, []);
 
@@ -785,6 +787,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
               role="separator"
               aria-orientation="vertical"
               aria-label="Resize feed and detail panes"
+              aria-valuenow={Math.round(splitRatio * 100)}
+              aria-valuemin={30}
+              aria-valuemax={70}
               tabIndex={0}
               onMouseDown={handleSplitDragStart}
               onKeyDown={handleSplitHandleKeyDown}
