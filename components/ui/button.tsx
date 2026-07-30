@@ -8,6 +8,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        default: "bg-primary text-primary-foreground shadow-elevation-2 hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground shadow-elevation-1 hover:bg-destructive/90",
+        outline: "border border-input bg-background shadow-elevation-1 hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary text-secondary-foreground shadow-elevation-1 hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
         default:
           "bg-primary text-primary-foreground shadow hover:bg-primary/90 forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText] forced-colors:border forced-colors:border-[ButtonText]",
         destructive:

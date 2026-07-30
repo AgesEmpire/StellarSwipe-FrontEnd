@@ -134,6 +134,70 @@ function LeaderboardPageInner() {
             </p>
           </header>
 
+        <div className="w-full overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <caption className="sr-only">
+              Signal provider leaderboard, sorted by {sortField} ({sortDirection === "asc" ? "ascending" : "descending"}). Activate a row to view that provider&apos;s profile.
+            </caption>
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th scope="col" aria-sort={sortField === "rank" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-left font-semibold text-foreground">
+                  <SortHeader field="rank" label="Rank" />
+                </th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold text-foreground">Provider</th>
+                <th scope="col" aria-sort={sortField === "overallScore" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-right font-semibold text-foreground">
+                  <SortHeader field="overallScore" label="Score" className="justify-end" />
+                </th>
+                <th scope="col" aria-sort={sortField === "winRate" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-right font-semibold text-foreground">
+                  <SortHeader field="winRate" label="Win Rate" className="justify-end" />
+                </th>
+                <th scope="col" aria-sort={sortField === "recentPerformance" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-right font-semibold text-foreground">
+                  <SortHeader field="recentPerformance" label="Recent" className="justify-end" />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedProviders.map((provider) => (
+                <tr
+                  key={provider.id}
+                  className="border-b hover:bg-muted/30 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  onClick={() => router.push(`/provider/${provider.id}`)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/provider/${provider.id}`);
+                    }
+                  }}
+                  aria-label={`View profile for ${provider.name || provider.address}`}
+                >
+                  <td className="px-4 py-3 font-semibold text-foreground">#{provider.rank}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-0.5">
+                      {provider.name && (
+                        <p className="font-medium text-foreground">{provider.name}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {truncateAddress(provider.address)}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-green-600">
+                    {provider.overallScore}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-foreground">
+                    {provider.winRate}%
+                  </td>
+                  <td className={`px-4 py-3 text-right font-semibold ${
+                    provider.recentPerformance >= 0 ? "text-green-600" : "text-red-600"
+                  }`}>
+                    {provider.recentPerformance >= 0 ? "+" : ""}{provider.recentPerformance}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
           <div
             className="flex gap-1 border-b border-border"
             role="tablist"
