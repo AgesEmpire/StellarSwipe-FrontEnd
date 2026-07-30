@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { PageTransition } from "@/components/PageTransition";
 import { useComparisonStore } from "@/store/useComparisonStore";
 import { MetricToggleBar } from "@/components/comparison/MetricToggleBar";
@@ -324,11 +323,10 @@ function ComparePageContent() {
 
           {signals.length === 0 ? (
             <EmptyState
-              ariaLabel="No signals selected"
+              className="py-24"
+              icon={<GitCompare className="h-8 w-8 text-sky-400/80" />}
               title="No signals selected"
               description="Add up to 3 signals to compare their metrics, entry/exit points, and performance side-by-side."
-              icon={<GitCompare className="h-8 w-8 text-gray-500" />}
-              className="py-24"
               action={
                 <Button onClick={() => setAddPanelOpen(true)} className="gap-2">
                   <Plus className="h-4 w-4" />

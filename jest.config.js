@@ -16,6 +16,10 @@ const config = {
     "^@/(.*)$": "<rootDir>/$1",
   },
   testMatch: ["**/__tests__/**/*.test.{ts,tsx}"],
+  // Exclude tests that use vitest APIs (vi, etc.) these are run by vitest config.
+  testPathIgnorePatterns: [
+    "<rootDir>/app/security/__tests__/",
+  ],
   // Accessibility tests that render components need jsdom — use
   // @jest-environment jsdom at the top of those files to opt in per-file.
   // MSW lifecycle (listen/reset/close) is wired up for all tests below.

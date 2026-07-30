@@ -83,9 +83,9 @@ describe("ComparisonTray – rendering", () => {
   it("renders each signal's ticker as a chip", () => {
     seedSignals(3);
     render(<ComparisonTray />);
-    expect(screen.getByText("S1")).toBeInTheDocument();
-    expect(screen.getByText("S2")).toBeInTheDocument();
-    expect(screen.getByText("S3")).toBeInTheDocument();
+    expect(screen.getByText("Signal 1")).toBeInTheDocument();
+    expect(screen.getByText("Signal 2")).toBeInTheDocument();
+    expect(screen.getByText("Signal 3")).toBeInTheDocument();
   });
 
   it("shows the 'Clear all' button when there are signals", () => {
@@ -153,12 +153,12 @@ describe("ComparisonTray – per-item remove", () => {
     render(<ComparisonTray />);
 
     await userEvent.click(
-      screen.getByRole("button", { name: /remove S2 from comparison/i })
+      screen.getByRole("button", { name: /remove Signal 2 from comparison/i })
     );
 
-    expect(screen.queryByText("S2")).not.toBeInTheDocument();
-    expect(screen.getByText("S1")).toBeInTheDocument();
-    expect(screen.getByText("S3")).toBeInTheDocument();
+    expect(screen.queryByText("Signal 2")).not.toBeInTheDocument();
+    expect(screen.getByText("Signal 1")).toBeInTheDocument();
+    expect(screen.getByText("Signal 3")).toBeInTheDocument();
 
     const { signals } = useComparisonStore.getState();
     expect(signals.map((s) => s.id)).toEqual(["sig-1", "sig-3"]);

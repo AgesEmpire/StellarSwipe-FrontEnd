@@ -15,6 +15,32 @@ import analyticsService from "@/services/analytics";
 import type { WalletConnectErrorReason } from "@/components/WalletConnectErrorModal";
 import * as Sentry from "@sentry/nextjs";
 
+const CONNECT_TIMEOUT_MS = 20000;
+const CONNECT_TIMEOUT_MARKER = "wallet_connect_timeout";
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(CONNECT_TIMEOUT_MARKER)),
+      ms
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
+function isTimeout(err: unknown): boolean {
+  return err instanceof Error && err.message === CONNECT_TIMEOUT_MARKER;
+}
+
 function isUserRejection(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const msg = err.message.toLowerCase();
@@ -63,7 +89,7 @@ export function useWallet() {
         });
         return;
       }
-      await requestAccess();
+      await withTimeout(requestAccess(), CONNECT_TIMEOUT_MS);
       const result = await getAddress();
       const key = typeof result === "string" ? result : result.address;
       setPublicKey(key);
@@ -81,6 +107,13 @@ export function useWallet() {
         analyticsService.track("wallet_connect_failed", {
           wallet_type: "freighter",
           reason: "user_rejected",
+        });
+      } else if (isTimeout(err)) {
+        walletToast.timeout();
+        setConnectError("timeout");
+        analyticsService.track("wallet_connect_failed", {
+          wallet_type: "freighter",
+          reason: "timeout",
         });
       } else {
         walletToast.connectError();
@@ -133,7 +166,7 @@ export function useWallet() {
         setConnectError("not_found");
         return;
       }
-      await requestAccess();
+      await withTimeout(requestAccess(), CONNECT_TIMEOUT_MS);
       const result = await getAddress();
       const key = typeof result === "string" ? result : result.address;
       setPublicKey(key);
@@ -145,6 +178,9 @@ export function useWallet() {
     } catch (err) {
       if (isUserRejection(err)) {
         walletToast.denied();
+      } else if (isTimeout(err)) {
+        walletToast.timeout();
+        setConnectError("timeout");
       } else {
         walletToast.connectError();
         setConnectError("error");

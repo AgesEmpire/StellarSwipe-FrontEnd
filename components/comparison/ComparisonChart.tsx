@@ -22,10 +22,19 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
       {metrics.map(({ label, getValue, scale = 100 }) => {
         const values = signals.map(getValue);
         const maxVal = Math.max(...values, scale * 0.01);
+        const unit = label === "Confidence" ? "%" : "";
         return (
-          <div key={label}>
-            <p className="text-xs text-gray-400 mb-2">{label}</p>
-            <div className="space-y-1.5">
+          <div
+            key={label}
+            role="img"
+            aria-label={`${label} by asset: ${signals
+              .map((s, i) => `${s.asset} ${values[i].toFixed(1)}${unit}`)
+              .join(", ")}`}
+          >
+            <p className="text-xs text-gray-400 mb-2" id={`comparison-${label}`}>
+              {label}
+            </p>
+            <div className="space-y-1.5" aria-hidden="true">
               {signals.map((signal, i) => {
                 const val = values[i];
                 const pct = Math.min((val / maxVal) * 100, 100);
@@ -41,6 +50,7 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
                       />
                     </div>
                     <span className="text-xs font-mono text-gray-300 w-12 text-right shrink-0">
+                      {val.toFixed(1)}{unit}
                       {val.toFixed(1)}
                       {label === "Confidence" ? "%" : ""}
                     </span>
