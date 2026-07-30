@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 type ValidateFn = (value: string) => string | null;
 
@@ -91,7 +91,7 @@ interface SelectOption {
 interface FormFieldProps {
   label: string;
   name: string;
-  type?: "text" | "email" | "password" | "number" | "select";
+  type?: "text" | "email" | "password" | "number" | "select" | "date";
   required?: boolean;
   validate?: ValidateFn;
   error?: string;
@@ -102,6 +102,10 @@ interface FormFieldProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Guidance shown below the field when there is no error. */
+  helperText?: string;
+  /** Show a success indicator once the field is touched, has a value, and passes validation. */
+  showSuccess?: boolean;
 }
 
 export function FormField({
@@ -118,27 +122,33 @@ export function FormField({
   placeholder,
   disabled = false,
   className = "",
+  helperText,
+  showSuccess = true,
 }: FormFieldProps) {
   const [internalError, setInternalError] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
   const fieldId = useId();
   const errorId = `${fieldId}-error`;
+  const helperId = `${fieldId}-helper`;
 
   const error = externalError ?? internalError;
+  const isValid = showSuccess && touched && !!value && !error;
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const newValue = e.target.value;
       onChange?.(newValue);
-      if (validateFn) {
+      if (touched && validateFn) {
         const err = validateFn(newValue);
         setInternalError(err);
       }
     },
-    [onChange, validateFn]
+    [onChange, validateFn, touched]
   );
 
   const handleBlur = useCallback(
     (_e: FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setTouched(true);
       if (validateFn) {
         const err = validateFn(value);
         setInternalError(err);
@@ -148,9 +158,11 @@ export function FormField({
     [value, validateFn, onBlur]
   );
 
-  const inputClasses = `w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none transition-colors ${
+  const inputClasses = `w-full rounded-lg border bg-transparent px-3 py-2 pr-8 text-sm outline-none transition-colors ${
     error
       ? "border-destructive focus:ring-1 focus:ring-destructive"
+      : isValid
+      ? "border-emerald-500/60 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40"
       : "border-border focus:border-foreground focus:ring-1 focus:ring-foreground/20"
   } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`;
 
@@ -168,48 +180,58 @@ export function FormField({
         )}
       </label>
 
-      {type === "select" ? (
-        <select
-          id={fieldId}
-          name={name}
-          value={value}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          disabled={disabled}
-          required={required}
-          aria-invalid={!!error}
-          aria-describedby={error ? errorId : undefined}
-          className={inputClasses}
-        >
-          {placeholder && (
-            <option value="" disabled>
-              {placeholder}
-            </option>
-          )}
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          id={fieldId}
-          name={name}
-          type={type}
-          value={value}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          disabled={disabled}
-          required={required}
-          placeholder={placeholder}
-          aria-invalid={!!error}
-          aria-describedby={error ? errorId : undefined}
-          className={inputClasses}
-        />
-      )}
+      <div className="relative">
+        {type === "select" ? (
+          <select
+            id={fieldId}
+            name={name}
+            value={value}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            disabled={disabled}
+            required={required}
+            aria-invalid={!!error}
+            aria-describedby={error ? errorId : helperText ? helperId : undefined}
+            className={inputClasses}
+          >
+            {placeholder && (
+              <option value="" disabled>
+                {placeholder}
+              </option>
+            )}
+            {options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id={fieldId}
+            name={name}
+            type={type}
+            value={value}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            disabled={disabled}
+            required={required}
+            placeholder={placeholder}
+            aria-invalid={!!error}
+            aria-describedby={error ? errorId : helperText ? helperId : undefined}
+            className={inputClasses}
+          />
+        )}
 
-      {error && (
+        {isValid && (
+          <CheckCircle2
+            size={14}
+            aria-hidden="true"
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-emerald-500"
+          />
+        )}
+      </div>
+
+      {error ? (
         <p
           id={errorId}
           role="alert"
@@ -218,6 +240,12 @@ export function FormField({
           <AlertCircle size={12} aria-hidden="true" />
           {error}
         </p>
+      ) : (
+        helperText && (
+          <p id={helperId} className="text-xs text-foreground-muted">
+            {helperText}
+          </p>
+        )
       )}
     </div>
   );

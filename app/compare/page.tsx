@@ -246,14 +246,14 @@ function ComparePageContent() {
             </div>
           </div>
 
-          {/* Add signal panel */}
+          {/* Add signal panel — inline on tablet/desktop */}
           <AnimatePresence>
             {addPanelOpen && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden mb-6"
+                className="hidden overflow-hidden mb-6 sm:block"
               >
                 <div className="rounded-xl border border-white/10 bg-gray-900 p-4">
                   <div className="flex items-center justify-between mb-4">
@@ -269,6 +269,24 @@ function ComparePageContent() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Add signal panel — bottom sheet on mobile */}
+          <BottomSheet
+            open={addPanelOpen}
+            onClose={() => setAddPanelOpen(false)}
+            ariaLabel="Select signals to compare"
+            className="sm:hidden"
+            title="Select signals to compare"
+            headerExtra={
+              <span className="text-xs text-gray-500">
+                {signals.length}/3 selected
+              </span>
+            }
+          >
+            <div className="px-4 pb-6">
+              <AddSignalPanel />
+            </div>
+          </BottomSheet>
 
           {/* Limit-reached banner */}
           <AnimatePresence>
