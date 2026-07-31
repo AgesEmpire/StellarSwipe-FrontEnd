@@ -35,6 +35,56 @@ const OUTCOME_OPTIONS = [
   { label: "Failed", value: "FAILED" },
 ] as const;
 
+const SORT_OPTIONS = [
+  { label: "Newest first", value: "newest" },
+  { label: "Oldest first", value: "oldest" },
+  { label: "Amount (high to low)", value: "amount" },
+] as const;
+
+type JournalSortOrder = (typeof SORT_OPTIONS)[number]["value"];
+
+const JOURNAL_FILTER_STORAGE_KEY = "journal-activity-filters-v1";
+
+interface PersistedJournalFilters {
+  typeFilter: (typeof TYPE_OPTIONS)[number]["value"];
+  statusFilter: (typeof OUTCOME_OPTIONS)[number]["value"];
+  sortOrder: JournalSortOrder;
+}
+
+const DEFAULT_JOURNAL_FILTERS: PersistedJournalFilters = {
+  typeFilter: "ALL",
+  statusFilter: "ALL",
+  sortOrder: "newest",
+};
+
+function readPersistedJournalFilters(): PersistedJournalFilters {
+  if (typeof window === "undefined") return DEFAULT_JOURNAL_FILTERS;
+  try {
+    const raw = window.localStorage.getItem(JOURNAL_FILTER_STORAGE_KEY);
+    if (!raw) return DEFAULT_JOURNAL_FILTERS;
+    const parsed = JSON.parse(raw) as Partial<PersistedJournalFilters>;
+    return {
+      typeFilter: parsed.typeFilter ?? DEFAULT_JOURNAL_FILTERS.typeFilter,
+      statusFilter: parsed.statusFilter ?? DEFAULT_JOURNAL_FILTERS.statusFilter,
+      sortOrder: parsed.sortOrder ?? DEFAULT_JOURNAL_FILTERS.sortOrder,
+    };
+  } catch {
+    return DEFAULT_JOURNAL_FILTERS;
+  }
+}
+
+function persistJournalFilters(filters: PersistedJournalFilters) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      JOURNAL_FILTER_STORAGE_KEY,
+      JSON.stringify(filters)
+    );
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+}
+
 const statusStyles = {
   PENDING: "bg-yellow-500/10 text-yellow-300 border-yellow-500/20",
   SUCCEEDED: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
@@ -67,8 +117,22 @@ export function TransactionActivityFeed() {
     useState<(typeof TYPE_OPTIONS)[number]["value"]>("ALL");
   const [statusFilter, setStatusFilter] =
     useState<(typeof OUTCOME_OPTIONS)[number]["value"]>("ALL");
+  const [sortOrder, setSortOrder] = useState<JournalSortOrder>("newest");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Restore persisted filter/sort state on mount so it survives navigation and refresh.
+  useEffect(() => {
+    const persisted = readPersistedJournalFilters();
+    setTypeFilter(persisted.typeFilter);
+    setStatusFilter(persisted.statusFilter);
+    setSortOrder(persisted.sortOrder);
+  }, []);
+
+  // Keep persisted state in sync whenever the user changes a filter or sort control.
+  useEffect(() => {
+    persistJournalFilters({ typeFilter, statusFilter, sortOrder });
+  }, [typeFilter, statusFilter, sortOrder]);
 
   // Simulate pending→success/failure transitions (existing behavior)
   useEffect(() => {
@@ -130,11 +194,26 @@ export function TransactionActivityFeed() {
   );
 
   const filtered = useMemo(() => {
-    return history
+    const matches = history
       .filter((item) => typeFilter === "ALL" || item.type === typeFilter)
-      .filter((item) => statusFilter === "ALL" || item.status === statusFilter)
-      .sort((a, b) => b.timestamp - a.timestamp);
-  }, [history, typeFilter, statusFilter]);
+      .filter((item) => statusFilter === "ALL" || item.status === statusFilter);
+
+    return [...matches].sort((a, b) => {
+      if (sortOrder === "oldest") return a.timestamp - b.timestamp;
+      if (sortOrder === "amount")
+        return parseFloat(b.amount) - parseFloat(a.amount);
+      return b.timestamp - a.timestamp;
+    });
+  }, [history, typeFilter, statusFilter, sortOrder]);
+
+  const hasActiveFilters =
+    typeFilter !== "ALL" || statusFilter !== "ALL" || sortOrder !== "newest";
+
+  const clearFilters = useCallback(() => {
+    setTypeFilter("ALL");
+    setStatusFilter("ALL");
+    setSortOrder("newest");
+  }, []);
 
   // ── Editing state ─────────────────────────────────────────────────
 
@@ -153,12 +232,17 @@ export function TransactionActivityFeed() {
             Recent copy trades, status updates, and history in one place.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Filter and sort journal activity"
+        >
           <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Type
           </label>
           <select
             value={typeFilter}
+            aria-label="Filter by transaction type"
             onChange={(e) =>
               setTypeFilter(
                 e.target.value as (typeof TYPE_OPTIONS)[number]["value"]
@@ -172,24 +256,55 @@ export function TransactionActivityFeed() {
               </option>
             ))}
           </select>
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            role="group"
+            aria-label="Filter by status"
+          >
+            {OUTCOME_OPTIONS.map((option) => {
+              const selected = statusFilter === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setStatusFilter(option.value)}
+                  aria-pressed={selected}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                    selected
+                      ? "border-blue-400/40 bg-blue-400/10 text-blue-300"
+                      : "border-white/10 bg-background/80 text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
           <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Status
+            Sort
           </label>
           <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(
-                e.target.value as (typeof OUTCOME_OPTIONS)[number]["value"]
-              )
-            }
+            value={sortOrder}
+            aria-label="Sort journal activity"
+            onChange={(e) => setSortOrder(e.target.value as JournalSortOrder)}
             className="rounded-full border border-white/10 bg-background/80 px-3 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {OUTCOME_OPTIONS.map((option) => (
+            {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 

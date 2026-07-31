@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useTransactionStore } from "@/store/useTransactionStore";
 import {
@@ -101,6 +103,9 @@ export function TaxReportingTool() {
   const [jurisdiction, setJurisdiction] = useState<TaxJurisdiction>("US");
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const [csvPreset, setCsvPreset] = useState<CsvPreset>("generic");
+  const [pendingExport, setPendingExport] = useState<
+    "csv" | "pdf" | "turbotax" | "taxact" | null
+  >(null);
 
   const transactions = useMemo(() => deriveTransactions(history), [history]);
 
@@ -125,35 +130,126 @@ export function TaxReportingTool() {
         100
       : null;
 
+  const exportPreviewConfig: Record<
+    "csv" | "pdf" | "turbotax" | "taxact",
+    {
+      title: string;
+      description: string;
+      confirmLabel: string;
+      items: { label: string; value: string }[];
+    }
+  > = {
+    csv: {
+      title: "Export tax report as CSV",
+      description: `Your ${selectedYear} ${jurisdiction} report will download using the ${CSV_PRESETS[csvPreset].label} preset.`,
+      confirmLabel: "Download CSV",
+      items: [
+        { label: "Tax year", value: String(selectedYear) },
+        { label: "Jurisdiction", value: jurisdiction },
+        { label: "Preset", value: CSV_PRESETS[csvPreset].label },
+        {
+          label: "Filename",
+          value: `tax-report-${selectedYear}-${jurisdiction}-${csvPreset}.csv`,
+        },
+      ],
+    },
+    pdf: {
+      title: "Export tax report as PDF",
+      description:
+        "Your browser's print dialog will open — choose \"Save as PDF\" to export.",
+      confirmLabel: "Open print dialog",
+      items: [
+        { label: "Tax year", value: String(selectedYear) },
+        { label: "Jurisdiction", value: jurisdiction },
+      ],
+    },
+    turbotax: {
+      title: "Export for TurboTax",
+      description: `Your ${selectedYear} ${jurisdiction} report will download in TurboTax .txf format.`,
+      confirmLabel: "Download .txf",
+      items: [
+        { label: "Tax year", value: String(selectedYear) },
+        { label: "Jurisdiction", value: jurisdiction },
+        {
+          label: "Filename",
+          value: `turbotax-${selectedYear}-${jurisdiction}.txf`,
+        },
+      ],
+    },
+    taxact: {
+      title: "Export for TaxAct",
+      description: `Your ${selectedYear} ${jurisdiction} report will download as a TaxAct-formatted CSV.`,
+      confirmLabel: "Download CSV",
+      items: [
+        { label: "Tax year", value: String(selectedYear) },
+        { label: "Jurisdiction", value: jurisdiction },
+        {
+          label: "Filename",
+          value: `taxact-${selectedYear}-${jurisdiction}.csv`,
+        },
+      ],
+    },
+  };
+
   function handleExportCsv() {
-    const csv = exportToCsvWithPreset(currentReport, csvPreset);
-    triggerDownload(
-      csv,
-      `tax-report-${selectedYear}-${jurisdiction}-${csvPreset}.csv`,
-      "text/csv"
-    );
+    setPendingExport("csv");
   }
 
   function handleExportPdf() {
-    window.print();
+    setPendingExport("pdf");
   }
 
   function handleExportTurboTax() {
-    const txf = formatForTurboTax(currentReport);
-    triggerDownload(
-      txf,
-      `turbotax-${selectedYear}-${jurisdiction}.txf`,
-      "text/plain"
-    );
+    setPendingExport("turbotax");
   }
 
   function handleExportTaxAct() {
-    const csv = formatForTaxAct(currentReport);
-    triggerDownload(
-      csv,
-      `taxact-${selectedYear}-${jurisdiction}.csv`,
-      "text/csv"
-    );
+    setPendingExport("taxact");
+  }
+
+  function runPendingExport() {
+    if (pendingExport === "csv") {
+      const csv = exportToCsvWithPreset(currentReport, csvPreset);
+      triggerDownload(
+        csv,
+        `tax-report-${selectedYear}-${jurisdiction}-${csvPreset}.csv`,
+        "text/csv"
+      );
+      toast.success("Tax report downloaded", {
+        description: `${selectedYear} ${jurisdiction} report saved as CSV.`,
+      });
+      return;
+    }
+
+    if (pendingExport === "pdf") {
+      window.print();
+      return;
+    }
+
+    if (pendingExport === "turbotax") {
+      const txf = formatForTurboTax(currentReport);
+      triggerDownload(
+        txf,
+        `turbotax-${selectedYear}-${jurisdiction}.txf`,
+        "text/plain"
+      );
+      toast.success("TurboTax file downloaded", {
+        description: `${selectedYear} ${jurisdiction} report saved as .txf.`,
+      });
+      return;
+    }
+
+    if (pendingExport === "taxact") {
+      const csv = formatForTaxAct(currentReport);
+      triggerDownload(
+        csv,
+        `taxact-${selectedYear}-${jurisdiction}.csv`,
+        "text/csv"
+      );
+      toast.success("TaxAct file downloaded", {
+        description: `${selectedYear} ${jurisdiction} report saved as CSV.`,
+      });
+    }
   }
 
   return (
@@ -534,6 +630,20 @@ export function TaxReportingTool() {
           qualified tax professional before filing your taxes.
         </p>
       </div>
+
+      {pendingExport && (
+        <ExportPreviewDialog
+          open={pendingExport !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingExport(null);
+          }}
+          title={exportPreviewConfig[pendingExport].title}
+          description={exportPreviewConfig[pendingExport].description}
+          items={exportPreviewConfig[pendingExport].items}
+          confirmLabel={exportPreviewConfig[pendingExport].confirmLabel}
+          onConfirm={runPendingExport}
+        />
+      )}
     </section>
   );
 }

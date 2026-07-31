@@ -263,85 +263,104 @@ export function JournalEntryForm({
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Date</label>
+          <label htmlFor="journal-entry-date" className="text-xs font-medium text-slate-400">Date</label>
           <input
+            id="journal-entry-date"
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={submitting}
+            aria-invalid={!!errors.date}
+            aria-describedby={errors.date ? "journal-entry-date-error" : undefined}
           />
-          {errors.date && <p className="text-[10px] text-red-400">{errors.date}</p>}
+          {errors.date && <p id="journal-entry-date-error" className="text-[10px] text-red-400">{errors.date}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Asset Pair</label>
+          <label htmlFor="journal-entry-asset-pair" className="text-xs font-medium text-slate-400">Asset Pair</label>
           <input
+            id="journal-entry-asset-pair"
             type="text"
             placeholder="e.g. XLM/USDC"
             value={formData.assetPair || ""}
             onChange={(e) => setFormData({ ...formData, assetPair: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={submitting}
+            aria-invalid={!!errors.assetPair}
+            aria-describedby={errors.assetPair ? "journal-entry-asset-pair-error" : undefined}
           />
-          {errors.assetPair && <p className="text-[10px] text-red-400">{errors.assetPair}</p>}
+          {errors.assetPair && <p id="journal-entry-asset-pair-error" className="text-[10px] text-red-400">{errors.assetPair}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Amount</label>
+          <label htmlFor="journal-entry-amount" className="text-xs font-medium text-slate-400">Amount</label>
           <input
+            id="journal-entry-amount"
             type="text"
             placeholder="0.00"
             value={formData.amount || ""}
             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={submitting}
+            aria-invalid={!!errors.amount}
+            aria-describedby={errors.amount ? "journal-entry-amount-error" : undefined}
           />
-          {errors.amount && <p className="text-[10px] text-red-400">{errors.amount}</p>}
+          {errors.amount && <p id="journal-entry-amount-error" className="text-[10px] text-red-400">{errors.amount}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Price</label>
+          <label htmlFor="journal-entry-price" className="text-xs font-medium text-slate-400">Price</label>
           <input
+            id="journal-entry-price"
             type="text"
             placeholder="0.00"
             value={formData.price || ""}
             onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={submitting}
+            aria-invalid={!!errors.price}
+            aria-describedby={errors.price ? "journal-entry-price-error" : undefined}
           />
-          {errors.price && <p className="text-[10px] text-red-400">{errors.price}</p>}
+          {errors.price && <p id="journal-entry-price-error" className="text-[10px] text-red-400">{errors.price}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Token</label>
+          <label htmlFor="journal-entry-token" className="text-xs font-medium text-slate-400">Token</label>
           <input
+            id="journal-entry-token"
             type="text"
             placeholder="e.g. XLM"
             value={formData.token || ""}
             onChange={(e) => setFormData({ ...formData, token: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={submitting}
+            aria-invalid={!!errors.token}
+            aria-describedby={errors.token ? "journal-entry-token-error" : undefined}
           />
-          {errors.token && <p className="text-[10px] text-red-400">{errors.token}</p>}
+          {errors.token && <p id="journal-entry-token-error" className="text-[10px] text-red-400">{errors.token}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Fee</label>
+          <label htmlFor="journal-entry-fee" className="text-xs font-medium text-slate-400">Fee</label>
           <input
+            id="journal-entry-fee"
             type="text"
             placeholder="0.00"
             value={formData.fee || ""}
             onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={submitting}
+            aria-invalid={!!errors.fee}
+            aria-describedby={errors.fee ? "journal-entry-fee-error" : undefined}
           />
-          {errors.fee && <p className="text-[10px] text-red-400">{errors.fee}</p>}
+          {errors.fee && <p id="journal-entry-fee-error" className="text-[10px] text-red-400">{errors.fee}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Status</label>
+          <label htmlFor="journal-entry-status" className="text-xs font-medium text-slate-400">Status</label>
           <select
+            id="journal-entry-status"
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
@@ -354,8 +373,9 @@ export function JournalEntryForm({
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-400">Outcome</label>
+          <label htmlFor="journal-entry-outcome" className="text-xs font-medium text-slate-400">Outcome</label>
           <select
+            id="journal-entry-outcome"
             value={formData.outcome}
             onChange={(e) => setFormData({ ...formData, outcome: e.target.value as any })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"

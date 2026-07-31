@@ -1,18 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { useTransactionStore } from "@/store/useTransactionStore";
 import { Button } from "@/components/ui/button";
-import { TradeModal } from "@/components/TradeModal";
-import { WalletSelectionModal } from "@/components/WalletSelectionModal";
 import { WalletDropdown } from "@/components/WalletDropdown";
 import { PageTransition } from "@/components/PageTransition";
-import { PortfolioAllocationChart } from "@/components/chart/PortfolioAllocationChart";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
-import { PnLWidget } from "@/components/chart/PnLWidget";
-import { DashboardWidgets } from "@/components/DashboardWidgets";
 import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatus";
 import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
 import { PositionStopLossControl } from "@/components/PositionStopLossControl";
@@ -23,6 +19,34 @@ import { SignalCard } from "@/components/SignalCard";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { PortfolioErrorBoundary } from "@/components/PortfolioErrorBoundary";
 import { SignalFeedErrorBoundary } from "@/components/signal/SignalFeedErrorBoundary";
+
+// Heavy/optional panels deferred out of the initial /app bundle — they're
+// not needed for first paint (modals only open on interaction, charts and
+// onboarding are secondary to the signal feed itself).
+const TradeModal = dynamic(
+  () => import("@/components/TradeModal").then((m) => m.TradeModal),
+  { ssr: false }
+);
+const WalletSelectionModal = dynamic(
+  () =>
+    import("@/components/WalletSelectionModal").then(
+      (m) => m.WalletSelectionModal
+    ),
+  { ssr: false }
+);
+const DashboardWidgets = dynamic(
+  () => import("@/components/DashboardWidgets").then((m) => m.DashboardWidgets),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 w-full animate-pulse rounded-2xl bg-white/5" />
+    ),
+  }
+);
+const OnboardingFlow = dynamic(
+  () => import("@/components/OnboardingFlow").then((m) => m.OnboardingFlow),
+  { ssr: false }
+);
 
 interface AppShellProps {
   children: React.ReactNode;
