@@ -10,6 +10,9 @@ import { AnalyticsDebugConsole } from "@/components/AnalyticsDebugConsole";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
 import { ComparisonTray } from "@/components/ComparisonTray";
+import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
+import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -76,6 +79,7 @@ export default function RootLayout({
           <a href="#main-content" className="skip-link">
             Skip to main content
           </a>
+          <NetworkStatusIndicator />
           <ScrollRestoration />
           <WebVitalsReporting />
           <Navbar />
@@ -88,6 +92,8 @@ export default function RootLayout({
           <DevPerfOverlay />
           <AnalyticsDebugConsole />
           <ComparisonTray />
+          <NotificationPermissionPrompt />
+          <GuidedTourSpotlight />
         </Providers>
       </body>
     </html>

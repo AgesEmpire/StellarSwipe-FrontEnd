@@ -17,6 +17,8 @@ import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatu
 import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
 import { PositionStopLossControl } from "@/components/PositionStopLossControl";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
+import { NetworkErrorState } from "@/components/NetworkErrorState";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { SignalCard } from "@/components/SignalCard";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { PortfolioErrorBoundary } from "@/components/PortfolioErrorBoundary";
@@ -66,6 +68,7 @@ export function AppShell({ children }: AppShellProps) {
   );
 
   const prefersReduced = useReducedMotion();
+  const { isOnline } = useNetworkStatus();
 
   if (!connected) {
     return (
@@ -138,6 +141,16 @@ export function AppShell({ children }: AppShellProps) {
             <WalletDropdown />
           </div>
         </header>
+
+        {!isOnline && (
+          <div className="mx-auto mb-4 w-full max-w-7xl">
+            <NetworkErrorState
+              context="the dashboard"
+              onRetry={() => window.location.reload()}
+              variant="banner"
+            />
+          </div>
+        )}
 
         <div className="mx-auto mb-4 w-full max-w-7xl">
           <OnChainConfirmationStatus

@@ -28,6 +28,7 @@ import { queryOptions as queryOpts } from "@/lib/queryOptions";
 import { fetchSignals } from "@/lib/api";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
+import { NetworkErrorState } from "@/components/NetworkErrorState";
 import {
   clampSplitRatio,
   computeSplitRatioFromClientX,
@@ -540,6 +541,16 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         />
       </div>
 
+      {isError && signals.length > 0 && (
+        <div className="mb-3">
+          <NetworkErrorState
+            context="the latest signals"
+            onRetry={() => refetch()}
+            variant="banner"
+          />
+        </div>
+      )}
+
       <div
         ref={splitContainerRef}
         className="lg:grid lg:items-start lg:gap-0"
@@ -589,6 +600,11 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                   <SignalCardSkeleton key={index} />
                 ))}
               </div>
+            ) : isError && signals.length === 0 ? (
+              <NetworkErrorState
+                context="signals"
+                onRetry={() => refetch()}
+              />
             ) : !isError && signals.length === 0 ? (
               <SignalEmptyState
                 variant={
