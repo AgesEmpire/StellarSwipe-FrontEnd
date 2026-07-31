@@ -17,11 +17,13 @@ import { useThemeStore } from "@/store/useThemeStore";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
-  { href: "/app", label: "Signals" },
+  { href: "/app", label: "Signals", tourId: "signals" },
   { href: "/journal", label: "Journal" },
   { href: "/bookmarks", label: "Bookmarks" },
+  { href: "/compare", label: "Compare", tourId: "compare" },
   { href: "/providers", label: "Providers" },
   { href: "/tax-report", label: "Tax Report" },
+  { href: "/preferences", label: "Preferences" },
 ];
 
 const routeShortcuts: Record<string, string> = {
@@ -112,10 +114,11 @@ export function Navbar() {
 
           {/* Nav links */}
           <ul className="hidden sm:flex items-center gap-1" role="list">
-            {NAV_LINKS.map(({ href, label }) => (
+            {NAV_LINKS.map(({ href, label, tourId }) => (
               <li key={href}>
                 <Link
                   href={href}
+                  data-tour={tourId}
                   className="rounded-md px-3 py-1.5 text-sm text-foreground-muted hover:text-foreground hover:bg-surface-high/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   {label}
@@ -141,27 +144,29 @@ export function Navbar() {
 
             <ThemeToggle />
             <LanguageSelector />
-            {connected ? (
-              <WalletDropdown />
-            ) : (
-              <Button
-                size="sm"
-                disabled={isConnecting}
-                onClick={() => setWalletModalOpen(true)}
-                aria-label={
-                  isConnecting ? "Connecting wallet…" : "Connect wallet"
-                }
-                className="gap-2"
-              >
-                {isConnecting && (
-                  <Loader2
-                    className="h-3.5 w-3.5 animate-spin"
-                    aria-hidden="true"
-                  />
-                )}
-                {isConnecting ? "Connecting…" : "Connect Wallet"}
-              </Button>
-            )}
+            <div data-tour="wallet" className="inline-flex">
+              {connected ? (
+                <WalletDropdown />
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={isConnecting}
+                  onClick={() => setWalletModalOpen(true)}
+                  aria-label={
+                    isConnecting ? "Connecting wallet…" : "Connect wallet"
+                  }
+                  className="gap-2"
+                >
+                  {isConnecting && (
+                    <Loader2
+                      className="h-3.5 w-3.5 animate-spin"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {isConnecting ? "Connecting…" : "Connect Wallet"}
+                </Button>
+              )}
+            </div>
           </div>
         </nav>
       </header>

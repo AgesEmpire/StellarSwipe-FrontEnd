@@ -9,6 +9,9 @@ import { TradeStatusBanner } from "@/components/TradeStatusBanner";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
 import { ComparisonTray } from "@/components/ComparisonTray";
+import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
+import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
 // Dev-only overlays (~950 lines combined) render null in production but were
 // previously statically imported into every page's root layout bundle. They
@@ -91,6 +94,7 @@ export default function RootLayout({
           <a href="#main-content" className="skip-link">
             Skip to main content
           </a>
+          <NetworkStatusIndicator />
           <ScrollRestoration />
           <WebVitalsReporting />
           <Navbar />
@@ -103,6 +107,8 @@ export default function RootLayout({
           <DevPerfOverlay />
           <AnalyticsDebugConsole />
           <ComparisonTray />
+          <NotificationPermissionPrompt />
+          <GuidedTourSpotlight />
         </Providers>
       </body>
     </html>
