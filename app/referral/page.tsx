@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { ReferralMilestoneProgress } from "@/components/ReferralMilestoneProgress";
 
 const BASE_REFERRAL_URL = "https://app.example.com/referral/ABC123";
 
@@ -30,8 +32,6 @@ function buildReferralLink(baseUrl: string, channel: ChannelKey): string {
   return `${baseUrl}?${params.toString()}`;
 }
 
-import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
-
 function ReferralPageInner() {
   const [copied, setCopied] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<ChannelKey>("twitter");
@@ -52,6 +52,8 @@ function ReferralPageInner() {
     },
   ];
 
+  const verifiedCount = referrals.filter((r) => r.status === "verified").length;
+
   const generatedLink = buildReferralLink(BASE_REFERRAL_URL, selectedChannel);
 
   const copy = async () => {
@@ -69,13 +71,18 @@ function ReferralPageInner() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Referral Program</h1>
 
+      {/* Milestone progress (issue #350) */}
+      <ReferralMilestoneProgress
+        referralCount={verifiedCount}
+        className="mb-4"
+      />
+
       {/* UTM link generator */}
       <div className="bg-white/5 p-4 rounded mb-4">
         <p className="text-sm text-gray-400 mb-2">
           Generate referral link with UTM tracking
         </p>
 
-        {/* Channel selector */}
         <div
           className="flex flex-wrap gap-2 mb-3"
           role="group"
@@ -98,7 +105,6 @@ function ReferralPageInner() {
           ))}
         </div>
 
-        {/* Generated link display + copy */}
         <div className="flex gap-2 items-center">
           <input
             readOnly
