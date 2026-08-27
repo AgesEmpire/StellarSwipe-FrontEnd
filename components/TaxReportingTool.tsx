@@ -18,6 +18,8 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
+import { ColumnVisibilityControl } from "@/components/ColumnVisibilityControl";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useTransactionStore } from "@/store/useTransactionStore";
@@ -242,6 +244,17 @@ export function TaxReportingTool() {
   const netGainLoss = currentReport.totalGainLoss;
   const isGain = netGainLoss >= 0;
 
+  // #565 Column visibility
+  const {
+    visibility: colVis,
+    toggle: toggleCol,
+    showAll: showAllCols,
+    isVisible,
+  } = useColumnVisibility<TaxColumn>({
+    columns: TAX_TABLE_COLUMNS,
+    storageKey: "tax-table-columns-v1",
+  });
+
   const yoyChange =
     previousReport.totalGainLoss !== 0
       ? ((netGainLoss - previousReport.totalGainLoss) /
@@ -400,8 +413,21 @@ export function TaxReportingTool() {
     }
   }
 
+  const printDate = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <section className="space-y-6" aria-label="Tax Reporting Tool">
+    <section
+      className="space-y-6"
+      aria-label="Tax Reporting Tool"
+      data-print-report
+      data-print-title={`StellarSwipe Tax Report ${selectedYear} — ${jurisdiction}`}
+      data-print-subtitle={`Generated ${printDate}`}
+      data-print-date={printDate}
+    >
       {/* Header */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">

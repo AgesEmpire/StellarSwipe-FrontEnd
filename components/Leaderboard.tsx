@@ -1,5 +1,5 @@
 import React from "react";
-import Image from "next/image";
+import { AvatarImage } from "@/components/AvatarImage";
 import {
   useLeaderboardStore,
   type LeaderboardEntry,
@@ -104,14 +104,12 @@ export const Leaderboard: React.FC = () => {
                 <span className="text-lg font-bold text-gray-400 w-6 shrink-0">
                   #{idx + 1}
                 </span>
-                <Image
+                <AvatarImage
                   src={entry.avatarUrl}
-                  alt={entry.username}
-                  width={64}
-                  height={64}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-primary"
-                  sizes="64px"
+                  name={entry.anonymous ? "" : entry.username}
+                  size={64}
                   quality={imageQuality}
+                  className="border-2 border-primary"
                 />
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-gray-800">
