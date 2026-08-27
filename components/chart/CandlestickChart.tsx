@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useChartTooltip } from "@/hooks/useChartTooltip";
 
 interface Candle {
   open: number;
@@ -42,6 +43,18 @@ export function CandlestickChart({
     [data]
   );
 
+  const { activeIndex, isVisible, activeDescription, tooltipId, containerProps, showAt, hide } =
+    useChartTooltip({
+      ariaLabel: "Candlestick chart",
+      describePoint: (i) => {
+        const c = candles[i];
+        if (!c) return "";
+        const dir = c.close >= c.open ? "up" : "down";
+        return `Candle ${i + 1} of ${candles.length}: ${dir}. Open ${c.open.toFixed(4)}, Close ${c.close.toFixed(4)}, High ${c.high.toFixed(4)}, Low ${c.low.toFixed(4)}`;
+      },
+      dataLength: candles.length,
+    });
+
   if (!candles.length) return null;
 
   const allVals = candles.flatMap((c) => [c.high, c.low]);
@@ -57,45 +70,110 @@ export function CandlestickChart({
   const gap = 1;
   const bodyW = Math.max(2, chartW / candles.length - gap);
 
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      aria-label="Candlestick chart"
-      role="img"
-      className={`overflow-visible ${className}`}
-    >
-      {candles.map((c, i) => {
-        const cx = pad + (i / candles.length) * chartW + bodyW / 2;
-        const isUp = c.close >= c.open;
-        const color = isUp ? "#22c55e" : "#ef4444";
-        const bodyTop = toY(Math.max(c.open, c.close));
-        const bodyBottom = toY(Math.min(c.open, c.close));
-        const bodyH = Math.max(1, bodyBottom - bodyTop);
+  // Tooltip position for the active candle
+  const activeCandle = activeIndex !== null ? candles[activeIndex] : null;
+  const tooltipX =
+    activeIndex !== null
+      ? pad + (activeIndex / candles.length) * chartW + bodyW / 2
+      : 0;
+  const tooltipY =
+    activeCandle ? toY(activeCandle.high) - 6 : 0;
 
-        return (
-          <g key={i}>
-            <line
-              x1={cx}
-              y1={toY(c.high)}
-              x2={cx}
-              y2={toY(c.low)}
-              stroke={color}
-              strokeWidth={1}
-            />
-            <rect
-              x={cx - bodyW / 2}
-              y={bodyTop}
-              width={bodyW}
-              height={bodyH}
-              fill={isUp ? color : "none"}
-              stroke={color}
-              strokeWidth={1}
-            />
-          </g>
-        );
-      })}
-    </svg>
+  return (
+    <div className={`relative inline-block ${className}`} style={{ width, height }}>
+      {/* Accessible live region */}
+      <span
+        id={tooltipId}
+        role="status"
+        aria-live="polite"
+        className="sr-only"
+      >
+        {isVisible ? activeDescription : "Candlestick chart"}
+      </span>
+
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        className="overflow-visible"
+        aria-hidden="true"
+      >
+        {candles.map((c, i) => {
+          const cx = pad + (i / candles.length) * chartW + bodyW / 2;
+          const isUp = c.close >= c.open;
+          const color = isUp ? "#22c55e" : "#ef4444";
+          const bodyTop = toY(Math.max(c.open, c.close));
+          const bodyBottom = toY(Math.min(c.open, c.close));
+          const bodyH = Math.max(1, bodyBottom - bodyTop);
+          const isActive = activeIndex === i;
+
+          return (
+            <g
+              key={i}
+              onPointerEnter={() => showAt(i)}
+              onPointerLeave={hide}
+              onTouchStart={(e) => { e.preventDefault(); showAt(i); }}
+              onTouchEnd={hide}
+              style={{ cursor: "crosshair" }}
+            >
+              {/* Invisible hit area wider than the candle body */}
+              <rect
+                x={cx - bodyW}
+                y={0}
+                width={bodyW * 2}
+                height={height}
+                fill="transparent"
+              />
+              {/* Wick */}
+              <line
+                x1={cx}
+                y1={toY(c.high)}
+                x2={cx}
+                y2={toY(c.low)}
+                stroke={color}
+                strokeWidth={isActive ? 1.5 : 1}
+              />
+              {/* Body */}
+              <rect
+                x={cx - bodyW / 2}
+                y={bodyTop}
+                width={bodyW}
+                height={bodyH}
+                fill={isUp ? color : "none"}
+                stroke={color}
+                strokeWidth={isActive ? 1.5 : 1}
+                opacity={isActive ? 1 : 0.85}
+              />
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Keyboard-navigable overlay */}
+      <div
+        {...containerProps}
+        className="absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
+        style={{ outline: "none" }}
+      />
+
+      {/* Floating tooltip */}
+      {isVisible && activeCandle && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 shadow-md"
+          style={{
+            left: Math.min(Math.max(0, tooltipX - 28), width - 60),
+            top: Math.max(0, tooltipY - 32),
+            whiteSpace: "nowrap",
+            fontSize: 10,
+            color: "white",
+          }}
+          aria-hidden="true"
+        >
+          <div>O {activeCandle.open.toFixed(4)}</div>
+          <div>C {activeCandle.close.toFixed(4)}</div>
+        </div>
+      )}
+    </div>
   );
 }

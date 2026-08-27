@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import {
   useSwipeSettingsStore,
@@ -8,6 +9,9 @@ import {
   getEffectiveSwipeThreshold,
   getEffectiveVelocityThreshold,
 } from "@/store/useSwipeSettingsStore";
+import { useSubmitGuard } from "@/hooks/useSubmitGuard";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { Loader2, AlertCircle } from "lucide-react";
 
 // Sensitivity levels in display order
 const SENSITIVITY_LEVELS: {
@@ -37,40 +41,98 @@ const SENSITIVITY_LEVELS: {
  *  2. Direction swap toggle — reverses left/right action mapping, so right
  *     swipe → pass and left swipe → trade.
  *
- * All changes are persisted immediately via the Zustand store and take effect
- * without a page reload.
+ * Changes are staged locally and applied only when the user presses Save.
+ * `useSubmitGuard` ensures the save action cannot be triggered twice in
+ * parallel (e.g. keyboard Enter + button click), and `useUnsavedChanges`
+ * warns before navigating away with pending edits.
  *
  * @example
  * <SwipeSettings />
  */
 export function SwipeSettings({ className }: { className?: string }) {
   const {
-    sensitivity,
-    swapDirections,
+    sensitivity: savedSensitivity,
+    swapDirections: savedSwapDirections,
     setSensitivity,
     setSwapDirections,
     resetToDefaults,
   } = useSwipeSettingsStore();
 
+  // ── Staged (local) state — not persisted until Save ────────────────
+  const [sensitivity, setSensitivityLocal] = useState<SensitivityLevel>(savedSensitivity);
+  const [swapDirections, setSwapDirectionsLocal] = useState(savedSwapDirections);
+
+  const isDirty =
+    sensitivity !== savedSensitivity || swapDirections !== savedSwapDirections;
+
+  // ── Submit guard — prevents double-save ───────────────────────────
+  const { isSubmitting, hasError, errorMessage, guard, submitButtonProps, clearError } =
+    useSubmitGuard();
+
+  // ── Unsaved-changes protection ────────────────────────────────────
+  const { markSaved, confirmNavigation } = useUnsavedChanges({
+    isDirty,
+    message: "You have unsaved swipe settings. Leave anyway?",
+  });
+
+  // ── Computed values from staged sensitivity ────────────────────────
   const swipeThreshold = getEffectiveSwipeThreshold(sensitivity);
   const velocityThreshold = getEffectiveVelocityThreshold(sensitivity);
 
-  // Convert sensitivity to a 0–2 slider index for the range input
   const sensitivityIndex = SENSITIVITY_LEVELS.findIndex(
     (l) => l.value === sensitivity
   );
   const selectedLevel = SENSITIVITY_LEVELS[sensitivityIndex];
 
+  const isDefaultSettings = sensitivity === "default" && !swapDirections;
+
   function handleSliderChange(e: React.ChangeEvent<HTMLInputElement>) {
     const idx = Number(e.target.value);
     const level = SENSITIVITY_LEVELS[idx];
-    if (level) setSensitivity(level.value);
+    if (level) {
+      setSensitivityLocal(level.value);
+      clearError();
+    }
   }
 
-  const isDefault = sensitivity === "default" && !swapDirections;
+  function handleSwapToggle() {
+    setSwapDirectionsLocal((v) => !v);
+    clearError();
+  }
+
+  function handleReset() {
+    setSensitivityLocal("default");
+    setSwapDirectionsLocal(false);
+    clearError();
+  }
+
+  // ── Save — persists staged state to the store ─────────────────────
+  const handleSave = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      await guard(async () => {
+        // Simulate async persistence (e.g., API round-trip in the future).
+        // Currently the store is synchronous, but the guard still ensures
+        // only one in-flight call exists at any time.
+        await Promise.resolve();
+        setSensitivity(sensitivity);
+        setSwapDirections(swapDirections);
+        markSaved();
+      });
+    },
+    [guard, sensitivity, swapDirections, setSensitivity, setSwapDirections, markSaved]
+  );
+
+  // ── Discard changes ───────────────────────────────────────────────
+  function handleDiscard() {
+    setSensitivityLocal(savedSensitivity);
+    setSwapDirectionsLocal(savedSwapDirections);
+    clearError();
+  }
 
   return (
-    <section
+    <form
+      onSubmit={handleSave}
       aria-labelledby="swipe-settings-heading"
       className={cn(
         "flex flex-col gap-5 rounded-2xl border bg-card p-5",
@@ -90,17 +152,29 @@ export function SwipeSettings({ className }: { className?: string }) {
           </p>
         </div>
 
-        {!isDefault && (
+        {!isDefaultSettings && (
           <button
             type="button"
-            onClick={resetToDefaults}
-            className="rounded-md px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            onClick={handleReset}
+            disabled={isSubmitting}
+            className="rounded-md px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50"
             aria-label="Reset swipe settings to defaults"
           >
             Reset
           </button>
         )}
       </div>
+
+      {/* Error banner */}
+      {hasError && errorMessage && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+        >
+          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* ── Sensitivity slider ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3">
@@ -145,6 +219,7 @@ export function SwipeSettings({ className }: { className?: string }) {
             step={1}
             value={sensitivityIndex}
             onChange={handleSliderChange}
+            disabled={isSubmitting}
             aria-label="Swipe sensitivity"
             aria-valuemin={0}
             aria-valuemax={SENSITIVITY_LEVELS.length - 1}
@@ -154,7 +229,7 @@ export function SwipeSettings({ className }: { className?: string }) {
             }`}
             className={cn(
               "relative w-full cursor-pointer appearance-none bg-transparent h-5",
-              "focus:outline-none",
+              "focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
               "[&::-webkit-slider-thumb]:appearance-none",
               "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4",
               "[&::-webkit-slider-thumb]:rounded-full",
@@ -208,11 +283,13 @@ export function SwipeSettings({ className }: { className?: string }) {
           role="switch"
           aria-checked={swapDirections}
           aria-label="Swap swipe directions"
-          onClick={() => setSwapDirections(!swapDirections)}
+          disabled={isSubmitting}
+          onClick={handleSwapToggle}
           className={cn(
             "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent",
             "transition-colors duration-200 ease-in-out",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "disabled:cursor-not-allowed disabled:opacity-50",
             swapDirections ? "bg-blue-600" : "bg-muted"
           )}
         >
@@ -248,6 +325,32 @@ export function SwipeSettings({ className }: { className?: string }) {
           </span>
         </span>
       </div>
-    </section>
+
+      {/* ── Save / Discard actions — only shown when there are pending changes */}
+      {isDirty && (
+        <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={handleDiscard}
+            disabled={isSubmitting}
+            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50"
+          >
+            Discard
+          </button>
+          <button
+            type="submit"
+            {...submitButtonProps}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition-colors",
+              "hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+              "disabled:cursor-not-allowed disabled:opacity-60"
+            )}
+          >
+            {isSubmitting && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
+            Save
+          </button>
+        </div>
+      )}
+    </form>
   );
 }

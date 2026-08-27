@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
@@ -20,6 +20,8 @@ export function PortfolioAllocationChart({
 }: PortfolioAllocationChartProps) {
   const { assets, totalValue, isLoading } = usePortfolioStore();
 
+  const [activeSegment, setActiveSegment] = useState<string | null>(null);
+
   const chartData = useMemo(() => {
     return assets.map((asset) => ({
       ...asset,
@@ -37,7 +39,7 @@ export function PortfolioAllocationChart({
 
     let cumulativeAngle = 0;
 
-    return chartData.map((asset, index) => {
+    return chartData.map((asset) => {
       const angle = (asset.percentage / 100) * 360;
       const startAngle = cumulativeAngle;
       const endAngle = cumulativeAngle + angle;
@@ -137,6 +139,8 @@ export function PortfolioAllocationChart({
     );
   }
 
+  const activeArc = arcs.find((a) => a.symbol === activeSegment);
+
   return (
     <Card className={cn("w-full", className)}>
       <CardHeader>
@@ -148,38 +152,77 @@ export function PortfolioAllocationChart({
         </p>
       </CardHeader>
       <CardContent className="p-4">
-        <div className="h-48 sm:h-56">
+        <div className="relative h-48 sm:h-56">
           <svg
             width="100%"
             height="100%"
             viewBox={`0 0 ${width} ${height}`}
             role="img"
-            aria-label="Portfolio allocation donut chart"
+            aria-label={`Portfolio allocation donut chart. ${arcs.map((a) => `${a.name} ${a.percentage.toFixed(1)}%`).join(", ")}`}
           >
-            {arcs.map((arc) => (
-              <g key={arc.symbol}>
-                <path
-                  d={arc.path}
-                  fill={arc.color}
-                  className="transition-opacity hover:opacity-80"
+            {arcs.map((arc) => {
+              const isActive = arc.symbol === activeSegment;
+              return (
+                <g
+                  key={arc.symbol}
+                  role="button"
+                  aria-label={`${arc.name}: ${arc.percentage.toFixed(1)}% ($${arc.value?.toLocaleString() ?? ""})`}
+                  aria-pressed={isActive}
+                  tabIndex={0}
+                  style={{ outline: "none", cursor: "pointer" }}
+                  onPointerEnter={() => setActiveSegment(arc.symbol)}
+                  onPointerLeave={() => setActiveSegment(null)}
+                  onTouchStart={(e) => { e.preventDefault(); setActiveSegment(arc.symbol); }}
+                  onTouchEnd={() => setActiveSegment(null)}
+                  onFocus={() => setActiveSegment(arc.symbol)}
+                  onBlur={() => setActiveSegment(null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveSegment(isActive ? null : arc.symbol);
+                    }
+                  }}
                 >
-                  <title>{`${arc.name}: ${arc.percentage.toFixed(1)}%`}</title>
-                </path>
-                {arc.percentage > 5 && (
-                  <text
-                    x={arc.labelX}
-                    y={arc.labelY}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="fill-white text-xs font-medium"
-                    style={{ fontSize: "10px", pointerEvents: "none" }}
-                  >
-                    {`${arc.percentage.toFixed(0)}%`}
-                  </text>
-                )}
-              </g>
-            ))}
+                  <path
+                    d={arc.path}
+                    fill={arc.color}
+                    className="transition-opacity"
+                    opacity={activeSegment === null || isActive ? 1 : 0.5}
+                    style={isActive ? { filter: "brightness(1.15)" } : undefined}
+                  />
+                  {arc.percentage > 5 && (
+                    <text
+                      x={arc.labelX}
+                      y={arc.labelY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="fill-white text-xs font-medium"
+                      style={{ fontSize: "10px", pointerEvents: "none" }}
+                    >
+                      {`${arc.percentage.toFixed(0)}%`}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </svg>
+
+          {/* Floating tooltip for active segment */}
+          {activeArc && (
+            <div
+              role="tooltip"
+              aria-live="polite"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center"
+            >
+              <div className="rounded-lg bg-slate-900/90 px-3 py-2 text-center shadow-lg">
+                <p className="text-xs font-semibold text-white">{activeArc.name}</p>
+                <p className="text-xs text-slate-300">{activeArc.percentage.toFixed(1)}%</p>
+                {activeArc.value !== undefined && (
+                  <p className="text-xs text-slate-400">${activeArc.value.toLocaleString()}</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <ul

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+// Ref-based in-flight flag ensures only one confirm request is sent per user
+// action — covers both the button click and the Enter-key shortcut paths.
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Info, AlertCircle, ArrowLeft, CheckCircle } from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -71,6 +73,15 @@ export function TradeModal({
 
   // Live-region ref for announcing order-type changes to screen readers
   const liveRegionRef = useRef<HTMLSpanElement>(null);
+
+  /**
+   * In-flight ref for the confirm action.
+   * Using a ref (not just `submitting` state) so the guard check is
+   * synchronous — closing the window between a React re-render and the
+   * next event, which could otherwise allow a second submission to slip
+   * through on rapid double-click or quick Enter-key presses.
+   */
+  const confirmInFlightRef = useRef(false);
 
   // Calculate position limit in USD value
   const positionLimitInUSD = useMemo(() => {
@@ -147,7 +158,8 @@ export function TradeModal({
       // is NOT on a button/link/input (those handle Enter natively). This
       // intentionally does NOT trigger from the input step so users must
       // explicitly reach the review step before confirming.
-      if (e.key === "Enter" && step === "review" && !disabled) {
+      // Also guarded by `disabled` and `submitting` to prevent double-fire.
+      if (e.key === "Enter" && step === "review" && !disabled && !submitting) {
         const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
         const role = (e.target as HTMLElement)?.getAttribute("role");
         const isInteractive =
@@ -168,7 +180,7 @@ export function TradeModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, step, disabled, onClose]);
+  }, [open, step, disabled, submitting, onClose]);
 
   // Preset buttons: set amount to N% of wallet balance divided by current price
   const applyPreset = useCallback(
@@ -183,6 +195,9 @@ export function TradeModal({
 
   const handleConfirm = useCallback(async () => {
     if (disabled) return;
+    // Guard: ignore if a confirmation is already in-flight
+    if (confirmInFlightRef.current) return;
+    confirmInFlightRef.current = true;
     setConfirmError(null);
     // Optimistic: immediately show success UI before on-chain confirmation
     setStep("optimistic");
@@ -190,10 +205,12 @@ export function TradeModal({
     try {
       await mockBuildTx({ type, price, amount, stopLoss, positionLimit });
       setSubmitting(false);
+      confirmInFlightRef.current = false;
       onConfirm ? onConfirm({ amount, price, orderType: type }) : onClose();
     } catch (err) {
       // Rollback: revert to review step and surface a distinct failure message
       setSubmitting(false);
+      confirmInFlightRef.current = false;
       setStep("review");
       setConfirmError(
         (err as Error).message ||

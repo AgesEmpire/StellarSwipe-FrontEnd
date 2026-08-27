@@ -17,6 +17,10 @@ export function PnLWidget() {
   const isPositiveRealized = totalRealizedPnL >= 0;
   const isPositiveUnrealized = totalUnrealizedPnL >= 0;
 
+  const fmtCurrency = (n: number) =>
+    n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sign = (n: number) => (n >= 0 ? "+" : "");
+
   if (isLoading) {
     return <PnLWidgetSkeleton />;
   }
@@ -29,18 +33,44 @@ export function PnLWidget() {
         </h2>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/*
+          Visually hidden summary table so screen-reader users can access
+          all values without having to navigate the visual card layout.
+        */}
+        <table className="sr-only" aria-label="P&L summary">
+          <tbody>
+            <tr>
+              <th scope="row">Total P&L</th>
+              <td>{sign(totalPnL)}{fmtCurrency(totalPnL)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Portfolio return</th>
+              <td>{sign(portfolioReturn)}{portfolioReturn.toFixed(2)}%</td>
+            </tr>
+            <tr>
+              <th scope="row">Realized P&L</th>
+              <td>{sign(totalRealizedPnL)}{totalRealizedPnL.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <th scope="row">Unrealized P&L</th>
+              <td>{sign(totalUnrealizedPnL)}{totalUnrealizedPnL.toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>
+
         {/* Total P&L with indicator */}
         <div
           className={cn(
             "rounded-lg p-4",
             isPositive ? "bg-green-500/10" : "bg-red-500/10"
           )}
+          aria-hidden="true"
         >
           <div className="flex items-center gap-2 mb-2">
             {isPositive ? (
-              <TrendingUp size={18} className="text-green-600" />
+              <TrendingUp size={18} className="text-green-600" aria-hidden="true" />
             ) : (
-              <TrendingDown size={18} className="text-red-600" />
+              <TrendingDown size={18} className="text-red-600" aria-hidden="true" />
             )}
             <p className="text-sm text-muted-foreground">Total P&L</p>
           </div>
@@ -50,11 +80,7 @@ export function PnLWidget() {
               isPositive ? "text-green-600" : "text-red-600"
             )}
           >
-            {isPositive ? "+" : ""}
-            {totalPnL.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            {sign(totalPnL)}{fmtCurrency(totalPnL)}
           </p>
         </div>
 
@@ -64,6 +90,7 @@ export function PnLWidget() {
             "rounded-lg p-4",
             isPositive ? "bg-green-500/10" : "bg-red-500/10"
           )}
+          aria-hidden="true"
         >
           <p className="text-sm text-muted-foreground mb-2">Portfolio Return</p>
           <p
@@ -72,13 +99,12 @@ export function PnLWidget() {
               isPositive ? "text-green-600" : "text-red-600"
             )}
           >
-            {isPositive ? "+" : ""}
-            {portfolioReturn.toFixed(2)}%
+            {sign(portfolioReturn)}{portfolioReturn.toFixed(2)}%
           </p>
         </div>
 
         {/* Realized and Unrealized breakdown */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3" aria-hidden="true">
           <div
             className={cn(
               "rounded-lg p-3",
@@ -92,8 +118,7 @@ export function PnLWidget() {
                 isPositiveRealized ? "text-green-600" : "text-red-600"
               )}
             >
-              {isPositiveRealized ? "+" : ""}
-              {totalRealizedPnL.toLocaleString()}
+              {sign(totalRealizedPnL)}{totalRealizedPnL.toLocaleString()}
             </p>
           </div>
           <div
@@ -109,8 +134,7 @@ export function PnLWidget() {
                 isPositiveUnrealized ? "text-green-600" : "text-red-600"
               )}
             >
-              {isPositiveUnrealized ? "+" : ""}
-              {totalUnrealizedPnL.toLocaleString()}
+              {sign(totalUnrealizedPnL)}{totalUnrealizedPnL.toLocaleString()}
             </p>
           </div>
         </div>
