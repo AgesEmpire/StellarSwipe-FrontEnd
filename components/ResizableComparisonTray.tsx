@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/hooks/useI18n";
 
 interface ComparisonItem {
   id: string;
@@ -26,6 +27,7 @@ export function ResizableComparisonTray({
   onCompare,
   defaultHeight = 160,
 }: ResizableComparisonTrayProps) {
+  const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [height, setHeight] = useState(defaultHeight);
   const isDragging = useRef(false);
@@ -93,7 +95,7 @@ export function ResizableComparisonTray({
 
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-sm font-medium">
-          {items.length} item{items.length !== 1 ? "s" : ""} selected
+          {t("comparison.items_selected", { count: items.length })}
         </span>
         <div className="flex items-center gap-2">
           {items.length >= 2 && (

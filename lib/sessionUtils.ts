@@ -4,8 +4,12 @@
  * Types and pure utility functions for active sessions / device management.
  *
  * All network calls are kept in a separate module (sessionApi.ts) so this
- * file stays fully unit-testable without any fetch/mock setup.
+ * file stays fully unit-testable without any fetch/mock setup. `t()` from
+ * lib/i18n is safe to call here for the same reason: its English strings are
+ * bundled statically, not fetched, so it resolves synchronously with no
+ * network or DOM dependency.
  */
+import { t } from "@/lib/i18n";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,10 +75,10 @@ export function formatLastActive(iso: string): string {
   const diffHrs = Math.floor(diffMin / 60);
   const diffDays = Math.floor(diffHrs / 24);
 
-  if (diffSec < 60) return "Just now";
-  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
-  if (diffHrs < 24) return `${diffHrs} hour${diffHrs === 1 ? "" : "s"} ago`;
-  if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  if (diffSec < 60) return t("sessions.just_now");
+  if (diffMin < 60) return t("sessions.minutes_ago", { count: diffMin });
+  if (diffHrs < 24) return t("sessions.hours_ago", { count: diffHrs });
+  if (diffDays < 30) return t("sessions.days_ago", { count: diffDays });
 
   return new Date(iso).toLocaleDateString(undefined, {
     year: "numeric",

@@ -36,6 +36,7 @@ import {
   optimisticRevoke,
   optimisticRevokeAll,
 } from "@/lib/sessionUtils";
+import { useI18n } from "@/hooks/useI18n";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -171,6 +172,7 @@ export function ActiveSessionsPanel({
   isLoading = false,
   error = null,
 }: ActiveSessionsPanelProps) {
+  const { t } = useI18n();
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokingAll, setRevokingAll] = useState(false);
@@ -234,9 +236,7 @@ export function ActiveSessionsPanel({
               size="sm"
               disabled={revokingAll}
               onClick={handleRevokeAll}
-              aria-label={`Revoke all ${otherCount} other session${
-                otherCount === 1 ? "" : "s"
-              }`}
+              aria-label={t("sessions.revoke_all", { count: otherCount })}
               className="shrink-0 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/60 disabled:opacity-50"
             >
               {revokingAll ? (

@@ -29,6 +29,7 @@ import {
 } from "@/lib/exportComparison";
 import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
 import { toast } from "@/lib/toast";
+import { useI18n } from "@/hooks/useI18n";
 
 const ComparisonCard = dynamic(
   () =>
@@ -92,6 +93,7 @@ function computeBestValues(
 }
 
 function ComparePageContent() {
+  const { t } = useI18n();
   const {
     signals,
     removeSignal,
@@ -211,7 +213,7 @@ function ComparePageContent() {
     if (pendingExport === "csv") {
       downloadComparisonCsv(signals);
       toast.success("CSV downloaded", {
-        description: `${signals.length} signal${signals.length === 1 ? "" : "s"} exported.`,
+        description: t("compare.export_success", { count: signals.length }),
       });
       return;
     }

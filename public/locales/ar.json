@@ -31,7 +31,11 @@
     "pass": "تخطي",
     "execute_trade": "تنفيذ الصفقة",
     "demo_trade": "صفقة تجريبية",
-    "share": "مشاركة"
+    "share": "مشاركة",
+    "matching_count": {
+      "one": "إشارة واحدة تطابق \"{{query}}\"",
+      "other": "{{count}} إشارات تطابق \"{{query}}\""
+    }
   },
   "trade": {
     "trade_executed": "تم تنفيذ الصفقة",
@@ -60,7 +64,12 @@
     "enable_notifications": "تفعيل الإشعارات",
     "notifications_disabled": "الإشعارات محجوبة. تحقق من إعدادات المتصفح.",
     "trade_success": "نجحت الصفقة",
-    "trade_failure": "فشلت الصفقة"
+    "trade_failure": "فشلت الصفقة",
+    "unread_count": {
+      "one": "إشعار واحد غير مقروء",
+      "other": "{{count}} إشعارات غير مقروءة"
+    },
+    "none_unread": "لا توجد إشعارات غير مقروءة"
   },
   "wallet": {
     "connect_wallet": "ربط المحفظة",
@@ -86,5 +95,68 @@
     "about": "حول",
     "analytics": "التحليلات",
     "documentation": "الوثائق"
+  },
+  "filters": {
+    "active_count": {
+      "one": "عامل تصفية واحد نشط",
+      "other": "{{count}} عوامل تصفية نشطة"
+    },
+    "none_active": "لا توجد عوامل تصفية نشطة"
+  },
+  "list": {
+    "viewed_all": {
+      "one": "لقد شاهدت العنصر الوحيد",
+      "other": "لقد شاهدت كل الـ {{count}} عناصر"
+    }
+  },
+  "comparison": {
+    "items_selected": {
+      "one": "تم تحديد عنصر واحد",
+      "other": "تم تحديد {{count}} عناصر"
+    }
+  },
+  "portfolio": {
+    "assets_count": {
+      "one": "أصل واحد",
+      "other": "{{count}} أصول"
+    }
+  },
+  "sessions": {
+    "revoke_all": {
+      "one": "إلغاء الجلسة الأخرى",
+      "other": "إلغاء {{count}} جلسات أخرى"
+    },
+    "just_now": "الآن",
+    "minutes_ago": {
+      "one": "منذ دقيقة",
+      "other": "منذ {{count}} دقائق"
+    },
+    "hours_ago": {
+      "one": "منذ ساعة",
+      "other": "منذ {{count}} ساعات"
+    },
+    "days_ago": {
+      "one": "منذ يوم",
+      "other": "منذ {{count}} أيام"
+    }
+  },
+  "referral": {
+    "count": {
+      "one": "إحالة واحدة",
+      "other": "{{count}} إحالات"
+    }
+  },
+  "compare": {
+    "export_success": {
+      "one": "تم تصدير إشارة واحدة.",
+      "other": "تم تصدير {{count}} إشارات."
+    }
+  },
+  "snooze": {
+    "minutes": "{{count}} دقيقة",
+    "hours": {
+      "one": "ساعة واحدة",
+      "other": "{{count}} ساعات"
+    }
   }
 }

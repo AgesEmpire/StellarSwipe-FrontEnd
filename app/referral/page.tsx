@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useI18n } from "@/hooks/useI18n";
 
 const BASE_REFERRAL_URL = "https://app.example.com/referral/ABC123";
 
@@ -33,6 +34,7 @@ function buildReferralLink(baseUrl: string, channel: ChannelKey): string {
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 function ReferralPageInner() {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<ChannelKey>("twitter");
   const referrals = [
@@ -153,8 +155,7 @@ function ReferralPageInner() {
                 className="text-gray-400"
                 data-testid={`channel-count-${ch.key}`}
               >
-                {channelCounts[ch.key] ?? 0} referral
-                {(channelCounts[ch.key] ?? 0) !== 1 ? "s" : ""}
+                {t("referral.count", { count: channelCounts[ch.key] ?? 0 })}
               </span>
             </div>
           ))}
