@@ -10,6 +10,7 @@ import {
 } from "@/lib/benchmark";
 import { cn } from "@/lib/utils";
 import { PortfolioPerformanceBenchmarkChartSkeleton } from "@/components/DashboardWidgetSkeletons";
+import { useChartTooltip } from "@/hooks/useChartTooltip";
 
 interface PortfolioPerformanceBenchmarkChartProps {
   className?: string;
@@ -46,6 +47,7 @@ export function PortfolioPerformanceBenchmarkChart({
 }: PortfolioPerformanceBenchmarkChartProps) {
   const { totalValue, assets, isLoading } = usePortfolioStore();
   const [showBenchmark, setShowBenchmark] = useState(true);
+  const [activeSeriesIndex, setActiveSeriesIndex] = useState<0 | 1>(0); // 0=portfolio, 1=benchmark
 
   const xlmHistory = useXLMPriceHistory({ points: 30, interval: "day" });
   const portfolioHistory = useMemo(() => {
@@ -73,7 +75,7 @@ export function PortfolioPerformanceBenchmarkChart({
 
   const chartData = useMemo(() => {
     if (portfolioPoints.length === 0 || benchmarkPoints.length === 0) {
-      return { portfolioPath: "", benchmarkPath: "", maxVal: 0, minVal: 0 };
+      return { portfolioPath: "", benchmarkPath: "", maxVal: 0, minVal: 0, portfolioPts: [], benchmarkPts: [] };
     }
 
     const width = 320;
@@ -94,6 +96,8 @@ export function PortfolioPerformanceBenchmarkChart({
         height -
         ((point.value - minVal) / range) * (height - padding * 2) -
         padding,
+      value: point.value,
+      timestamp: point.timestamp,
     }));
 
     const benchmarkPts = benchmarkPoints.map((point, i) => ({
@@ -102,6 +106,8 @@ export function PortfolioPerformanceBenchmarkChart({
         height -
         ((point.value - minVal) / range) * (height - padding * 2) -
         padding,
+      value: point.value,
+      timestamp: point.timestamp,
     }));
 
     return {
@@ -111,6 +117,8 @@ export function PortfolioPerformanceBenchmarkChart({
       minVal,
       width,
       height,
+      portfolioPts,
+      benchmarkPts,
     };
   }, [portfolioPoints, benchmarkPoints]);
 
@@ -136,6 +144,34 @@ export function PortfolioPerformanceBenchmarkChart({
       ),
     };
   }, [portfolioPoints, benchmarkPoints]);
+
+  // Active series: 0=portfolio, 1=benchmark. Tooltip navigates the portfolio
+  // series by default; pressing Tab again lands on the benchmark series.
+  const portfolioTooltip = useChartTooltip({
+    ariaLabel: "Portfolio performance line",
+    describePoint: (i) => {
+      const pt = chartData.portfolioPts[i];
+      if (!pt) return "";
+      const date = new Date(pt.timestamp).toLocaleDateString(undefined, {
+        month: "short", day: "numeric",
+      });
+      return `Portfolio point ${i + 1} of ${chartData.portfolioPts.length}: $${pt.value.toFixed(2)} on ${date}`;
+    },
+    dataLength: chartData.portfolioPts?.length ?? 0,
+  });
+
+  const benchmarkTooltip = useChartTooltip({
+    ariaLabel: "XLM benchmark line",
+    describePoint: (i) => {
+      const pt = chartData.benchmarkPts[i];
+      if (!pt) return "";
+      const date = new Date(pt.timestamp).toLocaleDateString(undefined, {
+        month: "short", day: "numeric",
+      });
+      return `XLM benchmark point ${i + 1} of ${chartData.benchmarkPts.length}: $${pt.value.toFixed(4)} on ${date}`;
+    },
+    dataLength: chartData.benchmarkPts?.length ?? 0,
+  });
 
   if (isLoading) {
     return <PortfolioPerformanceBenchmarkChartSkeleton className={className} />;
@@ -182,12 +218,33 @@ export function PortfolioPerformanceBenchmarkChart({
       </CardHeader>
       <CardContent>
         <div className="relative h-48 sm:h-56">
+          {/* Accessible live regions for screen readers */}
+          <span
+            id={portfolioTooltip.tooltipId}
+            role="status"
+            aria-live="polite"
+            className="sr-only"
+          >
+            {portfolioTooltip.isVisible
+              ? portfolioTooltip.activeDescription
+              : "Portfolio performance line"}
+          </span>
+          <span
+            id={benchmarkTooltip.tooltipId}
+            role="status"
+            aria-live="polite"
+            className="sr-only"
+          >
+            {benchmarkTooltip.isVisible
+              ? benchmarkTooltip.activeDescription
+              : "XLM benchmark line"}
+          </span>
+
           <svg
             width="100%"
             height="100%"
             viewBox={`0 0 ${chartData.width} ${chartData.height}`}
-            role="img"
-            aria-label="Portfolio performance chart with XLM benchmark overlay"
+            aria-hidden="true"
             className="overflow-visible"
           >
             {showBenchmark && chartData.benchmarkPath && (
@@ -231,7 +288,120 @@ export function PortfolioPerformanceBenchmarkChart({
             >
               Portfolio
             </text>
+
+            {/* Invisible hit areas for portfolio series */}
+            {chartData.portfolioPts.map((pt, i) => {
+              const hitW = chartData.portfolioPts.length > 1
+                ? (chartData.width ?? 320) / chartData.portfolioPts.length
+                : chartData.width ?? 320;
+              return (
+                <rect
+                  key={`p-${i}`}
+                  x={i * hitW}
+                  y={0}
+                  width={hitW}
+                  height={chartData.height ?? 160}
+                  fill="transparent"
+                  onPointerEnter={() => portfolioTooltip.showAt(i)}
+                  onPointerLeave={portfolioTooltip.hide}
+                  onTouchStart={(e) => { e.preventDefault(); portfolioTooltip.showAt(i); }}
+                  onTouchEnd={portfolioTooltip.hide}
+                  style={{ cursor: "crosshair" }}
+                />
+              );
+            })}
+
+            {/* Active dot on portfolio series */}
+            {portfolioTooltip.isVisible &&
+              portfolioTooltip.activeIndex !== null &&
+              chartData.portfolioPts[portfolioTooltip.activeIndex] && (
+                <circle
+                  cx={chartData.portfolioPts[portfolioTooltip.activeIndex].x}
+                  cy={chartData.portfolioPts[portfolioTooltip.activeIndex].y}
+                  r={4}
+                  fill="#22c55e"
+                  stroke="white"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              )}
+
+            {/* Active dot on benchmark series */}
+            {showBenchmark &&
+              benchmarkTooltip.isVisible &&
+              benchmarkTooltip.activeIndex !== null &&
+              chartData.benchmarkPts[benchmarkTooltip.activeIndex] && (
+                <circle
+                  cx={chartData.benchmarkPts[benchmarkTooltip.activeIndex].x}
+                  cy={chartData.benchmarkPts[benchmarkTooltip.activeIndex].y}
+                  r={4}
+                  fill="#60a5fa"
+                  stroke="white"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              )}
           </svg>
+
+          {/* Keyboard-navigable overlays — one per series */}
+          <div
+            {...portfolioTooltip.containerProps}
+            className="absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-green-500"
+            style={{ outline: "none" }}
+          />
+          {showBenchmark && (
+            <div
+              {...benchmarkTooltip.containerProps}
+              className="absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
+              style={{ outline: "none", opacity: 0 }}
+              tabIndex={1}
+            />
+          )}
+
+          {/* Floating tooltip — portfolio */}
+          {portfolioTooltip.isVisible &&
+            portfolioTooltip.activeIndex !== null &&
+            chartData.portfolioPts[portfolioTooltip.activeIndex] && (() => {
+              const pt = chartData.portfolioPts[portfolioTooltip.activeIndex!];
+              return (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 text-[10px] text-white shadow-md"
+                  style={{
+                    left: Math.min(Math.max(0, pt.x - 24), (chartData.width ?? 320) - 70),
+                    top: Math.max(0, pt.y - 36),
+                    whiteSpace: "nowrap",
+                  }}
+                  aria-hidden="true"
+                >
+                  <div className="text-green-400 font-semibold">Portfolio</div>
+                  <div>${pt.value.toFixed(2)}</div>
+                </div>
+              );
+            })()}
+
+          {/* Floating tooltip — benchmark */}
+          {showBenchmark &&
+            benchmarkTooltip.isVisible &&
+            benchmarkTooltip.activeIndex !== null &&
+            chartData.benchmarkPts[benchmarkTooltip.activeIndex] && (() => {
+              const pt = chartData.benchmarkPts[benchmarkTooltip.activeIndex!];
+              return (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 text-[10px] text-white shadow-md"
+                  style={{
+                    left: Math.min(Math.max(0, pt.x - 24), (chartData.width ?? 320) - 70),
+                    top: Math.max(0, pt.y - 36),
+                    whiteSpace: "nowrap",
+                  }}
+                  aria-hidden="true"
+                >
+                  <div className="text-blue-400 font-semibold">XLM</div>
+                  <div>${pt.value.toFixed(4)}</div>
+                </div>
+              );
+            })()}
         </div>
         {performanceDelta && (
           <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
