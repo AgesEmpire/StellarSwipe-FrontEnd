@@ -102,10 +102,17 @@ function BookmarksEmptyState() {
 
 function BookmarksSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Loading bookmarks">
+    <div
+      className="space-y-4"
+      role="status"
+      aria-busy="true"
+      aria-label="Loading bookmarks"
+    >
+      <span className="sr-only">Loading bookmarks…</span>
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
+          aria-hidden="true"
           className="h-32 rounded-2xl border border-white/10 bg-white/5 animate-pulse"
         />
       ))}
@@ -146,7 +153,8 @@ function CreateFolderForm({
       <button
         type="submit"
         disabled={!name.trim()}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sky-400 hover:bg-white/10 disabled:opacity-40"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sky-400 hover:bg-white/10 disabled:opacity-40"
+        title="Create folder"
         aria-label="Create folder"
       >
         <Check className="h-4 w-4" aria-hidden="true" />
@@ -154,7 +162,8 @@ function CreateFolderForm({
       <button
         type="button"
         onClick={onCancel}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted hover:bg-white/10"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground-muted hover:bg-white/10"
+        title="Cancel"
         aria-label="Cancel"
       >
         <X className="h-4 w-4" aria-hidden="true" />
@@ -199,7 +208,8 @@ function RenameFolderForm({
       <button
         type="submit"
         disabled={!name.trim() || name.trim() === initialName}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sky-400 hover:bg-white/10 disabled:opacity-40"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sky-400 hover:bg-white/10 disabled:opacity-40"
+        title="Save name"
         aria-label="Save name"
       >
         <Check className="h-4 w-4" aria-hidden="true" />
@@ -207,7 +217,8 @@ function RenameFolderForm({
       <button
         type="button"
         onClick={onCancel}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted hover:bg-white/10"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground-muted hover:bg-white/10"
+        title="Cancel"
         aria-label="Cancel"
       >
         <X className="h-4 w-4" aria-hidden="true" />
@@ -241,8 +252,10 @@ function FolderList({
           Folders
         </span>
         <button
+          type="button"
           onClick={() => setIsCreating(true)}
-          className="inline-flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:bg-white/10 hover:text-foreground"
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-foreground-muted hover:bg-white/10 hover:text-foreground"
+          title="Create folder"
           aria-label="Create folder"
         >
           <FolderPlus className="h-3.5 w-3.5" />
@@ -289,11 +302,19 @@ function FolderList({
               />
             </div>
           ) : (
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectFolder(folder.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectFolder(folder.id);
+                }
+              }}
               aria-pressed={selectedFolderId === folder.id}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+                "flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
                 selectedFolderId === folder.id
                   ? "bg-sky-400/10 text-sky-400"
                   : "text-foreground-muted hover:bg-white/5 hover:text-foreground"
@@ -304,29 +325,33 @@ function FolderList({
               <span className="text-xs text-foreground-muted">
                 {folder.signalIds.length}
               </span>
-              <div className="hidden gap-0.5 group-hover:flex">
+              <div className="hidden gap-2 group-hover:flex">
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setRenamingId(folder.id);
                   }}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:text-foreground"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded text-foreground-muted hover:text-foreground"
+                  title={`Rename ${folder.name}`}
                   aria-label={`Rename ${folder.name}`}
                 >
-                  <Pencil className="h-3 w-3" />
+                  <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteFolder(folder.id);
                   }}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:text-red-400"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded text-foreground-muted hover:text-red-400"
+                  title={`Delete ${folder.name}`}
                   aria-label={`Delete ${folder.name}`}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-            </button>
+            </div>
           )}
         </div>
       ))}
