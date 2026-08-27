@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { PageTransition } from "@/components/PageTransition";
 import { useComparisonStore } from "@/store/useComparisonStore";
 import { MetricToggleBar } from "@/components/comparison/MetricToggleBar";
@@ -118,16 +119,30 @@ function ComparePageContent() {
     const ids = searchParams.get("ids");
     if (!ids || signals.length > 0) return;
     const idList = ids.split(",").filter(Boolean).slice(0, 3);
-    fetchSignals()
+
+    // Guard against writing to the (global) comparison store after this
+    // view has been navigated away from — a late response for an
+    // abandoned /compare visit must not silently populate the store for
+    // whatever page the user has since navigated to.
+    let cancelled = false;
+    const controller = new AbortController();
+    fetchSignals({ signal: controller.signal })
       .then((all) => {
+        if (cancelled) return;
         for (const id of idList) {
           const found = all.items.find((s) => s.id === id);
           if (found) addSignal(found);
         }
       })
       .catch(() => {
-        // gracefully ignore — signal may no longer exist
+        // gracefully ignore — signal may no longer exist, or the request
+        // was cancelled because this view was abandoned
       });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -412,7 +427,7 @@ function ComparePageContent() {
               }
             />
           ) : (
-            <>
+            <ComparisonErrorBoundary>
               {/* Metric toggles */}
               <div className="mb-6 print:hidden">
                 <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wider">
@@ -485,7 +500,7 @@ function ComparePageContent() {
                   <ComparisonChart signals={signals} />
                 </div>
               )}
-            </>
+            </ComparisonErrorBoundary>
           )}
         </div>
       </main>

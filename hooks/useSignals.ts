@@ -5,7 +5,9 @@ import { queryOptions } from "@/lib/queryOptions";
 export function useSignals() {
   return useQuery({
     queryKey: ["signals"],
-    queryFn: () => fetchSignals(),
+    // Forward React Query's per-call AbortSignal so an abandoned/superseded
+    // request is actually cancelled at the network layer, not just ignored.
+    queryFn: ({ signal }) => fetchSignals({ signal }),
     ...queryOptions.signal,
     retry: (failureCount, error) => {
       if (error instanceof NetworkError && failureCount < 2) return true;
