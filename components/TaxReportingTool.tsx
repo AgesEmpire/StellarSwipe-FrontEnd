@@ -15,6 +15,8 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
+import { ColumnVisibilityControl } from "@/components/ColumnVisibilityControl";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useTransactionStore } from "@/store/useTransactionStore";
@@ -98,6 +100,28 @@ function SummaryCard({
   );
 }
 
+// ── #565 Column definitions for the trade-level breakdown table ─────────────
+type TaxColumn =
+  | "date"
+  | "pair"
+  | "proceeds"
+  | "costBasis"
+  | "gainLoss"
+  | "fees"
+  | "term"
+  | "fx";
+
+const TAX_TABLE_COLUMNS: ColumnDef<TaxColumn>[] = [
+  { key: "date",      label: "Date",       required: true },
+  { key: "pair",      label: "Pair",       required: true },
+  { key: "proceeds",  label: "Proceeds",   defaultVisible: true },
+  { key: "costBasis", label: "Cost Basis", defaultVisible: true },
+  { key: "gainLoss",  label: "Gain/Loss",  defaultVisible: true },
+  { key: "fees",      label: "Fees",       defaultVisible: false },
+  { key: "term",      label: "Term",       defaultVisible: true },
+  { key: "fx",        label: "FX",         defaultVisible: false },
+];
+
 export function TaxReportingTool() {
   const { history } = useTransactionStore();
   const [jurisdiction, setJurisdiction] = useState<TaxJurisdiction>("US");
@@ -122,6 +146,17 @@ export function TaxReportingTool() {
   const rates = TAX_RATES[jurisdiction];
   const netGainLoss = currentReport.totalGainLoss;
   const isGain = netGainLoss >= 0;
+
+  // #565 Column visibility
+  const {
+    visibility: colVis,
+    toggle: toggleCol,
+    showAll: showAllCols,
+    isVisible,
+  } = useColumnVisibility<TaxColumn>({
+    columns: TAX_TABLE_COLUMNS,
+    storageKey: "tax-table-columns-v1",
+  });
 
   const yoyChange =
     previousReport.totalGainLoss !== 0
@@ -252,8 +287,21 @@ export function TaxReportingTool() {
     }
   }
 
+  const printDate = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <section className="space-y-6" aria-label="Tax Reporting Tool">
+    <section
+      className="space-y-6"
+      aria-label="Tax Reporting Tool"
+      data-print-report
+      data-print-title={`StellarSwipe Tax Report ${selectedYear} — ${jurisdiction}`}
+      data-print-subtitle={`Generated ${printDate}`}
+      data-print-date={printDate}
+    >
       {/* Header */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
@@ -268,8 +316,8 @@ export function TaxReportingTool() {
         </p>
       </div>
 
-      {/* Controls */}
-      <Card>
+      {/* Controls — hidden when printing */}
+      <Card data-print-hide>
         <CardContent className="pt-4 pb-4 px-4 flex flex-wrap gap-4">
           {/* Jurisdiction */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
@@ -438,9 +486,18 @@ export function TaxReportingTool() {
       {/* Trade-level breakdown */}
       <Card>
         <CardHeader>
-          <h3 className="text-sm font-semibold text-foreground">
-            Trade-Level Breakdown ({selectedYear})
-          </h3>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-foreground">
+              Trade-Level Breakdown ({selectedYear})
+            </h3>
+            {/* #565 — Column visibility control */}
+            <ColumnVisibilityControl<TaxColumn>
+              columns={TAX_TABLE_COLUMNS}
+              visibility={colVis}
+              onToggle={toggleCol}
+              onShowAll={showAllCols}
+            />
+          </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {currentReport.entries.length === 0 ? (
@@ -457,18 +514,24 @@ export function TaxReportingTool() {
                   <tr className="border-b border-border text-foreground-muted">
                     <th className="pb-2 text-left font-medium pr-4">Date</th>
                     <th className="pb-2 text-left font-medium pr-4">Pair</th>
-                    <th className="pb-2 text-right font-medium pr-4">
-                      Proceeds
-                    </th>
-                    <th className="pb-2 text-right font-medium pr-4">
-                      Cost Basis
-                    </th>
-                    <th className="pb-2 text-right font-medium pr-4">
-                      Gain/Loss
-                    </th>
-                    <th className="pb-2 text-right font-medium pr-4">Fees</th>
-                    <th className="pb-2 text-left font-medium pr-4">Term</th>
-                    <th className="pb-2 text-left font-medium">FX</th>
+                    {isVisible("proceeds") && (
+                      <th className="pb-2 text-right font-medium pr-4">Proceeds</th>
+                    )}
+                    {isVisible("costBasis") && (
+                      <th className="pb-2 text-right font-medium pr-4">Cost Basis</th>
+                    )}
+                    {isVisible("gainLoss") && (
+                      <th className="pb-2 text-right font-medium pr-4">Gain/Loss</th>
+                    )}
+                    {isVisible("fees") && (
+                      <th className="pb-2 text-right font-medium pr-4">Fees</th>
+                    )}
+                    {isVisible("term") && (
+                      <th className="pb-2 text-left font-medium pr-4">Term</th>
+                    )}
+                    {isVisible("fx") && (
+                      <th className="pb-2 text-left font-medium">FX</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -483,45 +546,57 @@ export function TaxReportingTool() {
                       <td className="py-2 pr-4 font-mono font-medium text-foreground">
                         {entry.assetPair}
                       </td>
-                      <td className="py-2 pr-4 text-right text-foreground">
-                        ${entry.proceeds.toFixed(2)}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-foreground">
-                        ${entry.costBasis.toFixed(2)}
-                      </td>
-                      <td
-                        className={cn(
-                          "py-2 pr-4 text-right font-medium",
-                          entry.gainLoss >= 0
-                            ? "text-green-400"
-                            : "text-red-400"
-                        )}
-                      >
-                        {entry.gainLoss >= 0 ? "+" : ""}$
-                        {entry.gainLoss.toFixed(2)}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-foreground-muted">
-                        ${entry.fees.toFixed(4)}
-                      </td>
-                      <td className="py-2 pr-4">
-                        <span
+                      {isVisible("proceeds") && (
+                        <td className="py-2 pr-4 text-right text-foreground">
+                          ${entry.proceeds.toFixed(2)}
+                        </td>
+                      )}
+                      {isVisible("costBasis") && (
+                        <td className="py-2 pr-4 text-right text-foreground">
+                          ${entry.costBasis.toFixed(2)}
+                        </td>
+                      )}
+                      {isVisible("gainLoss") && (
+                        <td
                           className={cn(
-                            "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                            entry.isLongTerm
-                              ? "bg-sky-500/15 text-sky-400"
-                              : "bg-amber-500/15 text-amber-400"
+                            "py-2 pr-4 text-right font-medium",
+                            entry.gainLoss >= 0
+                              ? "text-green-400"
+                              : "text-red-400"
                           )}
                         >
-                          {entry.isLongTerm ? "Long" : "Short"}
-                        </span>
-                      </td>
-                      <td className="py-2 text-foreground-muted font-mono">
-                        {entry.foreignCurrency
-                          ? `${
-                              entry.foreignCurrency
-                            } @${entry.conversionRate?.toFixed(4)}`
-                          : "—"}
-                      </td>
+                          {entry.gainLoss >= 0 ? "+" : ""}$
+                          {entry.gainLoss.toFixed(2)}
+                        </td>
+                      )}
+                      {isVisible("fees") && (
+                        <td className="py-2 pr-4 text-right text-foreground-muted">
+                          ${entry.fees.toFixed(4)}
+                        </td>
+                      )}
+                      {isVisible("term") && (
+                        <td className="py-2 pr-4">
+                          <span
+                            className={cn(
+                              "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                              entry.isLongTerm
+                                ? "bg-sky-500/15 text-sky-400"
+                                : "bg-amber-500/15 text-amber-400"
+                            )}
+                          >
+                            {entry.isLongTerm ? "Long" : "Short"}
+                          </span>
+                        </td>
+                      )}
+                      {isVisible("fx") && (
+                        <td className="py-2 text-foreground-muted font-mono">
+                          {entry.foreignCurrency
+                            ? `${
+                                entry.foreignCurrency
+                              } @${entry.conversionRate?.toFixed(4)}`
+                            : "—"}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -531,8 +606,8 @@ export function TaxReportingTool() {
         </CardContent>
       </Card>
 
-      {/* Export section */}
-      <Card>
+      {/* Export section — hidden when printing */}
+      <Card data-print-hide>
         <CardHeader>
           <h3 className="text-sm font-semibold text-foreground">
             Export Report

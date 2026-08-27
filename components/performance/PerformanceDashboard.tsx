@@ -174,7 +174,13 @@ export function PerformanceDashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div
+      className="space-y-8"
+      data-print-report
+      data-print-title="StellarSwipe Performance Report"
+      data-print-subtitle={`Generated ${new Date().toLocaleDateString()}`}
+      data-print-date={new Date().toLocaleDateString()}
+    >
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Avg page load"
