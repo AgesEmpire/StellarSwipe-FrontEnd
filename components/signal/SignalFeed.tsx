@@ -25,6 +25,7 @@ import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { queryOptions as queryOpts } from "@/lib/queryOptions";
+import { useI18n } from "@/hooks/useI18n";
 import { fetchSignals } from "@/lib/api";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
@@ -55,6 +56,7 @@ interface SignalFeedProps {
 }
 
 export function SignalFeed({ initialData }: SignalFeedProps = {}) {
+  const { t } = useI18n();
   const feedRef = useRef<HTMLDivElement | null>(null);
   const parentRef = useRef<HTMLDivElement | null>(null);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
@@ -479,8 +481,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         {/* #99: show matching provider count */}
         {providerSearch && (
           <p className="mt-1 text-[11px] text-slate-500" aria-live="polite">
-            {signals.length} signal{signals.length !== 1 ? "s" : ""} matching
-            &ldquo;{providerSearch}&rdquo;
+            {t("signals.matching_count", {
+              count: signals.length,
+              query: providerSearch,
+            })}
           </p>
         )}
       </div>

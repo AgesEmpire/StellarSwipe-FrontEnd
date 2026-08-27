@@ -234,6 +234,7 @@ function MilestoneProgressBar({ referralCount }: { referralCount: number }) {
 // Page component
 // ---------------------------------------------------------------------------
 function ReferralPageInner() {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<ChannelKey>("twitter");
 
@@ -366,8 +367,7 @@ function ReferralPageInner() {
                 className="text-gray-400"
                 data-testid={`channel-count-${ch.key}`}
               >
-                {channelCounts[ch.key] ?? 0} referral
-                {(channelCounts[ch.key] ?? 0) !== 1 ? "s" : ""}
+                {t("referral.count", { count: channelCounts[ch.key] ?? 0 })}
               </span>
             </div>
           ))}

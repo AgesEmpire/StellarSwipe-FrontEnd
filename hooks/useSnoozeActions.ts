@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { toast } from "@/lib/toast";
+import { t } from "@/lib/i18n";
 import {
   useSnoozeStore,
   DEFAULT_SNOOZE_DURATION_MS,
@@ -9,9 +10,9 @@ import {
 
 function formatDuration(ms: number): string {
   const minutes = Math.round(ms / 60000);
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return t("snooze.minutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  return `${hours} hour${hours === 1 ? "" : "s"}`;
+  return t("snooze.hours", { count: hours });
 }
 
 /**

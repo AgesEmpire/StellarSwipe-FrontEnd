@@ -5,8 +5,10 @@ import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortfolioSummaryCardsSkeleton } from "@/components/DashboardWidgetSkeletons";
+import { useI18n } from "@/hooks/useI18n";
 
 export function PortfolioSummaryCards() {
+  const { t } = useI18n();
   const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL, isLoading } =
     usePortfolioStore();
 
@@ -40,7 +42,7 @@ export function PortfolioSummaryCards() {
     {
       label: "Positions",
       value: String(activePositions),
-      sub: `${assets.length} asset${assets.length !== 1 ? "s" : ""}`,
+      sub: t("portfolio.assets_count", { count: assets.length }),
       icon: BarChart2,
       className: "text-violet-400",
     },

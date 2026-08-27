@@ -2,6 +2,7 @@
 
 import { AlertCircle, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/hooks/useI18n";
 
 type ListState = "loading" | "idle" | "error" | "end-of-list" | "has-more";
 
@@ -31,6 +32,7 @@ export function ListStateIndicator({
   totalCount,
   className = "",
 }: ListStateIndicatorProps) {
+  const { t } = useI18n();
   switch (state) {
     case "loading":
       return (
@@ -85,7 +87,7 @@ export function ListStateIndicator({
                   No more items
                 </p>
                 <p className="text-xs">
-                  You've viewed all {itemCount} item{itemCount !== 1 ? "s" : ""}
+                  {t("list.viewed_all", { count: itemCount })}
                 </p>
               </>
             ) : (

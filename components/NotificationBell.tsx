@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useFocusReturn } from "@/hooks/useFocusReturn";
 
 export function NotificationBell() {
+  const { t } = useI18n();
   const notifications = useNotificationStore((s) => s.notifications);
   const isMarkingAllRead = useNotificationStore((s) => s.isMarkingAllRead);
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
@@ -33,10 +34,8 @@ export function NotificationBell() {
       <button
         aria-label={
           hasUnread
-            ? `${unreadCount} unread notification${
-                unreadCount === 1 ? "" : "s"
-              }`
-            : "Notifications, none unread"
+            ? t("notifications.unread_count", { count: unreadCount })
+            : t("notifications.none_unread")
         }
         onClick={() => setOpen((v) => !v)}
         className="relative p-2 rounded-full hover:bg-accent transition-colors"

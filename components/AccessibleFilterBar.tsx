@@ -3,6 +3,7 @@
 import { Search, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/hooks/useI18n";
 
 interface FilterOption {
   id: string;
@@ -26,6 +27,7 @@ export function AccessibleFilterBar({
   onSearchChange,
   searchPlaceholder = "Search...",
 }: AccessibleFilterBarProps) {
+  const { t } = useI18n();
   const [focusedFilter, setFocusedFilter] = useState<number>(0);
   const filterRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -115,8 +117,8 @@ export function AccessibleFilterBar({
 
       <div className="sr-only" role="status" aria-live="polite">
         {activeCount > 0
-          ? `${activeCount} filter${activeCount > 1 ? "s" : ""} active`
-          : "No filters active"}
+          ? t("filters.active_count", { count: activeCount })
+          : t("filters.none_active")}
       </div>
     </div>
   );
