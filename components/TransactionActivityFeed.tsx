@@ -3,13 +3,10 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ArrowRight,
-  CheckCircle2,
   Clock3,
-  XCircle,
   Pencil,
   Trash2,
   Loader2,
-  RefreshCw,
   AlertCircle,
 } from "lucide-react";
 import { useTransactionStore } from "@/store/useTransactionStore";
@@ -18,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
+import { VirtualizedList } from "@/components/VirtualizedList";
 import { toast } from "@/lib/toast";
 import type { TransactionHistoryItem } from "@/store/useTransactionStore";
 
@@ -97,6 +95,37 @@ const outcomeLabels = {
   PENDING: "Pending",
 };
 
+/**
+ * Height of a single transaction row inside the virtualized list.
+ * Rows are fixed-height cards. 148px comfortably fits a two-line header,
+ * the stats row, and the action buttons at default font size.
+ *
+ * When a row is being edited, the JournalEntryForm is rendered in a
+ * non-virtualized slot that sits above the list so the variable height of the
+ * form does not disturb the virtualizer's layout.
+ */
+const ROW_HEIGHT = 148;
+
+/**
+ * Number of rows to keep rendered outside the visible viewport (overscan).
+ * A value of 3 ensures smooth scrolling without flicker while limiting
+ * total DOM nodes.
+ */
+const OVERSCAN = 3;
+
+/**
+ * Threshold (px from bottom) at which we trigger loading more records.
+ * Wire this up to your pagination / infinite-query hook via `onLoadMore`.
+ */
+const LOAD_MORE_THRESHOLD = 300;
+
+/**
+ * Virtualized height of the list container.
+ * The list takes up to this height and scrolls internally.
+ * Large enough to show ~5 rows comfortably without requiring a full-page scroll.
+ */
+const LIST_CONTAINER_HEIGHT = "min(60vh, 800px)";
+
 export function TransactionActivityFeed() {
   const history = useTransactionStore((state) => state.history);
   const pendingIds = useTransactionStore((state) => state.pendingIds);
@@ -121,7 +150,10 @@ export function TransactionActivityFeed() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Restore persisted filter/sort state on mount so it survives navigation and refresh.
+  // Track the filtered list length so we can detect when new records are
+  // appended without resetting scroll position.
+
+  // Restore persisted filter/sort state on mount.
   useEffect(() => {
     const persisted = readPersistedJournalFilters();
     setTypeFilter(persisted.typeFilter);
@@ -129,12 +161,12 @@ export function TransactionActivityFeed() {
     setSortOrder(persisted.sortOrder);
   }, []);
 
-  // Keep persisted state in sync whenever the user changes a filter or sort control.
+  // Persist whenever the user changes a filter or sort control.
   useEffect(() => {
     persistJournalFilters({ typeFilter, statusFilter, sortOrder });
   }, [typeFilter, statusFilter, sortOrder]);
 
-  // Simulate pending→success/failure transitions (existing behavior)
+  // Simulate pending→success/failure transitions (existing behaviour preserved).
   useEffect(() => {
     const pending = history.filter((item) => item.status === "PENDING");
     if (pending.length === 0) return;
@@ -149,12 +181,11 @@ export function TransactionActivityFeed() {
     return () => window.clearTimeout(timer);
   }, [history, updateTransactionStatus]);
 
-  // ── Delete handler with optimistic update + rollback ───────────────
+  // ── Delete handler with optimistic update + rollback ───────────────────
 
   const handleDelete = useCallback(
     async (entry: TransactionHistoryItem) => {
       setDeletingId(entry.id);
-      // Optimistic: remove from list immediately
       removeTransaction(entry.id);
 
       try {
@@ -164,7 +195,6 @@ export function TransactionActivityFeed() {
           duration: 2500,
         });
       } catch (err) {
-        // Rollback on failure: re-add the entry
         addTransaction(entry);
         const message =
           err instanceof Error ? err.message : "Failed to delete entry.";
@@ -197,7 +227,6 @@ export function TransactionActivityFeed() {
     const matches = history
       .filter((item) => typeFilter === "ALL" || item.type === typeFilter)
       .filter((item) => statusFilter === "ALL" || item.status === statusFilter);
-
     return [...matches].sort((a, b) => {
       if (sortOrder === "oldest") return a.timestamp - b.timestamp;
       if (sortOrder === "amount")
@@ -215,14 +244,145 @@ export function TransactionActivityFeed() {
     setSortOrder("newest");
   }, []);
 
-  // ── Editing state ─────────────────────────────────────────────────
+  // ── Editing state ──────────────────────────────────────────────────────
 
   const editEntry = editingId
     ? history.find((item) => item.id === editingId) ?? null
     : null;
 
+  // ── Row renderer (used by VirtualizedList) ─────────────────────────────
+
+  const renderRow = useCallback(
+    (item: TransactionHistoryItem, _index: number) => {
+      const isPending = pendingIds.includes(item.id);
+      const isFailed = failedIds.includes(item.id);
+      const isDeleting = deletingId === item.id;
+
+      return (
+        <article
+          className={cn(
+            "w-full rounded-3xl border border-white/10 bg-background/80 p-4 shadow-sm transition-all",
+            isFailed && "border-amber-500/30 bg-amber-500/5",
+            isDeleting && "opacity-50"
+          )}
+          aria-label={`${item.assetPair} transaction, ${item.status}`}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {item.assetPair}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {item.type.replace("_", " ")}
+                </p>
+              </div>
+              {isPending && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400">
+                  <Loader2 size={10} className="animate-spin" />
+                  Syncing
+                </span>
+              )}
+              {isFailed && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
+                  <AlertCircle size={10} />
+                  Offline
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]",
+                  statusStyles[item.status]
+                )}
+              >
+                {item.status}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">
+                {outcomeLabels[item.outcome]}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Amount
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {item.amount} {item.token}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Price
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  ${item.price}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Time
+                </p>
+                <RelativeTimestamp timestamp={new Date(item.timestamp)} />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {editingId !== item.id && (
+                <button
+                  onClick={() => setEditingId(item.id)}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-foreground transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+                  aria-label={`Edit ${item.assetPair} entry`}
+                >
+                  <Pencil size={12} />
+                  Edit
+                </button>
+              )}
+
+              <button
+                onClick={() => handleDelete(item)}
+                disabled={isDeleting || editingId === item.id}
+                className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/5 px-3 py-1 text-red-400 transition hover:border-red-500/40 hover:bg-red-500/10 disabled:opacity-50"
+                aria-label={`Delete ${item.assetPair} entry`}
+              >
+                {isDeleting ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Trash2 size={12} />
+                )}
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+
+              {item.hash ? (
+                <a
+                  href={`https://stellar.expert/explorer/testnet/tx/${item.hash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-foreground transition hover:border-white/20"
+                >
+                  Details <ArrowRight size={12} />
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-muted-foreground">
+                  <Clock3 size={12} /> Awaiting hash
+                </span>
+              )}
+            </div>
+          </div>
+        </article>
+      );
+    },
+    [pendingIds, failedIds, deletingId, editingId, handleDelete]
+  );
+
   return (
     <section className="rounded-3xl border border-white/10 bg-card p-4 shadow-sm sm:p-5">
+      {/* ── Header / controls ───────────────────────────────────────────── */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground">
@@ -308,7 +468,8 @@ export function TransactionActivityFeed() {
         </div>
       </div>
 
-      {/* Edit form shown inline when editing */}
+      {/* ── Inline edit form (rendered outside the virtualizer so its variable
+           height does not disturb the layout calculation) ──────────────── */}
       {editEntry && (
         <div className="mb-4">
           <JournalEntryForm
@@ -319,7 +480,7 @@ export function TransactionActivityFeed() {
         </div>
       )}
 
-      {/* Sync status banner for failed entries */}
+      {/* ── Failed sync banner ──────────────────────────────────────────── */}
       {failedIds.length > 0 && (
         <div
           className="mb-4 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400"
@@ -327,12 +488,11 @@ export function TransactionActivityFeed() {
         >
           <AlertCircle size={16} className="shrink-0" />
           <span className="flex-1">
-            {failedIds.length} entr{failedIds.length === 1 ? "y" : "ies"} failed to sync.
-            Changes are saved locally and will be retried automatically.
+            {failedIds.length} entr{failedIds.length === 1 ? "y" : "ies"} failed
+            to sync. Changes are saved locally and will be retried automatically.
           </span>
           <button
             onClick={() => {
-              // Clear all failed markers
               failedIds.forEach((id) => clearFailed(id));
             }}
             className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium hover:bg-amber-500/20 transition-colors"
@@ -342,6 +502,7 @@ export function TransactionActivityFeed() {
         </div>
       )}
 
+      {/* ── List ────────────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <EmptyState
           title="No activity for these filters"
@@ -349,135 +510,21 @@ export function TransactionActivityFeed() {
           className="rounded-2xl border-dashed bg-white/5 py-8"
         />
       ) : (
-        <div className="space-y-3">
-          {filtered.map((item) => {
-            const isPending = pendingIds.includes(item.id);
-            const isFailed = failedIds.includes(item.id);
-            const isDeleting = deletingId === item.id;
-
-            return (
-              <article
-                key={item.id}
-                className={cn(
-                  "rounded-3xl border border-white/10 bg-background/80 p-4 shadow-sm transition-all",
-                  isFailed && "border-amber-500/30 bg-amber-500/5",
-                  isDeleting && "opacity-50"
-                )}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {item.assetPair}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.type.replace("_", " ")}
-                      </p>
-                    </div>
-                    {/* Sync status indicators */}
-                    {isPending && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400">
-                        <Loader2 size={10} className="animate-spin" />
-                        Syncing
-                      </span>
-                    )}
-                    {isFailed && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
-                        <AlertCircle size={10} />
-                        Offline
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em]",
-                        statusStyles[item.status]
-                      )}
-                    >
-                      {item.status}
-                    </span>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">
-                      {outcomeLabels[item.outcome]}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                        Amount
-                      </p>
-                      <p className="text-sm font-medium text-foreground">
-                        {item.amount} {item.token}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                        Price
-                      </p>
-                      <p className="text-sm font-medium text-foreground">
-                        ${item.price}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                        Time
-                      </p>
-                      <RelativeTimestamp timestamp={new Date(item.timestamp)} />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    {/* Edit button */}
-                    {editingId !== item.id && (
-                      <button
-                        onClick={() => setEditingId(item.id)}
-                        disabled={isDeleting}
-                        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-foreground transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
-                        aria-label={`Edit ${item.assetPair} entry`}
-                      >
-                        <Pencil size={12} />
-                        Edit
-                      </button>
-                    )}
-
-                    {/* Delete button */}
-                    <button
-                      onClick={() => handleDelete(item)}
-                      disabled={isDeleting || editingId === item.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/5 px-3 py-1 text-red-400 transition hover:border-red-500/40 hover:bg-red-500/10 disabled:opacity-50"
-                      aria-label={`Delete ${item.assetPair} entry`}
-                    >
-                      {isDeleting ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        <Trash2 size={12} />
-                      )}
-                      {isDeleting ? "Deleting..." : "Delete"}
-                    </button>
-
-                    {item.hash ? (
-                      <a
-                        href={`https://stellar.expert/explorer/testnet/tx/${item.hash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-foreground transition hover:border-white/20"
-                      >
-                        Details <ArrowRight size={12} />
-                      </a>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-muted-foreground">
-                        <Clock3 size={12} /> Awaiting hash
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        /**
+         * VirtualizedList renders only the rows visible inside the container
+         * plus `overscan` rows above and below.  Loading additional records via
+         * onEndReached does NOT reset the scroll position because VirtualizedList
+         * appends to the total height without touching the already-rendered items.
+         */
+        <VirtualizedList
+          items={filtered}
+          itemHeight={ROW_HEIGHT}
+          overscan={OVERSCAN}
+          renderItem={renderRow}
+          className="rounded-2xl"
+          style={{ height: LIST_CONTAINER_HEIGHT } as React.CSSProperties}
+          endReachedThreshold={LOAD_MORE_THRESHOLD}
+        />
       )}
     </section>
   );
