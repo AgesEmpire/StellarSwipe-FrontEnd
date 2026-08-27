@@ -175,7 +175,7 @@ export function WalletSelectionModal({
                       aria-label="Back to wallet selection"
                       className="rounded-full p-1 text-foreground-muted hover:text-foreground hover:bg-surface-high/40 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <ChevronLeft size={18} />
+                      <ChevronLeft size={18} className="rtl-flip" />
                     </button>
                   )}
                   <h2

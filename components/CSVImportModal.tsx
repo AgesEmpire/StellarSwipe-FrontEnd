@@ -429,7 +429,7 @@ export function CSVImportModal() {
               onClick={() => setStep(step === "mapping" ? "upload" : "mapping")}
               className="gap-2"
             >
-              <ChevronLeft size={16} /> Back
+              <ChevronLeft size={16} className="rtl-flip" /> Back
             </Button>
 
             {step === "mapping" && (

@@ -579,10 +579,11 @@ export function SignalCard({
                       addBookmark(signalId);
                     }
                   }}
+                  title={bookmarkedLabel}
                   aria-label={bookmarkedLabel}
                   disabled={dismissPending || dismissed}
                   className={cn(
-                    "rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60",
+                    "flex h-11 w-11 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60",
                     isBookmarked
                       ? "bg-sky-500/15 text-sky-300"
                       : "bg-white/5 text-slate-300 hover:bg-white/10"
@@ -593,9 +594,10 @@ export function SignalCard({
                 <button
                   type="button"
                   onClick={handleSnooze}
+                  title={`Snooze ${signalAction} signal for ${signalPair}`}
                   aria-label={`Snooze ${signalAction} signal for ${signalPair}`}
                   disabled={dismissPending || dismissed || snoozedHidden}
-                  className="rounded-full bg-white/5 p-2 text-slate-300 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-slate-300 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <AlarmClock size={18} aria-hidden="true" />
                 </button>
@@ -604,9 +606,10 @@ export function SignalCard({
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowShareMenu((value) => !value)}
+                    title={`Share ${signalPair} signal`}
                     aria-label={`Share ${signalPair} signal`}
                     aria-expanded={showShareMenu}
-                    className="h-8 w-8 p-0"
+                    className="h-11 w-11 p-0"
                   >
                     <Share2 size={16} />
                   </Button>

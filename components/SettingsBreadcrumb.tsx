@@ -31,7 +31,7 @@ export function SettingsBreadcrumb({
               {i > 0 && (
                 <ChevronRight
                   size={13}
-                  className="shrink-0 text-foreground-muted/50"
+                  className="shrink-0 text-foreground-muted/50 rtl-flip"
                   aria-hidden="true"
                 />
               )}

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
 import { journalEntrySchema, type JournalEntry } from "@/lib/journalSchema";
 import { createJournalEntry, updateJournalEntry } from "@/lib/journalApi";
 import { Button } from "@/components/ui/button";
 import { Plus, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { useSubmitGuard } from "@/hooks/useSubmitGuard";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 interface JournalEntryFormProps {
   /** If provided, the form opens in edit mode for this entry. */
@@ -26,7 +28,6 @@ export function JournalEntryForm({
   const isEditing = !!editEntry;
 
   const [isOpen, setIsOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<Partial<JournalEntry>>({
@@ -46,10 +47,29 @@ export function JournalEntryForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Submit guard: prevents duplicate submissions on both click and Enter paths
+  const { isSubmitting, guard, submitButtonProps } = useSubmitGuard();
+
   // Ref to capture the latest formData so async retry callbacks always
   // read the current state — avoids stale closures.
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
+
+  // ── Dirty tracking ─────────────────────────────────────────────────
+  // The form is "dirty" once the user makes any meaningful edit. We track
+  // this with a simple flag rather than deep-comparing the full form state,
+  // which avoids edge cases around default values.
+  const [isDirty, setIsDirty] = useState(false);
+
+  const markDirty = useCallback(() => {
+    if (!isDirty) setIsDirty(true);
+  }, [isDirty]);
+
+  // ── Unsaved-changes protection ─────────────────────────────────────
+  const { markSaved, confirmNavigation } = useUnsavedChanges({
+    isDirty: isDirty && (isOpen || isEditing),
+    message: "Your journal entry has unsaved changes. Leave anyway?",
+  });
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -60,6 +80,7 @@ export function JournalEntryForm({
     });
     setErrors({});
     setSubmitError(null);
+    setIsDirty(false);
   }, []);
 
   // ------------------------------------------------------------------
@@ -137,6 +158,7 @@ export function JournalEntryForm({
             },
           },
         });
+        throw err; // re-throw so guard can record the failure
       }
     },
     [store]
@@ -186,13 +208,13 @@ export function JournalEntryForm({
             },
           },
         });
+        throw err; // re-throw so guard can record the failure
       }
     },
     [store, onEditComplete]
   );
 
-  // ── Event handler (thin wrapper that validates and delegates) ──────────
-
+  // ── Event handler — guarded so Enter-key and button-click share the same lock
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -201,24 +223,17 @@ export function JournalEntryForm({
       const data = validateCurrentForm();
       if (!data) return;
 
-      setSubmitting(true);
-      setSubmitError(null);
-
-      try {
+      await guard(async () => {
         if (isEditing && editEntry) {
           await submitEditEntry(data, editEntry);
         } else {
           await submitCreateEntry(data);
-        }
-      } finally {
-        setSubmitting(false);
-        if (!isEditing) {
           setIsOpen(false);
           resetForm();
         }
-      }
+      });
     },
-    [validateCurrentForm, isEditing, editEntry, submitEditEntry, submitCreateEntry, resetForm]
+    [validateCurrentForm, isEditing, editEntry, submitEditEntry, submitCreateEntry, resetForm, guard]
   );
 
   // ── Render ──────────────────────────────────────────────────────────
@@ -242,12 +257,12 @@ export function JournalEntryForm({
         </h3>
         <div className="flex items-center gap-2">
           {isEditing && (
-            <Button variant="ghost" size="sm" onClick={onEditCancel} disabled={submitting}>
+            <Button variant="ghost" size="sm" onClick={onEditCancel} disabled={isSubmitting}>
               Cancel
             </Button>
           )}
           {!isEditing && (
-            <Button variant="ghost" size="sm" onClick={() => { setIsOpen(false); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsOpen(false); resetForm(); }} disabled={isSubmitting}>
               Cancel
             </Button>
           )}
@@ -261,6 +276,11 @@ export function JournalEntryForm({
         </div>
       )}
 
+      {/*
+        form onSubmit covers both the submit button click *and* the Enter key
+        pressed from any field. useSubmitGuard ensures only one in-flight
+        request is sent regardless of which path triggered submission.
+      */}
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label htmlFor="journal-entry-date" className="text-xs font-medium text-slate-400">Date</label>
@@ -270,7 +290,7 @@ export function JournalEntryForm({
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
             aria-invalid={!!errors.date}
             aria-describedby={errors.date ? "journal-entry-date-error" : undefined}
           />
@@ -286,7 +306,7 @@ export function JournalEntryForm({
             value={formData.assetPair || ""}
             onChange={(e) => setFormData({ ...formData, assetPair: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
             aria-invalid={!!errors.assetPair}
             aria-describedby={errors.assetPair ? "journal-entry-asset-pair-error" : undefined}
           />
@@ -302,7 +322,7 @@ export function JournalEntryForm({
             value={formData.amount || ""}
             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
             aria-invalid={!!errors.amount}
             aria-describedby={errors.amount ? "journal-entry-amount-error" : undefined}
           />
@@ -318,7 +338,7 @@ export function JournalEntryForm({
             value={formData.price || ""}
             onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
             aria-invalid={!!errors.price}
             aria-describedby={errors.price ? "journal-entry-price-error" : undefined}
           />
@@ -334,7 +354,7 @@ export function JournalEntryForm({
             value={formData.token || ""}
             onChange={(e) => setFormData({ ...formData, token: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
             aria-invalid={!!errors.token}
             aria-describedby={errors.token ? "journal-entry-token-error" : undefined}
           />
@@ -350,7 +370,7 @@ export function JournalEntryForm({
             value={formData.fee || ""}
             onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
             aria-invalid={!!errors.fee}
             aria-describedby={errors.fee ? "journal-entry-fee-error" : undefined}
           />
@@ -364,7 +384,7 @@ export function JournalEntryForm({
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
           >
             <option value="PENDING">Pending</option>
             <option value="SUCCEEDED">Succeeded</option>
@@ -379,7 +399,7 @@ export function JournalEntryForm({
             value={formData.outcome}
             onChange={(e) => setFormData({ ...formData, outcome: e.target.value as any })}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            disabled={submitting}
+            disabled={isSubmitting}
           >
             <option value="PENDING">Pending</option>
             <option value="WIN">Win</option>
@@ -388,8 +408,12 @@ export function JournalEntryForm({
         </div>
 
         <div className="sm:col-span-2">
-          <Button type="submit" className="w-full gap-2" disabled={submitting}>
-            {submitting && <Loader2 size={16} className="animate-spin" />}
+          <Button
+            type="submit"
+            className="w-full gap-2"
+            {...submitButtonProps}
+          >
+            {isSubmitting && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
             {isEditing ? "Save Changes" : "Save Entry"}
           </Button>
         </div>

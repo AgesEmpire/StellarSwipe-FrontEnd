@@ -11,6 +11,8 @@ interface VirtualizedListProps<T> {
   overscan?: number;
   loading?: boolean;
   className?: string;
+  /** Inline styles applied to the outer scroll container (e.g. to set a fixed height). */
+  style?: React.CSSProperties;
   onEndReached?: () => void;
   endReachedThreshold?: number;
 }
@@ -22,6 +24,7 @@ export function VirtualizedList<T>({
   overscan = 3,
   loading = false,
   className,
+  style,
   onEndReached,
   endReachedThreshold = 200,
 }: VirtualizedListProps<T>) {
@@ -82,7 +85,7 @@ export function VirtualizedList<T>({
     <div
       ref={containerRef}
       className={cn("relative overflow-auto", className)}
-      style={{ contain: "strict" }}
+      style={{ contain: "strict", ...style }}
     >
       <div style={{ height: totalHeight, position: "relative" }}>
         <div style={{ transform: `translateY(${offsetY}px)` }}>

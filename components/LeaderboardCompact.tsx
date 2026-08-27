@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
+import { AvatarImage } from "@/components/AvatarImage";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   useLeaderboardStore,
@@ -37,14 +37,12 @@ function CompactRow({
         {rank}
       </span>
 
-      <Image
+      <AvatarImage
         src={entry.avatarUrl}
-        alt={entry.username}
-        width={32}
-        height={32}
-        className="h-8 w-8 rounded-full object-cover border border-primary shrink-0"
-        sizes="32px"
+        name={entry.anonymous ? "" : entry.username}
+        size={32}
         quality={imageQuality}
+        className="border border-primary"
       />
 
       <div className="flex-1 min-w-0">

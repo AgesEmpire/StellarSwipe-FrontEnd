@@ -5,14 +5,17 @@ import { useWallet } from "@/hooks/useWallet";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { Button } from "@/components/ui/button";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Copy,
   LogOut,
   PlusCircle,
   RefreshCw,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useClipboard } from "@/hooks/useClipboard";
 
 function truncate(key: string) {
   return `${key.slice(0, 6)}...${key.slice(-4)}`;
@@ -31,7 +34,8 @@ export function WalletDropdown() {
   } = useWallet();
   const { refetch } = usePortfolio();
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, status: copyStatus, errorMessage: copyError, copy, reset: resetCopy } = useClipboard({ resetDelay: 2000 });
+  const isCopyError = copyStatus === "error";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshed, setRefreshed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -42,10 +46,8 @@ export function WalletDropdown() {
 
   const handleCopy = useCallback(async () => {
     if (!publicKey) return;
-    await navigator.clipboard.writeText(publicKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [publicKey]);
+    await copy(publicKey);
+  }, [publicKey, copy]);
 
   function handleClose() {
     setOpen(false);
@@ -253,17 +255,44 @@ export function WalletDropdown() {
           <button
             role="menuitem"
             tabIndex={0}
-            onClick={handleCopy}
-            aria-label={copied ? "Address copied" : "Copy wallet address"}
+            onClick={isCopyError ? resetCopy : handleCopy}
+            aria-label={
+              copied
+                ? "Address copied"
+                : isCopyError
+                ? "Copy failed — click to dismiss"
+                : "Copy wallet address"
+            }
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
           >
             {copied ? (
               <Check aria-hidden="true" className="h-4 w-4 text-green-600" />
+            ) : isCopyError ? (
+              <AlertTriangle aria-hidden="true" className="h-4 w-4 text-yellow-500" />
             ) : (
               <Copy aria-hidden="true" className="h-4 w-4" />
             )}
-            {copied ? "Copied!" : "Copy address"}
+            {copied ? "Copied!" : isCopyError ? "Retry" : "Copy address"}
           </button>
+
+          {/* Manual-copy fallback — only shown when clipboard API fails */}
+          {isCopyError && copyError && (
+            <div
+              role="alert"
+              className="mx-2 flex items-start gap-2 rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-[11px] leading-snug text-yellow-700 dark:text-yellow-300"
+            >
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="flex-1">{copyError}</span>
+              <button
+                type="button"
+                aria-label="Dismiss copy error"
+                onClick={resetCopy}
+                className="shrink-0 rounded p-0.5 hover:bg-yellow-500/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
 
           <hr className="border-border" />
 

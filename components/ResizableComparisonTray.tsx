@@ -76,7 +76,12 @@ export function ResizableComparisonTray({
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface shadow-lg"
-      style={{ height: collapsed ? MIN_HEIGHT : height }}
+      style={{
+        height: collapsed ? MIN_HEIGHT : height,
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
     >
       <div
         className="flex h-2 cursor-ns-resize items-center justify-center hover:bg-surface-high/20 transition-colors"

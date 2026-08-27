@@ -13,10 +13,22 @@ const SIGNALS_FETCH_TIMEOUT_MS = 12_000;
 export function useSignalsFeed() {
   const { isDemoMode } = useDemoModeStore();
 
-  const fetchLiveSignals = async (): Promise<Signal[]> => {
+  const fetchLiveSignals = async (
+    outerSignal?: AbortSignal
+  ): Promise<Signal[]> => {
     let response: Response;
+    // Own a timeout abort independent of the caller's signal, but honor the
+    // caller's signal too (React Query aborts it when this query is
+    // superseded or its owning view unmounts) so the network request is
+    // actually cancelled either way.
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), SIGNALS_FETCH_TIMEOUT_MS);
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, SIGNALS_FETCH_TIMEOUT_MS);
+    const onOuterAbort = () => controller.abort();
+    outerSignal?.addEventListener("abort", onOuterAbort);
 
     try {
       response = await fetch("/api/signals", {
@@ -27,6 +39,10 @@ export function useSignalsFeed() {
       });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
+        // Caller-initiated cancellation (route/view abandoned) is not a
+        // failure — let React Query treat it as a no-op instead of
+        // surfacing a timeout/network error to the user.
+        if (outerSignal?.aborted && !timedOut) throw err;
         throw new TimeoutError(SIGNALS_FETCH_TIMEOUT_MS);
       }
       // Network error
@@ -34,6 +50,7 @@ export function useSignalsFeed() {
       throw networkError;
     } finally {
       clearTimeout(timeout);
+      outerSignal?.removeEventListener("abort", onOuterAbort);
     }
 
     if (!response.ok) {
@@ -72,7 +89,9 @@ export function useSignalsFeed() {
     isRefetching,
   } = useQuery({
     queryKey: ["signals", isDemoMode ? "demo" : "live"],
-    queryFn: isDemoMode ? fetchDemoSignals : fetchLiveSignals,
+    queryFn: isDemoMode
+      ? fetchDemoSignals
+      : ({ signal }) => fetchLiveSignals(signal),
     ...queryOptions.signal,
     retry: 2,
     retryDelay: (attemptIndex) =>

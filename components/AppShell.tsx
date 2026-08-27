@@ -19,6 +19,7 @@ import { SignalCard } from "@/components/SignalCard";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { PortfolioErrorBoundary } from "@/components/PortfolioErrorBoundary";
 import { SignalFeedErrorBoundary } from "@/components/signal/SignalFeedErrorBoundary";
+import { useFocusReturn } from "@/hooks/useFocusReturn";
 
 // Heavy/optional panels deferred out of the initial /app bundle — they're
 // not needed for first paint (modals only open on interaction, charts and
@@ -93,6 +94,10 @@ export function AppShell({ children }: AppShellProps) {
 
   const prefersReduced = useReducedMotion();
   const { isOnline } = useNetworkStatus();
+
+  // Restore focus to the triggering element when each overlay closes.
+  useFocusReturn(modalOpen);
+  useFocusReturn(walletModalOpen);
 
   if (!connected) {
     return (

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useI18n } from "@/hooks/useI18n";
+import { useFocusReturn } from "@/hooks/useFocusReturn";
 
 export function NotificationBell() {
   const { t } = useI18n();
@@ -15,6 +15,9 @@ export function NotificationBell() {
   const unreadCount = useNotificationStore((s) => s.unreadCount());
 
   const [open, setOpen] = useState(false);
+
+  // Restore focus to the bell button when the panel closes.
+  useFocusReturn(open);
 
   const hasUnread = unreadCount > 0;
 

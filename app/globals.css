@@ -90,6 +90,61 @@
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
+  /* Top safe area — for sticky headers on notched devices */
+  .pt-safe {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+
+  /* Horizontal safe areas — for edge-to-edge surfaces */
+  .pl-safe {
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+
+  .pr-safe {
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  /* Horizontal padding that incorporates both sides */
+  .px-safe {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  /* Bottom margin — for floating elements above the home indicator */
+  .mb-safe {
+    margin-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
+  /* ── Reduced-motion: disable all non-essential CSS animations ─────── */
+  @media (prefers-reduced-motion: reduce) {
+    /* Dialog / modal animations — show content immediately */
+    .dialog-overlay[data-state="open"],
+    .dialog-overlay[data-state="closed"],
+    .dialog-content[data-state="open"],
+    .dialog-content[data-state="closed"] {
+      animation: none;
+    }
+
+    /* Skeleton pulse loaders — static fill instead of pulsing */
+    .animate-pulse {
+      animation: none;
+    }
+
+    /* Spinning loaders — pause rotation */
+    .animate-spin {
+      animation: none;
+    }
+
+    /* Any other Tailwind transition / animation utilities */
+    .transition,
+    .transition-all,
+    .transition-colors,
+    .transition-opacity,
+    .transition-transform {
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   /* Skip-to-main-content link — visually hidden until focused */
   .skip-link {
     position: absolute;
@@ -628,23 +683,6 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .skeleton-shimmer::after { animation: none; }
-  .z-dropdown {
-    z-index: var(--z-dropdown);
-  }
-  .z-sticky {
-    z-index: var(--z-sticky);
-  }
-  .z-overlay {
-    z-index: var(--z-overlay);
-  }
-  .z-modal {
-    z-index: var(--z-modal);
-  }
-  .z-toast {
-    z-index: var(--z-toast);
-  }
-  .z-loading {
-    z-index: var(--z-loading);
   }
 }
 
@@ -678,131 +716,332 @@
 }
 
 /* ── Print-friendly styling ──────────────────────────────────────────────── */
+/*
+ * #563 — Print-friendly styles for portfolio and tax reports.
+ *
+ * Goals:
+ * - Report identity (title, year, jurisdiction, print date) visible on page 1
+ * - Navigation, interactive controls, sticky elements, decorative backgrounds hidden
+ * - Tables remain readable in grayscale; rows avoid splitting across pages where practical
+ * - Light background + high-contrast black text throughout
+ * - Status colors (gain/loss) map to accessible dark-mode-safe grayscale equivalents
+ */
 @media print {
-  /* Hide non-essential UI */
-  header,
-  footer,
-  button,
-  select,
-  input,
-  a[href^="https://stellar.expert"],
-  [role="complementary"],
-  .opacity-0.group-hover\:opacity-100,
-  .onboarding-flow,
-  .wallet-selection-modal,
-  .low-balance-alert,
-  .trade-modal,
-  .bg-white\/5.p-4.rounded,
-  .flex.gap-3,
-  .border-b.border-border\/40.pb-2,
-  .custom-scrollbar::-webkit-scrollbar,
-  .text-\[8px\].text-slate-500 {
-    display: none !important;
+  /* ── Page setup ────────────────────────────────────────────────── */
+  @page {
+    margin: 1.5cm 2cm;
+    size: A4 portrait;
   }
 
-  /* Force light background and high contrast */
+  /* Force light mode and high-contrast text */
   html,
   body {
     background: #ffffff !important;
     color: #000000 !important;
     color-scheme: light !important;
+    font-size: 11pt !important;
+    line-height: 1.5 !important;
   }
 
-  /* Ensure containers layout vertically without complex columns */
-  .grid {
-    display: block !important;
+  /* ── Hide non-report UI ─────────────────────────────────────────── */
+
+  /* Navigation, app shell, interactive controls */
+  header,
+  footer,
+  nav,
+  [role="navigation"],
+  [role="complementary"],
+  [role="banner"],
+  /* Sticky position elements (e.g., "your rank" bar, nav bar) */
+  .sticky,
+  [class*="sticky"],
+  /* Buttons, selects, form inputs */
+  button,
+  select,
+  input,
+  textarea,
+  label[for],
+  /* Export/action controls inside report tools */
+  [aria-label="Export options"],
+  [aria-label="Tax Reporting Tool"] .flex.flex-wrap.gap-4,
+  /* Wallet, modals, toasts */
+  [role="dialog"],
+  [role="alertdialog"],
+  [role="status"],
+  [aria-live],
+  /* Decorative / interactive-only elements */
+  .skeleton-shimmer,
+  [class*="animate-"],
+  [data-print-hide],
+  .print\:hidden {
+    display: none !important;
   }
 
-  .grid > * {
-    margin-bottom: 2rem !important;
-    width: 100% !important;
-    page-break-inside: avoid !important;
-  }
-
-  /* Remove dark surface colors and enforce black-and-white borders */
-  .bg-card,
-  .bg-slate-950\/90,
-  .bg-slate-950\/95,
-  .bg-background\/80,
-  .bg-slate-900\/90,
-  .bg-white\/5,
-  .rounded-3xl,
-  .rounded-xl {
-    background: #ffffff !important;
-    border-color: #cbd5e1 !important;
-    color: #000000 !important;
+  /* ── Surface & card backgrounds → white ────────────────────────── */
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
     box-shadow: none !important;
+    text-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  /* Text color adjustments */
-  .text-foreground,
-  .text-slate-300,
-  .text-white,
-  h1,
-  h2,
-  h3 {
+  /* Preserve white page background */
+  html,
+  body,
+  main {
+    background: #ffffff !important;
+  }
+
+  /* ── Typography ─────────────────────────────────────────────────── */
+  h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    page-break-after: avoid;
+  }
+
+  p, span, div, td, th, li {
     color: #000000 !important;
   }
 
+  /* Secondary text */
   .text-foreground-muted,
   .text-muted-foreground,
-  .text-slate-400,
-  .text-gray-400,
   .text-foreground-subtle,
-  .text-slate-500 {
-    color: #334155 !important;
+  .text-slate-400,
+  .text-slate-500,
+  .text-gray-400,
+  .text-gray-500 {
+    color: #475569 !important; /* slate-600 — legible in grayscale */
   }
 
-  /* Enforce legible print colors for P&L indicators */
+  /* Links — show URL inline for reference */
+  a[href]::after {
+    content: none; /* suppress for report pages; add selectively via data-print-url */
+  }
+
+  /* ── Status / P&L colors → grayscale-safe values ───────────────── */
   .text-green-400,
+  .text-green-500,
   .text-green-600,
-  .text-accent-success,
-  .bg-green-500\/15 {
-    color: #166534 !important; /* Dark Green */
-    background: transparent !important;
+  .text-emerald-400,
+  .text-emerald-500,
+  .text-accent-success {
+    color: #166534 !important; /* green-800 — prints dark in B&W */
   }
 
   .text-red-400,
+  .text-red-500,
   .text-red-600,
-  .text-accent-danger,
-  .bg-red-500\/15 {
-    color: #991b1b !important; /* Dark Red */
-    background: transparent !important;
+  .text-accent-danger {
+    color: #991b1b !important; /* red-800 */
   }
 
-  .bg-green-500\/10,
-  .bg-red-500\/10 {
-    background: transparent !important;
-    border: 1px solid #cbd5e1 !important;
+  .text-amber-400,
+  .text-yellow-400,
+  .text-accent-warning {
+    color: #78350f !important; /* amber-900 */
   }
 
-  /* SVGs should scale nicely */
+  .text-sky-400,
+  .text-blue-400,
+  .text-blue-500,
+  .text-accent-primary {
+    color: #1e3a5f !important; /* dark blue */
+  }
+
+  /* ── Borders → light grey ───────────────────────────────────────── */
+  *[class*="border"],
+  td,
+  th {
+    border-color: #cbd5e1 !important; /* slate-300 */
+  }
+
+  /* ── Layout: flatten grids into single-column ───────────────────── */
+  .grid,
+  [class*="grid-cols"] {
+    display: block !important;
+  }
+
+  .grid > *,
+  [class*="grid-cols"] > * {
+    width: 100% !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* ── Report identity header (print-only) ───────────────────────── */
+  /*
+   * Inject a visible report-header block at the top of printable report pages.
+   * Components should add data-print-title, data-print-subtitle to <section
+   * aria-label="..."> to have them surfaced automatically.
+   *
+   * Fallback: the document <title> is used by most print engines for the
+   * page header automatically.
+   */
+  [data-print-report]::before {
+    content: attr(data-print-title) " — " attr(data-print-subtitle);
+    display: block;
+    font-size: 14pt;
+    font-weight: 700;
+    color: #000000 !important;
+    border-bottom: 2pt solid #000000;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Print date — appended after report identity */
+  [data-print-report]::after {
+    content: "Printed: " attr(data-print-date);
+    display: block;
+    font-size: 9pt;
+    color: #475569 !important;
+    margin-top: 0.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* ── Tables — keep readable and avoid row splits ───────────────── */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9pt !important;
+    page-break-inside: auto;
+  }
+
+  thead {
+    /* Repeat table headers on every page */
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #f1f5f9 !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+    border-bottom: 1.5pt solid #64748b !important;
+    padding: 4pt 6pt !important;
+    text-align: left;
+  }
+
+  td {
+    padding: 3pt 6pt !important;
+    border-bottom: 0.5pt solid #cbd5e1 !important;
+    vertical-align: top;
+  }
+
+  /* Alternate row shading — light enough to print as near-white */
+  tbody tr:nth-child(even) td {
+    background: #f8fafc !important;
+  }
+
+  /* Summary / total rows */
+  tfoot td,
+  tr[data-summary] td {
+    font-weight: 600 !important;
+    border-top: 1.5pt solid #64748b !important;
+  }
+
+  /* ── Cards / sections ───────────────────────────────────────────── */
+  article,
+  section,
+  .card,
+  [class*="rounded-xl"],
+  [class*="rounded-lg"] {
+    border: 0.5pt solid #cbd5e1 !important;
+    border-radius: 0 !important;
+    margin-bottom: 1rem !important;
+    padding: 0.75rem !important;
+    page-break-inside: avoid;
+  }
+
+  /* ── Overflow: allow tables to scroll on screen but wrap for print */
+  .overflow-x-auto,
+  [class*="overflow-x"] {
+    overflow: visible !important;
+  }
+
+  /* ── SVG / charts: scale and prevent page splits ─────────────────── */
   svg {
     max-width: 100% !important;
     height: auto !important;
-    page-break-inside: avoid !important;
+    page-break-inside: avoid;
   }
 
-  /* Trade history and signal lists pagination rules */
-  article,
-  li {
-    page-break-inside: avoid !important;
-    border: 1px solid #cbd5e1 !important;
-    margin-bottom: 0.75rem !important;
-    background: #ffffff !important;
-  }
+  /* ── Utility: explicit show/hide hooks for components ──────────────── */
+  .print\:block  { display: block  !important; }
+  .print\:inline { display: inline !important; }
+  .print\:hidden { display: none   !important; }
+  [data-print-hide] { display: none !important; }
+  [data-print-show] { display: block !important; }
+}
 
-  section,
-  ul,
-  .space-y-3 {
-    page-break-inside: auto !important;
-  }
+/* ── RTL Layout Support (#561) ──────────────────────────────────────────── */
+/*
+ * Core RTL overrides using CSS logical properties.
+ * Components can use .rtl-flip on directional icons (e.g. back/forward arrows)
+ * to mirror them automatically without conditional class logic in every component.
+ *
+ * Tailwind CSS v4+ supports logical properties natively (ms-*, me-*, ps-*, pe-*,
+ * border-s-*, border-e-*, etc.) via `margin-inline-start` etc. — prefer those
+ * over physical left/right classes in new component code.
+ */
 
-  /* Prevent awkward page cuts on cards */
-  .rounded-3xl,
-  .rounded-xl,
-  .border,
-  .card {
-    page-break-inside: avoid !important;
-  }
+[dir="rtl"] {
+  /* Ensure correct text alignment for inline content */
+  text-align: start;
+}
+
+/* Directional icon mirror — apply to <ChevronLeft>, <ArrowLeft>, <ArrowRight>, etc. */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Navigation links flow right-to-left */
+[dir="rtl"] nav ul[role="list"] {
+  flex-direction: row-reverse;
+}
+
+/* Sort / filter direction indicators */
+[dir="rtl"] .sort-icon {
+  transform: scaleX(-1);
+}
+
+/* Card action rows — reverse direction in RTL */
+[dir="rtl"] .card-actions {
+  flex-direction: row-reverse;
+}
+
+/* Skip link adapts to RTL */
+[dir="rtl"] .skip-link {
+  left: auto;
+  right: 0;
+  border-radius: 0 0 0 0.5rem;
+}
+
+/* Breadcrumb separators mirror in RTL */
+[dir="rtl"] .breadcrumb-separator {
+  transform: scaleX(-1);
+}
+
+/* Inline-start/end border helpers — complement Tailwind's logical utilities */
+[dir="rtl"] .border-s {
+  border-right-width: 1px;
+  border-left-width: 0;
+}
+
+[dir="rtl"] .border-e {
+  border-left-width: 1px;
+  border-right-width: 0;
+}
+
+/* Scrollbars keep their physical position regardless of dir */
+[dir="rtl"] ::-webkit-scrollbar {
+  left: auto;
 }

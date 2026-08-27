@@ -97,11 +97,15 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     InfiniteData<SignalResponse, number>
   >({
     queryKey: ["signals"],
-    queryFn: async ({ pageParam = 1 }) => {
-      // Use fetchSignals so absolute base URL is prepended correctly for MSW testing environments
+    queryFn: async ({ pageParam = 1, signal }) => {
+      // Use fetchSignals so absolute base URL is prepended correctly for MSW testing environments.
+      // Forwarding `signal` lets React Query actually cancel the in-flight
+      // request (not just ignore its result) when it's superseded or the
+      // owning view is torn down.
       return fetchSignals({
         page: pageParam as number,
         pageSize: PAGE_SIZE,
+        signal,
       }) as Promise<SignalResponse>;
     },
     getNextPageParam: (lastPage: SignalResponse) => lastPage.nextPage,
