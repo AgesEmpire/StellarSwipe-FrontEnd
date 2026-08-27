@@ -1,7 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator";
+import { PeriodComparisonWidget } from "@/components/comparison/PeriodComparisonWidget";
+import { usePeriodComparison } from "@/hooks/usePeriodComparison";
+import { type ComparisonGranularity } from "@/lib/comparison";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const PortfolioAllocationChart = dynamic(
   () =>
@@ -36,28 +41,79 @@ const PerformanceDashboard = dynamic(
   }
 );
 
-import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
-
+// ---------------------------------------------------------------------------
+// Inner page — has access to hooks
+// ---------------------------------------------------------------------------
 function AnalyticsPageInner() {
+  // Period-over-period comparison state (#405)
+  const [showPeriodComparison, setShowPeriodComparison] = useState(false);
+  const [granularity, setGranularity] = useState<ComparisonGranularity>("month");
+
+  // Pull current & prior period metrics from the portfolio store / demo data
+  const {
+    pnl,
+    winRate,
+    totalTrades,
+    priorPnl,
+    priorWinRate,
+    priorTotalTrades,
+    isDemo,
+  } = usePeriodComparison();
+
   return (
     <div className="p-6">
+      {/* Header row with toggle */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Portfolio Analytics</h1>
-        
-        {/* Period Comparison Toggle */}
+
         <button
-          onClick={togglePeriodComparison}
+          onClick={() => setShowPeriodComparison((v) => !v)}
           aria-pressed={showPeriodComparison}
           className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900"
-          aria-label={showPeriodComparison ? "Hide period comparison" : "Show period comparison"}
+          aria-label={
+            showPeriodComparison
+              ? "Hide period comparison"
+              : "Show period comparison"
+          }
         >
-          <span>{showPeriodComparison ? "Hide" : "Show"} Period Comparison</span>
+          <span>
+            {showPeriodComparison ? "Hide" : "Show"} Period Comparison
+          </span>
           <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400">
-            +
+            {showPeriodComparison ? "−" : "+"}
           </span>
         </button>
       </div>
 
+      {/* Period Comparison Widget — additive, not replacing benchmark chart */}
+      {showPeriodComparison && (
+        <div className="mb-6">
+          <PeriodComparisonWidget
+            pnl={pnl}
+            winRate={winRate}
+            totalTrades={totalTrades}
+            priorPnl={priorPnl}
+            priorWinRate={priorWinRate}
+            priorTotalTrades={priorTotalTrades}
+            granularity={granularity}
+            onGranularityChange={setGranularity}
+            isDemo={isDemo}
+          />
+
+          {/* Demo mode footnote */}
+          {isDemo && (
+            <p className="mt-2 text-xs text-foreground-muted text-center">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 text-amber-400">
+                <span className="w-2 h-2 rounded-full bg-amber-400" aria-hidden="true" />
+                Demo mode — prior period data is simulated. Connect to a real
+                API for historical comparison.
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Existing charts — unaffected by period comparison */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <PortfolioAllocationChart />
         <PnLWidget />
@@ -68,16 +124,6 @@ function AnalyticsPageInner() {
           <PnLShareCardGenerator />
         </div>
       </div>
-
-      {/* Demo Mode Indicator */}
-      {isDemo && showPeriodComparison && (
-        <div className="mt-4 text-xs text-foreground-muted text-center">
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 text-amber-400">
-            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-            Demo mode: Prior period data is simulated. Connect to real API for historical comparison.
-          </span>
-        </div>
-      )}
     </div>
   );
 }

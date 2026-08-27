@@ -320,3 +320,81 @@ export function triggerDownload(
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ---------------------------------------------------------------------------
+// Multi-year comparison utilities (#351)
+// ---------------------------------------------------------------------------
+
+export interface MultiYearSummaryRow {
+  year: number;
+  totalGainLoss: number;
+  shortTermGains: number;
+  longTermGains: number;
+  shortTermLosses: number;
+  longTermLosses: number;
+  totalFees: number;
+  estimatedTaxLiability: number;
+  tradeCount: number;
+}
+
+/**
+ * Computes a summary row for each supplied year so callers can drive a
+ * multi-year comparison table or chart.
+ */
+export function computeMultiYearSummary(
+  transactions: TaxableTransaction[],
+  years: number[],
+  jurisdiction: TaxJurisdiction
+): MultiYearSummaryRow[] {
+  return years.map((year) => {
+    const report = computeTaxReport(transactions, year, jurisdiction);
+    return {
+      year,
+      totalGainLoss: report.totalGainLoss,
+      shortTermGains: report.shortTermGains,
+      longTermGains: report.longTermGains,
+      shortTermLosses: report.shortTermLosses,
+      longTermLosses: report.longTermLosses,
+      totalFees: report.totalFees,
+      estimatedTaxLiability: report.estimatedTaxLiability,
+      tradeCount: report.entries.length,
+    };
+  });
+}
+
+/**
+ * Exports a multi-year comparison summary as CSV.
+ * The resulting file clearly labels each row by year.
+ */
+export function exportMultiYearCsv(
+  rows: MultiYearSummaryRow[],
+  jurisdiction: TaxJurisdiction
+): string {
+  const headers = [
+    "Tax Year",
+    "Jurisdiction",
+    "Net Gain/Loss (USD)",
+    "Short-Term Gains (USD)",
+    "Long-Term Gains (USD)",
+    "Short-Term Losses (USD)",
+    "Long-Term Losses (USD)",
+    "Total Fees (USD)",
+    "Est. Tax Liability (USD)",
+    "Trade Count",
+  ];
+  const dataRows = rows.map((r) => [
+    String(r.year),
+    jurisdiction,
+    r.totalGainLoss.toFixed(2),
+    r.shortTermGains.toFixed(2),
+    r.longTermGains.toFixed(2),
+    r.shortTermLosses.toFixed(2),
+    r.longTermLosses.toFixed(2),
+    r.totalFees.toFixed(4),
+    r.estimatedTaxLiability.toFixed(2),
+    String(r.tradeCount),
+  ]);
+  return [headers, ...dataRows]
+    .map((row) => row.map((v) => `"${v}"`).join(","))
+    .join("\n");
+}
