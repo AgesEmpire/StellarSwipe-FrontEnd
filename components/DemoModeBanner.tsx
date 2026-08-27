@@ -50,7 +50,7 @@ export function DemoModeBanner({ className }: DemoModeBannerProps) {
             >
               <UserPlus size={12} aria-hidden="true" />
               Create account
-              <ArrowRight size={12} aria-hidden="true" />
+              <ArrowRight size={12} aria-hidden="true" className="rtl-flip" />
             </button>
 
             <button

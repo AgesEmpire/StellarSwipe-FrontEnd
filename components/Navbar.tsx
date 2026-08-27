@@ -14,6 +14,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { KeyboardShortcutsHelpModal } from "@/components/KeyboardShortcutsHelpModal";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useThemeStore } from "@/store/useThemeStore";
+import { useFocusReturn } from "@/hooks/useFocusReturn";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -56,6 +57,11 @@ export function Navbar() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // Restore focus to the triggering element when each overlay closes.
+  useFocusReturn(walletModalOpen);
+  useFocusReturn(paletteOpen);
+  useFocusReturn(helpModalOpen);
+
   const toggleTheme = useThemeStore((state) => state.toggle);
 
   // Global keyboard shortcuts
@@ -97,9 +103,9 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md pt-safe">
         <nav
-          className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6"
+          className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
           aria-label="Main navigation"
         >
           {/* Logo */}

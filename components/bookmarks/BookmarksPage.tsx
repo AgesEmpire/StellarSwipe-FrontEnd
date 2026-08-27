@@ -83,7 +83,7 @@ function BookmarksEmptyState() {
       action={
         <Button asChild size="sm" className="gap-2">
           <Link href="/app">
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            <ArrowLeft className="h-3.5 w-3.5 rtl-flip" aria-hidden="true" />
             Browse feed
           </Link>
         </Button>
@@ -556,7 +556,7 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
             </div>
             <Button asChild variant="outline" size="sm" className="gap-2">
               <Link href="/app">
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                <ArrowLeft className="h-3.5 w-3.5 rtl-flip" aria-hidden="true" />
                 Back to feed
               </Link>
             </Button>

@@ -22,7 +22,9 @@ export function ComparisonTray() {
       className={cn(
         "fixed bottom-0 left-0 right-0 z-50",
         "bg-background/95 backdrop-blur border-t border-border shadow-lg",
-        "px-4 py-3"
+        // Safe-area insets: keep content above the home indicator on iOS/notched devices
+        "px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+        "pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
       )}
     >
       {/* Limit-reached banner */}

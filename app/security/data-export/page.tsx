@@ -301,7 +301,7 @@ export default function DataExportRequestPage() {
 
         <Button asChild variant="outline" className="gap-2">
           <Link href="/security">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <ArrowLeft className="h-4 w-4 rtl-flip" aria-hidden="true" />
             Back to security settings
           </Link>
         </Button>

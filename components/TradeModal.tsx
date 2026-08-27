@@ -770,7 +770,7 @@ export function TradeModal({
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                     aria-label="Back to edit inputs"
                   >
-                    <ArrowLeft size={15} aria-hidden="true" />
+                    <ArrowLeft size={15} aria-hidden="true" className="rtl-flip" />
                     Back
                   </button>
 
