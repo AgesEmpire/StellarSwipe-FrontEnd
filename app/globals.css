@@ -90,6 +90,61 @@
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
+  /* Top safe area — for sticky headers on notched devices */
+  .pt-safe {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+
+  /* Horizontal safe areas — for edge-to-edge surfaces */
+  .pl-safe {
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+
+  .pr-safe {
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  /* Horizontal padding that incorporates both sides */
+  .px-safe {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  /* Bottom margin — for floating elements above the home indicator */
+  .mb-safe {
+    margin-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
+  /* ── Reduced-motion: disable all non-essential CSS animations ─────── */
+  @media (prefers-reduced-motion: reduce) {
+    /* Dialog / modal animations — show content immediately */
+    .dialog-overlay[data-state="open"],
+    .dialog-overlay[data-state="closed"],
+    .dialog-content[data-state="open"],
+    .dialog-content[data-state="closed"] {
+      animation: none;
+    }
+
+    /* Skeleton pulse loaders — static fill instead of pulsing */
+    .animate-pulse {
+      animation: none;
+    }
+
+    /* Spinning loaders — pause rotation */
+    .animate-spin {
+      animation: none;
+    }
+
+    /* Any other Tailwind transition / animation utilities */
+    .transition,
+    .transition-all,
+    .transition-colors,
+    .transition-opacity,
+    .transition-transform {
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   /* Skip-to-main-content link — visually hidden until focused */
   .skip-link {
     position: absolute;
@@ -942,4 +997,68 @@
   .print\:hidden { display: none   !important; }
   [data-print-hide] { display: none !important; }
   [data-print-show] { display: block !important; }
+}
+
+/* ── RTL Layout Support (#561) ──────────────────────────────────────────── */
+/*
+ * Core RTL overrides using CSS logical properties.
+ * Components can use .rtl-flip on directional icons (e.g. back/forward arrows)
+ * to mirror them automatically without conditional class logic in every component.
+ *
+ * Tailwind CSS v4+ supports logical properties natively (ms-*, me-*, ps-*, pe-*,
+ * border-s-*, border-e-*, etc.) via `margin-inline-start` etc. — prefer those
+ * over physical left/right classes in new component code.
+ */
+
+[dir="rtl"] {
+  /* Ensure correct text alignment for inline content */
+  text-align: start;
+}
+
+/* Directional icon mirror — apply to <ChevronLeft>, <ArrowLeft>, <ArrowRight>, etc. */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Navigation links flow right-to-left */
+[dir="rtl"] nav ul[role="list"] {
+  flex-direction: row-reverse;
+}
+
+/* Sort / filter direction indicators */
+[dir="rtl"] .sort-icon {
+  transform: scaleX(-1);
+}
+
+/* Card action rows — reverse direction in RTL */
+[dir="rtl"] .card-actions {
+  flex-direction: row-reverse;
+}
+
+/* Skip link adapts to RTL */
+[dir="rtl"] .skip-link {
+  left: auto;
+  right: 0;
+  border-radius: 0 0 0 0.5rem;
+}
+
+/* Breadcrumb separators mirror in RTL */
+[dir="rtl"] .breadcrumb-separator {
+  transform: scaleX(-1);
+}
+
+/* Inline-start/end border helpers — complement Tailwind's logical utilities */
+[dir="rtl"] .border-s {
+  border-right-width: 1px;
+  border-left-width: 0;
+}
+
+[dir="rtl"] .border-e {
+  border-left-width: 1px;
+  border-right-width: 0;
+}
+
+/* Scrollbars keep their physical position regardless of dir */
+[dir="rtl"] ::-webkit-scrollbar {
+  left: auto;
 }

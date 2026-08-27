@@ -11,6 +11,9 @@ import {
   Globe,
   BarChart2,
   Receipt,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,10 +27,13 @@ import {
   type TaxJurisdiction,
   type TaxableTransaction,
   type CsvPreset,
+  type MultiYearSummaryRow,
   TAX_RATES,
   CSV_PRESETS,
   computeTaxReport,
+  computeMultiYearSummary,
   exportToCsvWithPreset,
+  exportMultiYearCsv,
   formatForTurboTax,
   formatForTaxAct,
   triggerDownload,
@@ -36,7 +42,8 @@ import {
 const JURISDICTIONS: TaxJurisdiction[] = ["US", "UK", "EU", "CA"];
 
 const CURRENT_YEAR = new Date().getFullYear();
-const AVAILABLE_YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+// Offer the past 5 tax years for selection
+const AVAILABLE_YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - i);
 
 function deriveTransactions(
   history: ReturnType<typeof useTransactionStore.getState>["history"]
@@ -100,35 +107,114 @@ function SummaryCard({
   );
 }
 
-// ── #565 Column definitions for the trade-level breakdown table ─────────────
-type TaxColumn =
-  | "date"
-  | "pair"
-  | "proceeds"
-  | "costBasis"
-  | "gainLoss"
-  | "fees"
-  | "term"
-  | "fx";
+/** Inline delta badge shown next to a value in the multi-year table */
+function DeltaBadge({ delta, base }: { delta: number; base: number }) {
+  if (base === 0) return null;
+  const pct = ((delta) / Math.abs(base)) * 100;
+  const isPos = pct >= 0;
+  return (
+    <span
+      className={cn(
+        "ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+        isPos
+          ? "bg-green-500/15 text-green-400"
+          : "bg-red-500/15 text-red-400"
+      )}
+    >
+      {isPos ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
 
-const TAX_TABLE_COLUMNS: ColumnDef<TaxColumn>[] = [
-  { key: "date",      label: "Date",       required: true },
-  { key: "pair",      label: "Pair",       required: true },
-  { key: "proceeds",  label: "Proceeds",   defaultVisible: true },
-  { key: "costBasis", label: "Cost Basis", defaultVisible: true },
-  { key: "gainLoss",  label: "Gain/Loss",  defaultVisible: true },
-  { key: "fees",      label: "Fees",       defaultVisible: false },
-  { key: "term",      label: "Term",       defaultVisible: true },
-  { key: "fx",        label: "FX",         defaultVisible: false },
-];
+/** Multi-year comparison table */
+function MultiYearComparisonTable({
+  rows,
+}: {
+  rows: MultiYearSummaryRow[];
+}) {
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="overflow-x-auto">
+      <table
+        className="w-full text-xs"
+        aria-label="Multi-year tax comparison"
+      >
+        <thead>
+          <tr className="border-b border-border text-foreground-muted">
+            <th className="pb-2 text-left font-medium pr-4">Year</th>
+            <th className="pb-2 text-right font-medium pr-4">Net Gain/Loss</th>
+            <th className="pb-2 text-right font-medium pr-4">ST Gains</th>
+            <th className="pb-2 text-right font-medium pr-4">LT Gains</th>
+            <th className="pb-2 text-right font-medium pr-4">Total Fees</th>
+            <th className="pb-2 text-right font-medium pr-4">Est. Tax</th>
+            <th className="pb-2 text-right font-medium">Trades</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => {
+            const prevRow = rows[idx + 1]; // rows are newest-first
+            const delta = prevRow
+              ? row.totalGainLoss - prevRow.totalGainLoss
+              : null;
+            const isGain = row.totalGainLoss >= 0;
+            return (
+              <tr
+                key={row.year}
+                className="border-b border-border/50 last:border-0"
+              >
+                <td className="py-2 pr-4 font-semibold text-foreground">
+                  {row.year}
+                </td>
+                <td
+                  className={cn(
+                    "py-2 pr-4 text-right font-medium",
+                    isGain ? "text-green-400" : "text-red-400"
+                  )}
+                >
+                  {isGain ? "+" : ""}${Math.abs(row.totalGainLoss).toFixed(2)}
+                  {delta !== null && prevRow && (
+                    <DeltaBadge delta={delta} base={prevRow.totalGainLoss} />
+                  )}
+                </td>
+                <td className="py-2 pr-4 text-right text-green-400">
+                  ${row.shortTermGains.toFixed(2)}
+                </td>
+                <td className="py-2 pr-4 text-right text-sky-400">
+                  ${row.longTermGains.toFixed(2)}
+                </td>
+                <td className="py-2 pr-4 text-right text-foreground-muted">
+                  ${row.totalFees.toFixed(4)}
+                </td>
+                <td className="py-2 pr-4 text-right text-orange-400">
+                  ${row.estimatedTaxLiability.toFixed(2)}
+                </td>
+                <td className="py-2 text-right text-foreground-muted">
+                  {row.tradeCount}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function TaxReportingTool() {
   const { history } = useTransactionStore();
   const [jurisdiction, setJurisdiction] = useState<TaxJurisdiction>("US");
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+  // Multi-year comparison state
+  const [multiYearMode, setMultiYearMode] = useState(false);
+  const [selectedYears, setSelectedYears] = useState<number[]>([
+    CURRENT_YEAR,
+    CURRENT_YEAR - 1,
+    CURRENT_YEAR - 2,
+  ]);
   const [csvPreset, setCsvPreset] = useState<CsvPreset>("generic");
   const [pendingExport, setPendingExport] = useState<
-    "csv" | "pdf" | "turbotax" | "taxact" | null
+    "csv" | "pdf" | "turbotax" | "taxact" | "multi-csv" | null
   >(null);
 
   const transactions = useMemo(() => deriveTransactions(history), [history]);
@@ -141,6 +227,17 @@ export function TaxReportingTool() {
   const previousReport = useMemo(
     () => computeTaxReport(transactions, selectedYear - 1, jurisdiction),
     [transactions, selectedYear, jurisdiction]
+  );
+
+  // Multi-year summary rows (sorted newest first)
+  const multiYearRows = useMemo(
+    () =>
+      computeMultiYearSummary(
+        transactions,
+        [...selectedYears].sort((a, b) => b - a),
+        jurisdiction
+      ),
+    [transactions, selectedYears, jurisdiction]
   );
 
   const rates = TAX_RATES[jurisdiction];
@@ -165,8 +262,19 @@ export function TaxReportingTool() {
         100
       : null;
 
+  function toggleYear(year: number) {
+    setSelectedYears((prev) =>
+      prev.includes(year)
+        ? prev.length > 1
+          ? prev.filter((y) => y !== year)
+          : prev // keep at least one
+        : [...prev, year]
+    );
+  }
+
+  // ── Export preview configs ──────────────────────────────────────────────
   const exportPreviewConfig: Record<
-    "csv" | "pdf" | "turbotax" | "taxact",
+    "csv" | "pdf" | "turbotax" | "taxact" | "multi-csv",
     {
       title: string;
       description: string;
@@ -191,7 +299,7 @@ export function TaxReportingTool() {
     pdf: {
       title: "Export tax report as PDF",
       description:
-        "Your browser's print dialog will open — choose \"Save as PDF\" to export.",
+        'Your browser\'s print dialog will open — choose "Save as PDF" to export.',
       confirmLabel: "Open print dialog",
       items: [
         { label: "Tax year", value: String(selectedYear) },
@@ -224,23 +332,27 @@ export function TaxReportingTool() {
         },
       ],
     },
+    "multi-csv": {
+      title: "Export multi-year comparison as CSV",
+      description: `A summary comparing ${selectedYears
+        .sort((a, b) => b - a)
+        .join(", ")} for ${jurisdiction} will download.`,
+      confirmLabel: "Download CSV",
+      items: [
+        {
+          label: "Years covered",
+          value: selectedYears.sort((a, b) => b - a).join(", "),
+        },
+        { label: "Jurisdiction", value: jurisdiction },
+        {
+          label: "Filename",
+          value: `tax-comparison-${selectedYears
+            .sort((a, b) => b - a)
+            .join("-")}-${jurisdiction}.csv`,
+        },
+      ],
+    },
   };
-
-  function handleExportCsv() {
-    setPendingExport("csv");
-  }
-
-  function handleExportPdf() {
-    setPendingExport("pdf");
-  }
-
-  function handleExportTurboTax() {
-    setPendingExport("turbotax");
-  }
-
-  function handleExportTaxAct() {
-    setPendingExport("taxact");
-  }
 
   function runPendingExport() {
     if (pendingExport === "csv") {
@@ -284,6 +396,20 @@ export function TaxReportingTool() {
       toast.success("TaxAct file downloaded", {
         description: `${selectedYear} ${jurisdiction} report saved as CSV.`,
       });
+      return;
+    }
+
+    if (pendingExport === "multi-csv") {
+      const sortedYears = [...selectedYears].sort((a, b) => b - a);
+      const csv = exportMultiYearCsv(multiYearRows, jurisdiction);
+      triggerDownload(
+        csv,
+        `tax-comparison-${sortedYears.join("-")}-${jurisdiction}.csv`,
+        "text/csv"
+      );
+      toast.success("Multi-year comparison downloaded", {
+        description: `${sortedYears.join(", ")} ${jurisdiction} comparison saved as CSV.`,
+      });
     }
   }
 
@@ -316,9 +442,9 @@ export function TaxReportingTool() {
         </p>
       </div>
 
-      {/* Controls — hidden when printing */}
-      <Card data-print-hide>
-        <CardContent className="pt-4 pb-4 px-4 flex flex-wrap gap-4">
+      {/* Controls */}
+      <Card>
+        <CardContent className="pt-4 pb-4 px-4 flex flex-wrap gap-4 items-end">
           {/* Jurisdiction */}
           <div className="flex flex-col gap-1.5 min-w-[140px]">
             <label
@@ -345,29 +471,31 @@ export function TaxReportingTool() {
             </select>
           </div>
 
-          {/* Tax year */}
-          <div className="flex flex-col gap-1.5 min-w-[120px]">
-            <label
-              htmlFor="year-select"
-              className="text-xs font-medium text-foreground-muted flex items-center gap-1"
-            >
-              <BarChart2 size={11} aria-hidden="true" />
-              Tax Year
-            </label>
-            <select
-              id="year-select"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              aria-label="Select tax year"
-            >
-              {AVAILABLE_YEARS.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Tax year (single-year mode only) */}
+          {!multiYearMode && (
+            <div className="flex flex-col gap-1.5 min-w-[120px]">
+              <label
+                htmlFor="year-select"
+                className="text-xs font-medium text-foreground-muted flex items-center gap-1"
+              >
+                <BarChart2 size={11} aria-hidden="true" />
+                Tax Year
+              </label>
+              <select
+                id="year-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                aria-label="Select tax year"
+              >
+                {AVAILABLE_YEARS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Tax rate info */}
           <div className="flex flex-col gap-1.5 justify-end">
@@ -384,306 +512,389 @@ export function TaxReportingTool() {
               </span>
             </p>
           </div>
+
+          {/* Multi-year toggle */}
+          <div className="flex flex-col gap-1.5 justify-end ml-auto">
+            <Button
+              size="sm"
+              variant={multiYearMode ? "default" : "outline"}
+              onClick={() => setMultiYearMode((v) => !v)}
+              className="gap-1.5"
+              aria-pressed={multiYearMode}
+              aria-label={
+                multiYearMode
+                  ? "Switch to single-year view"
+                  : "Switch to multi-year comparison view"
+              }
+            >
+              <Layers size={13} aria-hidden="true" />
+              {multiYearMode ? "Single Year" : "Compare Years"}
+              {multiYearMode ? (
+                <ChevronUp size={12} aria-hidden="true" />
+              ) : (
+                <ChevronDown size={12} aria-hidden="true" />
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <SummaryCard
-          label="Net Gain/Loss"
-          value={`${isGain ? "+" : ""}$${Math.abs(netGainLoss).toFixed(2)}`}
-          icon={isGain ? TrendingUp : TrendingDown}
-          className={isGain ? "text-green-400" : "text-red-400"}
-        />
-        <SummaryCard
-          label="Short-Term Gains"
-          value={`$${currentReport.shortTermGains.toFixed(2)}`}
-          sub={`Losses: $${currentReport.shortTermLosses.toFixed(2)}`}
-          icon={TrendingUp}
-          className="text-amber-400"
-        />
-        <SummaryCard
-          label="Long-Term Gains"
-          value={`$${currentReport.longTermGains.toFixed(2)}`}
-          sub={`Losses: $${currentReport.longTermLosses.toFixed(2)}`}
-          icon={TrendingUp}
-          className="text-sky-400"
-        />
-        <SummaryCard
-          label="Total Fees"
-          value={`$${currentReport.totalFees.toFixed(4)}`}
-          icon={Receipt}
-          className="text-violet-400"
-        />
-        <SummaryCard
-          label="Est. Tax Liability"
-          value={`$${currentReport.estimatedTaxLiability.toFixed(2)}`}
-          sub={rates.label}
-          icon={DollarSign}
-          className="text-orange-400"
-        />
-      </div>
-
-      {/* Year-over-year comparison */}
-      {yoyChange !== null && (
+      {/* ── MULTI-YEAR MODE ────────────────────────────────────────────────── */}
+      {multiYearMode && (
         <Card>
           <CardHeader>
-            <h3 className="text-sm font-semibold text-foreground">
-              Year-over-Year Comparison ({selectedYear - 1} → {selectedYear})
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Layers size={14} className="text-blue-400" aria-hidden="true" />
+              Multi-Year Comparison
             </h3>
+            <p className="text-xs text-foreground-muted mt-0.5">
+              Select the years you want to compare. All years use the{" "}
+              {TAX_RATES[jurisdiction].label} ({jurisdiction}) rates.
+            </p>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="flex flex-wrap gap-6 text-sm">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-foreground-muted">
-                  {selectedYear - 1} Net Gain/Loss
-                </span>
-                <span
-                  className={cn(
-                    "font-semibold",
-                    previousReport.totalGainLoss >= 0
-                      ? "text-green-400"
-                      : "text-red-400"
-                  )}
-                >
-                  {previousReport.totalGainLoss >= 0 ? "+" : ""}$
-                  {Math.abs(previousReport.totalGainLoss).toFixed(2)}
-                </span>
+          <CardContent className="px-4 pb-4 space-y-4">
+            {/* Year picker checkboxes */}
+            <fieldset>
+              <legend className="sr-only">Select years to compare</legend>
+              <div
+                className="flex flex-wrap gap-2"
+                role="group"
+                aria-label="Years to compare"
+              >
+                {AVAILABLE_YEARS.map((y) => {
+                  const checked = selectedYears.includes(y);
+                  return (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => toggleYear(y)}
+                      aria-pressed={checked}
+                      className={cn(
+                        "rounded-md px-3 py-1.5 text-sm font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
+                        checked
+                          ? "bg-blue-500/20 border-blue-500/60 text-blue-300"
+                          : "bg-background border-border text-foreground-muted hover:bg-surface-high/40"
+                      )}
+                    >
+                      {y}
+                      {y === CURRENT_YEAR && (
+                        <span className="ml-1 text-[10px] text-blue-400">
+                          (current)
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-foreground-muted">
-                  {selectedYear} Net Gain/Loss
-                </span>
-                <span
-                  className={cn(
-                    "font-semibold",
-                    currentReport.totalGainLoss >= 0
-                      ? "text-green-400"
-                      : "text-red-400"
-                  )}
-                >
-                  {currentReport.totalGainLoss >= 0 ? "+" : ""}$
-                  {Math.abs(currentReport.totalGainLoss).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-foreground-muted">Change</span>
-                <span
-                  className={cn(
-                    "font-semibold",
-                    yoyChange >= 0 ? "text-green-400" : "text-red-400"
-                  )}
-                >
-                  {yoyChange >= 0 ? "+" : ""}
-                  {yoyChange.toFixed(1)}%
-                </span>
-              </div>
+            </fieldset>
+
+            {/* Comparison table */}
+            <MultiYearComparisonTable rows={multiYearRows} />
+
+            {/* Multi-year export */}
+            <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+              <span className="text-xs text-foreground-muted">Export comparison:</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPendingExport("multi-csv")}
+                className="gap-1.5"
+                aria-label={`Export multi-year comparison for ${selectedYears
+                  .sort((a, b) => b - a)
+                  .join(", ")} as CSV`}
+              >
+                <Download size={13} aria-hidden="true" />
+                CSV ({selectedYears.sort((a, b) => b - a).join(", ")})
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Trade-level breakdown */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              Trade-Level Breakdown ({selectedYear})
-            </h3>
-            {/* #565 — Column visibility control */}
-            <ColumnVisibilityControl<TaxColumn>
-              columns={TAX_TABLE_COLUMNS}
-              visibility={colVis}
-              onToggle={toggleCol}
-              onShowAll={showAllCols}
+      {/* ── SINGLE-YEAR SUMMARY CARDS ──────────────────────────────────────── */}
+      {!multiYearMode && (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <SummaryCard
+              label="Net Gain/Loss"
+              value={`${isGain ? "+" : ""}$${Math.abs(netGainLoss).toFixed(2)}`}
+              icon={isGain ? TrendingUp : TrendingDown}
+              className={isGain ? "text-green-400" : "text-red-400"}
+            />
+            <SummaryCard
+              label="Short-Term Gains"
+              value={`$${currentReport.shortTermGains.toFixed(2)}`}
+              sub={`Losses: $${currentReport.shortTermLosses.toFixed(2)}`}
+              icon={TrendingUp}
+              className="text-amber-400"
+            />
+            <SummaryCard
+              label="Long-Term Gains"
+              value={`$${currentReport.longTermGains.toFixed(2)}`}
+              sub={`Losses: $${currentReport.longTermLosses.toFixed(2)}`}
+              icon={TrendingUp}
+              className="text-sky-400"
+            />
+            <SummaryCard
+              label="Total Fees"
+              value={`$${currentReport.totalFees.toFixed(4)}`}
+              icon={Receipt}
+              className="text-violet-400"
+            />
+            <SummaryCard
+              label="Est. Tax Liability"
+              value={`$${currentReport.estimatedTaxLiability.toFixed(2)}`}
+              sub={rates.label}
+              icon={DollarSign}
+              className="text-orange-400"
             />
           </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {currentReport.entries.length === 0 ? (
-            <p className="text-sm text-foreground-muted text-center py-6">
-              No taxable trades found for {selectedYear}.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table
-                className="w-full text-xs"
-                aria-label={`Trade breakdown for ${selectedYear}`}
-              >
-                <thead>
-                  <tr className="border-b border-border text-foreground-muted">
-                    <th className="pb-2 text-left font-medium pr-4">Date</th>
-                    <th className="pb-2 text-left font-medium pr-4">Pair</th>
-                    {isVisible("proceeds") && (
-                      <th className="pb-2 text-right font-medium pr-4">Proceeds</th>
-                    )}
-                    {isVisible("costBasis") && (
-                      <th className="pb-2 text-right font-medium pr-4">Cost Basis</th>
-                    )}
-                    {isVisible("gainLoss") && (
-                      <th className="pb-2 text-right font-medium pr-4">Gain/Loss</th>
-                    )}
-                    {isVisible("fees") && (
-                      <th className="pb-2 text-right font-medium pr-4">Fees</th>
-                    )}
-                    {isVisible("term") && (
-                      <th className="pb-2 text-left font-medium pr-4">Term</th>
-                    )}
-                    {isVisible("fx") && (
-                      <th className="pb-2 text-left font-medium">FX</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentReport.entries.map((entry) => (
-                    <tr
-                      key={entry.id}
-                      className="border-b border-border/50 last:border-0"
+
+          {/* Year-over-year comparison */}
+          {yoyChange !== null && (
+            <Card>
+              <CardHeader>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Year-over-Year Comparison ({selectedYear - 1} →{" "}
+                  {selectedYear})
+                </h3>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="flex flex-wrap gap-6 text-sm">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-foreground-muted">
+                      {selectedYear - 1} Net Gain/Loss
+                    </span>
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        previousReport.totalGainLoss >= 0
+                          ? "text-green-400"
+                          : "text-red-400"
+                      )}
                     >
-                      <td className="py-2 pr-4 text-foreground-muted">
-                        {entry.date.toISOString().split("T")[0]}
-                      </td>
-                      <td className="py-2 pr-4 font-mono font-medium text-foreground">
-                        {entry.assetPair}
-                      </td>
-                      {isVisible("proceeds") && (
-                        <td className="py-2 pr-4 text-right text-foreground">
-                          ${entry.proceeds.toFixed(2)}
-                        </td>
+                      {previousReport.totalGainLoss >= 0 ? "+" : ""}$
+                      {Math.abs(previousReport.totalGainLoss).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-foreground-muted">
+                      {selectedYear} Net Gain/Loss
+                    </span>
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        currentReport.totalGainLoss >= 0
+                          ? "text-green-400"
+                          : "text-red-400"
                       )}
-                      {isVisible("costBasis") && (
-                        <td className="py-2 pr-4 text-right text-foreground">
-                          ${entry.costBasis.toFixed(2)}
-                        </td>
+                    >
+                      {currentReport.totalGainLoss >= 0 ? "+" : ""}$
+                      {Math.abs(currentReport.totalGainLoss).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-foreground-muted">
+                      Change
+                    </span>
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        yoyChange >= 0 ? "text-green-400" : "text-red-400"
                       )}
-                      {isVisible("gainLoss") && (
-                        <td
-                          className={cn(
-                            "py-2 pr-4 text-right font-medium",
-                            entry.gainLoss >= 0
-                              ? "text-green-400"
-                              : "text-red-400"
-                          )}
+                    >
+                      {yoyChange >= 0 ? "+" : ""}
+                      {yoyChange.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Trade-level breakdown */}
+          <Card>
+            <CardHeader>
+              <h3 className="text-sm font-semibold text-foreground">
+                Trade-Level Breakdown ({selectedYear})
+              </h3>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              {currentReport.entries.length === 0 ? (
+                <p className="text-sm text-foreground-muted text-center py-6">
+                  No taxable trades found for {selectedYear}.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table
+                    className="w-full text-xs"
+                    aria-label={`Trade breakdown for ${selectedYear}`}
+                  >
+                    <thead>
+                      <tr className="border-b border-border text-foreground-muted">
+                        <th className="pb-2 text-left font-medium pr-4">
+                          Date
+                        </th>
+                        <th className="pb-2 text-left font-medium pr-4">
+                          Pair
+                        </th>
+                        <th className="pb-2 text-right font-medium pr-4">
+                          Proceeds
+                        </th>
+                        <th className="pb-2 text-right font-medium pr-4">
+                          Cost Basis
+                        </th>
+                        <th className="pb-2 text-right font-medium pr-4">
+                          Gain/Loss
+                        </th>
+                        <th className="pb-2 text-right font-medium pr-4">
+                          Fees
+                        </th>
+                        <th className="pb-2 text-left font-medium pr-4">
+                          Term
+                        </th>
+                        <th className="pb-2 text-left font-medium">FX</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentReport.entries.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          className="border-b border-border/50 last:border-0"
                         >
-                          {entry.gainLoss >= 0 ? "+" : ""}$
-                          {entry.gainLoss.toFixed(2)}
-                        </td>
-                      )}
-                      {isVisible("fees") && (
-                        <td className="py-2 pr-4 text-right text-foreground-muted">
-                          ${entry.fees.toFixed(4)}
-                        </td>
-                      )}
-                      {isVisible("term") && (
-                        <td className="py-2 pr-4">
-                          <span
+                          <td className="py-2 pr-4 text-foreground-muted">
+                            {entry.date.toISOString().split("T")[0]}
+                          </td>
+                          <td className="py-2 pr-4 font-mono font-medium text-foreground">
+                            {entry.assetPair}
+                          </td>
+                          <td className="py-2 pr-4 text-right text-foreground">
+                            ${entry.proceeds.toFixed(2)}
+                          </td>
+                          <td className="py-2 pr-4 text-right text-foreground">
+                            ${entry.costBasis.toFixed(2)}
+                          </td>
+                          <td
                             className={cn(
-                              "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                              entry.isLongTerm
-                                ? "bg-sky-500/15 text-sky-400"
-                                : "bg-amber-500/15 text-amber-400"
+                              "py-2 pr-4 text-right font-medium",
+                              entry.gainLoss >= 0
+                                ? "text-green-400"
+                                : "text-red-400"
                             )}
                           >
-                            {entry.isLongTerm ? "Long" : "Short"}
-                          </span>
-                        </td>
-                      )}
-                      {isVisible("fx") && (
-                        <td className="py-2 text-foreground-muted font-mono">
-                          {entry.foreignCurrency
-                            ? `${
-                                entry.foreignCurrency
-                              } @${entry.conversionRate?.toFixed(4)}`
-                            : "—"}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                            {entry.gainLoss >= 0 ? "+" : ""}$
+                            {entry.gainLoss.toFixed(2)}
+                          </td>
+                          <td className="py-2 pr-4 text-right text-foreground-muted">
+                            ${entry.fees.toFixed(4)}
+                          </td>
+                          <td className="py-2 pr-4">
+                            <span
+                              className={cn(
+                                "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                                entry.isLongTerm
+                                  ? "bg-sky-500/15 text-sky-400"
+                                  : "bg-amber-500/15 text-amber-400"
+                              )}
+                            >
+                              {entry.isLongTerm ? "Long" : "Short"}
+                            </span>
+                          </td>
+                          <td className="py-2 text-foreground-muted font-mono">
+                            {entry.foreignCurrency
+                              ? `${entry.foreignCurrency} @${entry.conversionRate?.toFixed(4)}`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Export section — hidden when printing */}
-      <Card data-print-hide>
-        <CardHeader>
-          <h3 className="text-sm font-semibold text-foreground">
-            Export Report
-          </h3>
-          <p className="text-xs text-foreground-muted">
-            Download your {selectedYear} tax report in your preferred format.
-          </p>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="csv-preset-select"
-                className="text-xs font-medium text-foreground-muted"
-              >
-                CSV Format
-              </label>
-              <select
-                id="csv-preset-select"
-                value={csvPreset}
-                onChange={(e) => setCsvPreset(e.target.value as CsvPreset)}
-                className="w-48 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Select CSV export format"
-              >
-                {(Object.keys(CSV_PRESETS) as CsvPreset[]).map((key) => (
-                  <option key={key} value={key}>
-                    {CSV_PRESETS[key].label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleExportCsv}
-                className="gap-1.5"
-                aria-label={`Export ${selectedYear} tax report as CSV`}
-              >
-                <Download size={13} aria-hidden="true" />
-                CSV
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleExportPdf}
-                className="gap-1.5"
-                aria-label={`Export ${selectedYear} tax report as PDF`}
-              >
-                <Download size={13} aria-hidden="true" />
-                PDF
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleExportTurboTax}
-                className="gap-1.5"
-                aria-label={`Export ${selectedYear} tax report for TurboTax`}
-              >
-                <Download size={13} aria-hidden="true" />
-                TurboTax (.txf)
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleExportTaxAct}
-                className="gap-1.5"
-                aria-label={`Export ${selectedYear} tax report for TaxAct`}
-              >
-                <Download size={13} aria-hidden="true" />
-                TaxAct (.csv)
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Export section */}
+          <Card>
+            <CardHeader>
+              <h3 className="text-sm font-semibold text-foreground">
+                Export Report
+              </h3>
+              <p className="text-xs text-foreground-muted">
+                Download your {selectedYear} {jurisdiction} tax report in your
+                preferred format.
+              </p>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="csv-preset-select"
+                    className="text-xs font-medium text-foreground-muted"
+                  >
+                    CSV Format
+                  </label>
+                  <select
+                    id="csv-preset-select"
+                    value={csvPreset}
+                    onChange={(e) => setCsvPreset(e.target.value as CsvPreset)}
+                    className="w-48 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    aria-label="Select CSV export format"
+                  >
+                    {(Object.keys(CSV_PRESETS) as CsvPreset[]).map((key) => (
+                      <option key={key} value={key}>
+                        {CSV_PRESETS[key].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPendingExport("csv")}
+                    className="gap-1.5"
+                    aria-label={`Export ${selectedYear} ${jurisdiction} tax report as CSV`}
+                  >
+                    <Download size={13} aria-hidden="true" />
+                    CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPendingExport("pdf")}
+                    className="gap-1.5"
+                    aria-label={`Export ${selectedYear} ${jurisdiction} tax report as PDF`}
+                  >
+                    <Download size={13} aria-hidden="true" />
+                    PDF
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPendingExport("turbotax")}
+                    className="gap-1.5"
+                    aria-label={`Export ${selectedYear} ${jurisdiction} tax report for TurboTax`}
+                  >
+                    <Download size={13} aria-hidden="true" />
+                    TurboTax (.txf)
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPendingExport("taxact")}
+                    className="gap-1.5"
+                    aria-label={`Export ${selectedYear} ${jurisdiction} tax report for TaxAct`}
+                  >
+                    <Download size={13} aria-hidden="true" />
+                    TaxAct (.csv)
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Disclaimer */}
       <div

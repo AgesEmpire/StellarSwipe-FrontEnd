@@ -87,7 +87,7 @@ class RouteErrorCatcher extends Component<
               onClick={this.handleGoBack}
               className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              <ArrowLeft className="h-4 w-4 rtl-flip" aria-hidden="true" />
               Go Back
             </button>
             <button

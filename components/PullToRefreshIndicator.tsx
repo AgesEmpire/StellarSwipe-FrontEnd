@@ -6,7 +6,7 @@
  * skeleton for visual cohesion.
  */
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { PULL_TO_REFRESH_THRESHOLD } from "@/hooks/usePullToRefresh";
 
@@ -40,6 +40,8 @@ export function PullToRefreshIndicator({
   isRefreshing,
   threshold = PULL_TO_REFRESH_THRESHOLD,
 }: PullToRefreshIndicatorProps) {
+  const prefersReduced = useReducedMotion();
+
   // Ramp opacity from 0 to 1 as pull distance approaches threshold
   const opacity = Math.min(pullDistance / threshold, 1);
   // Translate down as user pulls (up to threshold)
@@ -47,12 +49,17 @@ export function PullToRefreshIndicator({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -30 }}
-      animate={{
-        opacity: opacity,
-        y: translateY - 40,
-      }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -30 }}
+      animate={
+        prefersReduced
+          ? { opacity: opacity }
+          : { opacity: opacity, y: translateY - 40 }
+      }
+      transition={
+        prefersReduced
+          ? { duration: 0.01 }
+          : { type: "spring", stiffness: 400, damping: 30 }
+      }
       className="relative flex h-16 items-center justify-center rounded-3xl border border-white/10 bg-slate-900/80 px-4"
       role="status"
       aria-live="polite"
@@ -68,12 +75,16 @@ export function PullToRefreshIndicator({
       <div className="flex flex-col items-center gap-2">
         <motion.div
           data-testid="refresh-spinner"
-          animate={{ rotate: isRefreshing ? 360 : 0 }}
-          transition={{
-            duration: isRefreshing ? 1 : 0,
-            repeat: isRefreshing ? Infinity : 0,
-            ease: "linear",
-          }}
+          animate={{ rotate: isRefreshing && !prefersReduced ? 360 : 0 }}
+          transition={
+            prefersReduced
+              ? { duration: 0 }
+              : {
+                  duration: isRefreshing ? 1 : 0,
+                  repeat: isRefreshing ? Infinity : 0,
+                  ease: "linear",
+                }
+          }
         >
           <RefreshCw size={20} className="text-sky-400" aria-hidden="true" />
         </motion.div>
