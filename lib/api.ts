@@ -34,12 +34,19 @@ export class TimeoutError extends Error {
   }
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
+async function apiFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
   let res: Response;
   try {
     const fetchUrl = url.startsWith("/") ? `http://localhost${url}` : url;
-    res = await fetch(fetchUrl);
+    res = await fetch(fetchUrl, { signal });
   } catch (error) {
+    // A caller-initiated abort (e.g. the owning route/component was torn
+    // down) is not a network failure — rethrow as-is so it's ignored
+    // upstream (React Query treats a cancelled queryFn as a no-op) instead
+    // of surfacing as a user-facing NetworkError.
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
     throw new NetworkError();
   }
   if (!res.ok) throw new ServerError(res.status);
@@ -57,14 +64,17 @@ async function apiFetch<T>(url: string): Promise<T> {
  * console.log(feed.items, feed.hasMore);
  */
 export async function fetchSignals(
-  params: GetSignalsParams = {}
+  params: GetSignalsParams & { signal?: AbortSignal } = {}
 ): Promise<SignalFeedPage> {
   const qs = new URLSearchParams();
   if (params.page !== undefined) qs.set("page", String(params.page));
   if (params.pageSize !== undefined)
     qs.set("pageSize", String(params.pageSize));
   const query = qs.toString();
-  return apiFetch<SignalFeedPage>(`/api/signals${query ? `?${query}` : ""}`);
+  return apiFetch<SignalFeedPage>(
+    `/api/signals${query ? `?${query}` : ""}`,
+    params.signal
+  );
 }
 
 /**
@@ -78,12 +88,13 @@ export async function fetchSignals(
  * const { subscriptions } = await fetchSubscriptions({ status: "active" });
  */
 export async function fetchSubscriptions(
-  params: GetSubscriptionsParams = {}
+  params: GetSubscriptionsParams & { signal?: AbortSignal } = {}
 ): Promise<SubscriptionsResponse> {
   const qs = new URLSearchParams();
   if (params.status !== undefined) qs.set("status", params.status);
   const query = qs.toString();
   return apiFetch<SubscriptionsResponse>(
-    `/api/subscriptions${query ? `?${query}` : ""}`
+    `/api/subscriptions${query ? `?${query}` : ""}`,
+    params.signal
   );
 }
