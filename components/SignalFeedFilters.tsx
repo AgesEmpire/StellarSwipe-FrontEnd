@@ -54,11 +54,13 @@ export function SignalFeedFilters({
     return (
       <section
         aria-label="Signal feed filters"
+        role="status"
         aria-busy="true"
         className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4"
       >
-        <div className="h-4 w-16 rounded bg-surface-high animate-pulse" />
-        <div className="flex gap-2">
+        <span className="sr-only">Loading filters…</span>
+        <div aria-hidden="true" className="h-4 w-16 rounded bg-surface-high animate-pulse" />
+        <div aria-hidden="true" className="flex gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
@@ -205,16 +207,18 @@ export function SignalFeedFilters({
                 placeholder="Asset (e.g. XLM)"
                 aria-label="Filter by asset"
                 maxLength={10}
-                className="rounded-full bg-surface border border-border px-3 py-1 text-xs text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-border-strong transition-colors w-32"
+                className="rounded-full bg-surface border border-border pl-3 pr-8 py-1 text-xs text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-border-strong transition-colors w-32"
               />
               {asset && (
                 <button
+                  type="button"
                   onClick={() => {
                     setAsset("");
                     assetInputRef.current?.focus();
                   }}
+                  title="Clear asset filter"
                   aria-label="Clear asset filter"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center text-gray-500 hover:text-gray-300"
                 >
                   <X size={11} />
                 </button>
@@ -318,11 +322,12 @@ export function SignalFeedFilters({
             aria-label="Saved filter presets"
           >
             {presets.map((preset) => (
-              <li key={preset.name} className="flex items-center gap-1">
+              <li key={preset.name} className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => applyPreset(preset.name)}
                   className="rounded-full bg-surface border border-border px-3 py-1 text-xs text-foreground hover:border-blue-500/60 hover:text-blue-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  title={`Apply preset: ${preset.name}`}
                   aria-label={`Apply preset: ${preset.name}`}
                 >
                   {preset.name}
@@ -330,7 +335,8 @@ export function SignalFeedFilters({
                 <button
                   type="button"
                   onClick={() => deletePreset(preset.name)}
-                  className="rounded-full p-1 text-foreground-muted hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-foreground-muted hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  title={`Delete preset: ${preset.name}`}
                   aria-label={`Delete preset: ${preset.name}`}
                 >
                   <Trash2 size={11} />

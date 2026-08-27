@@ -55,12 +55,15 @@ export function SkeletonRows({
   return (
     <div
       className={cn("space-y-4", className)}
+      role="status"
       aria-busy="true"
       aria-label="Loading content"
     >
+      <span className="sr-only">Loading content…</span>
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
+          aria-hidden="true"
           className={cn(
             "h-20 rounded-2xl border border-white/10 bg-white/5 animate-pulse",
             rowClassName
