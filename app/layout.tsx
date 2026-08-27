@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import dynamic from "next/dynamic";
 import "./globals.css";
@@ -60,6 +60,14 @@ export const metadata: Metadata = {
     title: "StellarSwipe",
     description: "Stellar-powered swipe app — discover top signal providers, trade tokens, and track performance on the Stellar network.",
   },
+};
+
+// viewport is exported separately so Next.js sets the correct meta tag
+// (including viewport-fit=cover for iOS safe-area inset support).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

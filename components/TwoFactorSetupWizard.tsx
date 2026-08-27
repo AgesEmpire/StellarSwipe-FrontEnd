@@ -247,7 +247,7 @@ export function TwoFactorSetupWizard({
             </ul>
             <div className="flex gap-2 pt-1">
               <Button size="sm" onClick={goNext} className="gap-1.5">
-                Get started <ChevronRight size={13} />
+                Get started <ChevronRight size={13} className="rtl-flip" />
               </Button>
               {onCancel && (
                 <Button size="sm" variant="ghost" onClick={onCancel}>
@@ -350,10 +350,10 @@ export function TwoFactorSetupWizard({
                 onClick={goBack}
                 className="gap-1"
               >
-                <ChevronLeft size={13} /> Back
+                <ChevronLeft size={13} className="rtl-flip" /> Back
               </Button>
               <Button size="sm" onClick={goNext} className="gap-1.5">
-                Continue <ChevronRight size={13} />
+                Continue <ChevronRight size={13} className="rtl-flip" />
               </Button>
             </div>
           </CardContent>
@@ -432,10 +432,10 @@ export function TwoFactorSetupWizard({
                 onClick={goBack}
                 className="gap-1"
               >
-                <ChevronLeft size={13} /> Back
+                <ChevronLeft size={13} className="rtl-flip" /> Back
               </Button>
               <Button size="sm" onClick={goNext} className="gap-1.5">
-                I&apos;ve scanned it <ChevronRight size={13} />
+                I&apos;ve scanned it <ChevronRight size={13} className="rtl-flip" />
               </Button>
             </div>
           </CardContent>
@@ -507,10 +507,10 @@ export function TwoFactorSetupWizard({
                 onClick={goBack}
                 className="gap-1"
               >
-                <ChevronLeft size={13} /> Back
+                <ChevronLeft size={13} className="rtl-flip" /> Back
               </Button>
               <Button size="sm" onClick={handlePhoneNext} className="gap-1.5">
-                Send code <ChevronRight size={13} />
+                Send code <ChevronRight size={13} className="rtl-flip" />
               </Button>
             </div>
           </CardContent>
@@ -585,7 +585,7 @@ export function TwoFactorSetupWizard({
                 onClick={goBack}
                 className="gap-1"
               >
-                <ChevronLeft size={13} /> Back
+                <ChevronLeft size={13} className="rtl-flip" /> Back
               </Button>
               <Button
                 size="sm"
@@ -593,7 +593,7 @@ export function TwoFactorSetupWizard({
                 disabled={verificationCode.length < 6}
                 className="gap-1.5"
               >
-                Verify <ChevronRight size={13} />
+                Verify <ChevronRight size={13} className="rtl-flip" />
               </Button>
             </div>
           </CardContent>
@@ -688,10 +688,10 @@ export function TwoFactorSetupWizard({
                 onClick={goBack}
                 className="gap-1"
               >
-                <ChevronLeft size={13} /> Back
+                <ChevronLeft size={13} className="rtl-flip" /> Back
               </Button>
               <Button size="sm" onClick={goNext} className="gap-1.5">
-                I&apos;ve saved my codes <ChevronRight size={13} />
+                I&apos;ve saved my codes <ChevronRight size={13} className="rtl-flip" />
               </Button>
             </div>
           </CardContent>

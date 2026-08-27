@@ -108,7 +108,7 @@ export default function ActiveSessionsPage() {
           className="inline-flex items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground transition-colors"
           aria-label="Back to Account Security settings"
         >
-          <ChevronLeft size={15} aria-hidden="true" />
+          <ChevronLeft size={15} aria-hidden="true" className="rtl-flip" />
           Account Security
         </Link>
 

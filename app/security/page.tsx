@@ -72,7 +72,7 @@ export default function SecuritySettingsPage() {
                   className="gap-1.5"
                   aria-label="Set up two-factor authentication"
                 >
-                  Set up 2FA <ChevronRight size={13} />
+                  Set up 2FA <ChevronRight size={13} className="rtl-flip" />
                 </Button>
               ) : (
                 <DisableTwoFactor
@@ -118,7 +118,7 @@ export default function SecuritySettingsPage() {
                 href="/security/active-sessions"
                 aria-label="Manage active sessions"
               >
-                Manage sessions <ChevronRight size={13} aria-hidden="true" />
+                Manage sessions <ChevronRight size={13} aria-hidden="true" className="rtl-flip" />
               </Link>
             </Button>
           </CardContent>
@@ -141,7 +141,7 @@ export default function SecuritySettingsPage() {
                 </p>
                 <Button asChild size="sm" variant="outline" className="gap-1.5">
                   <Link href="/security/data-export">
-                    Request Account Data Export <ChevronRight size={13} />
+                    Request Account Data Export <ChevronRight size={13} className="rtl-flip" />
                   </Link>
                 </Button>
               </div>
@@ -294,7 +294,7 @@ export default function SecuritySettingsPage() {
                     rel="noopener noreferrer"
                     className="text-xs text-blue-400 hover:underline inline-flex items-center gap-1 mt-1 w-fit"
                   >
-                    View Report <ChevronRight size={12} />
+                    View Report <ChevronRight size={12} className="rtl-flip" />
                   </a>
                 </div>
               ))}
@@ -370,7 +370,7 @@ export default function SecuritySettingsPage() {
                 rel="noreferrer"
               >
                 {bugBountyProgram.contact.label}
-                <ChevronRight size={13} aria-hidden="true" />
+                <ChevronRight size={13} aria-hidden="true" className="rtl-flip" />
               </a>
             </Button>
           </CardContent>
