@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import Papa from "papaparse";
 import { z } from "zod";
 import {
@@ -10,6 +10,13 @@ import {
   type CSVColumn,
 } from "@/lib/journalSchema";
 import { useTransactionStore } from "@/store/useTransactionStore";
+import {
+  saveCSVImportDraft,
+  loadCSVImportDraft,
+  clearCSVImportDraft,
+  fileMatchesDraft,
+  type CSVImportDraft,
+} from "@/lib/csvImportDraft";
 import {
   Dialog,
   DialogContent,
@@ -52,11 +59,16 @@ export function CSVImportModal() {
   >([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [summary, setSummary] = useState({ imported: 0, skipped: 0 });
+  const [resumableDraft, setResumableDraft] = useState<CSVImportDraft | null>(
+    null
+  );
 
   const bulkAddTransactions = useTransactionStore(
     (state) => state.bulkAddTransactions
   );
 
+  // Reset in-memory component state only — the persisted draft (if any)
+  // survives so the modal can offer to resume next time it's opened.
   const reset = useCallback(() => {
     setStep("upload");
     setFile(null);
@@ -65,6 +77,38 @@ export function CSVImportModal() {
     setMapping({} as any);
     setValidationResults([]);
     setSummary({ imported: 0, skipped: 0 });
+  }, []);
+
+  // Look for a resumable draft each time the modal opens.
+  useEffect(() => {
+    if (open) {
+      setResumableDraft(loadCSVImportDraft());
+    }
+  }, [open]);
+
+  // Persist mapping/step progress as the user works — never the raw CSV
+  // rows or file contents, only metadata needed to relink a re-selected file.
+  useEffect(() => {
+    if (!file || (step !== "mapping" && step !== "preview")) return;
+    const validRows = validationResults.filter((r) => r.isValid).length;
+    saveCSVImportDraft({
+      fileName: file.name,
+      fileSize: file.size,
+      fileLastModified: file.lastModified,
+      headers,
+      mapping,
+      step,
+      rowCount: csvData.length,
+      validSummary:
+        step === "preview"
+          ? { valid: validRows, invalid: validationResults.length - validRows }
+          : undefined,
+    });
+  }, [file, headers, mapping, step, csvData.length, validationResults]);
+
+  const discardDraft = useCallback(() => {
+    clearCSVImportDraft();
+    setResumableDraft(null);
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,9 +128,15 @@ export function CSVImportModal() {
         setCsvData(results.data);
         if (results.meta.fields) {
           setHeaders(results.meta.fields);
-          // Auto-mapping logic
-          const newMapping: any = {};
+
+          // Resume a saved draft's mapping if this is the same file.
+          const draft = resumableDraft;
+          const isSameFileAsDraft =
+            draft && fileMatchesDraft(selectedFile, draft);
+
+          const newMapping: any = isSameFileAsDraft ? { ...draft!.mapping } : {};
           CSV_COLUMNS.forEach((col) => {
+            if (newMapping[col]) return; // keep restored mapping
             const match = results.meta.fields?.find(
               (f) =>
                 f.toLowerCase() === col.toLowerCase() ||
@@ -97,6 +147,11 @@ export function CSVImportModal() {
           });
           setMapping(newMapping);
           setStep("mapping");
+
+          if (isSameFileAsDraft) {
+            toast.success("Restored your previous import progress");
+          }
+          setResumableDraft(null);
         }
       },
       error: (err) => {
@@ -173,6 +228,7 @@ export function CSVImportModal() {
       skipped: validationResults.length - transactions.length,
     });
     setStep("summary");
+    clearCSVImportDraft();
   };
 
   const hasUnmappedRequired = useMemo(() => {
@@ -226,6 +282,31 @@ export function CSVImportModal() {
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {step === "upload" && resumableDraft && (
+            <div className="mb-4 flex flex-col gap-2 rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-blue-200">
+                  Resume unfinished import: {resumableDraft.fileName}
+                </p>
+                <p className="text-xs text-blue-300/80">
+                  {resumableDraft.rowCount} rows mapped
+                  {resumableDraft.validSummary
+                    ? ` · ${resumableDraft.validSummary.valid} valid, ${resumableDraft.validSummary.invalid} with errors`
+                    : ""}
+                  . Re-select the same file to continue.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={discardDraft}
+                className="shrink-0 text-blue-200 hover:text-white"
+              >
+                Discard draft
+              </Button>
+            </div>
+          )}
+
           {step === "upload" && (
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-3xl bg-white/5 p-12 text-center">
               <Upload className="h-12 w-12 text-slate-500 mb-4" />

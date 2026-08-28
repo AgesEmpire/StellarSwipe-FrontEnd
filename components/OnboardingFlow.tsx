@@ -7,6 +7,7 @@ import {
 } from "@/store/useOnboardingStore";
 import { Button } from "@/components/ui/button";
 import {
+  ChevronLeft,
   ChevronRight,
   Wallet,
   LayoutList,
@@ -53,6 +54,7 @@ export function OnboardingFlow() {
   const step = Math.min(currentStep, STEPS.length - 1);
   const current = STEPS[step];
   const Icon = current.icon;
+  const isFirst = step === 0;
   const isLast = step === STEPS.length - 1;
   const progressPercent = Math.round(((step + 1) / STEPS.length) * 100);
 
@@ -63,6 +65,10 @@ export function OnboardingFlow() {
       const next = step + 1;
       setCurrentStep(next);
     }
+  }
+
+  function handleBack() {
+    if (!isFirst) setCurrentStep(step - 1);
   }
 
   return (
@@ -85,21 +91,31 @@ export function OnboardingFlow() {
           <X size={16} aria-hidden="true" />
         </button>
 
-        <div
-          className="mb-4 flex items-center gap-1.5"
-          aria-label={`Step ${step + 1} of ${STEPS.length}`}
-        >
-          {STEPS.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-all duration-200 ${
-                i <= step ? "bg-sky-500" : "bg-white/10"
-              }`}
-            />
-          ))}
-        </div>
+        <ol aria-label="Onboarding progress" className="mb-4 flex items-center gap-1.5">
+          {STEPS.map((s, i) => {
+            const status =
+              i < step ? "completed" : i === step ? "current" : "upcoming";
+            return (
+              <li
+                key={s.title}
+                className="flex-1"
+                aria-current={i === step ? "step" : undefined}
+              >
+                <span className="sr-only">
+                  Step {i + 1}: {s.title} ({status})
+                </span>
+                <div
+                  aria-hidden="true"
+                  className={`h-1 rounded-full transition-all duration-200 ${
+                    i <= step ? "bg-sky-500" : "bg-white/10"
+                  }`}
+                />
+              </li>
+            );
+          })}
+        </ol>
 
-        <p className="mb-4 text-xs text-foreground-muted">
+        <p className="mb-4 text-xs text-foreground-muted" aria-live="polite">
           Step {step + 1} of {STEPS.length} · {progressPercent}% complete
         </p>
 
@@ -120,17 +136,31 @@ export function OnboardingFlow() {
           >
             Skip for now
           </button>
-          <Button
-            onClick={handleNext}
-            size="sm"
-            className="flex min-h-10 items-center justify-center gap-1.5 px-4"
-            aria-label={
-              isLast ? "Finish onboarding" : `Next: ${STEPS[step + 1]?.title}`
-            }
-          >
-            {isLast ? "Get started" : "Next"}
-            <ChevronRight size={14} aria-hidden="true" />
-          </Button>
+          <div className="flex items-center justify-end gap-2">
+            {!isFirst && (
+              <Button
+                onClick={handleBack}
+                size="sm"
+                variant="ghost"
+                className="flex min-h-10 items-center justify-center gap-1.5 px-3"
+                aria-label={`Back: ${STEPS[step - 1]?.title}`}
+              >
+                <ChevronLeft size={14} aria-hidden="true" />
+                Back
+              </Button>
+            )}
+            <Button
+              onClick={handleNext}
+              size="sm"
+              className="flex min-h-10 items-center justify-center gap-1.5 px-4"
+              aria-label={
+                isLast ? "Finish onboarding" : `Next: ${STEPS[step + 1]?.title}`
+              }
+            >
+              {isLast ? "Get started" : "Next"}
+              <ChevronRight size={14} aria-hidden="true" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
