@@ -1,4 +1,7 @@
-"use client";
+import { Suspense } from "react";
+import { AppShell } from "@/components/AppShell";
+import { SignalFeedServer } from "@/components/signal/SignalFeedServer";
+import { SignalCardSkeleton } from "@/components/SignalCardSkeleton";
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
@@ -70,59 +73,22 @@ export default function AppPage() {
   const availableProviders = useMemo(
     () => [...new Set((signals ?? []).map((s) => (s as any).providerId).filter(Boolean))].sort(),
     [signals]
+function SignalFeedSkeleton() {
+  return (
+    <div
+      className="rounded-3xl border border-white/10 bg-slate-950/80 p-4 sm:p-6 space-y-4"
+      role="status"
+      aria-label="Loading signal feed"
+    >
+      <span className="sr-only">Loading signal feed…</span>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <SignalCardSkeleton key={i} />
+      ))}
+    </div>
   );
+}
 
-  const filteredSignals = useMemo(() => {
-    if (!signals) return [];
-    return signals.filter((s) => {
-      if (direction !== "ALL" && s.action !== direction) return false;
-      if (asset && s.asset.toUpperCase() !== asset.toUpperCase()) return false;
-      if (provider && (s as any).providerId !== provider) return false;
-      return true;
-    });
-  }, [signals, direction, asset, provider]);
-
-  if (!connected) {
-    return (
-      <PageTransition>
-        <OnboardingFlow />
-        <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-background text-foreground">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="relative text-center"
-          >
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
-              StellarSwipe
-            </h1>
-            <p className="mt-2 text-foreground-muted">Connect your Freighter wallet to get started</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            className="flex flex-col items-center gap-4"
-          >
-            <Button
-              onClick={() => setWalletModalOpen(true)}
-              size="lg"
-              className="focus:ring-2 focus:ring-blue-500"
-            >
-              Connect Wallet
-            </Button>
-          </motion.div>
-
-          <WalletSelectionModal
-            open={walletModalOpen}
-            onClose={() => setWalletModalOpen(false)}
-          />
-        </main>
-      </PageTransition>
-    );
-  }
-
+export default function AppPage() {
   return (
     <PageTransition>
       <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
@@ -239,5 +205,10 @@ export default function AppPage() {
         />
       </main>
     </PageTransition>
+    <AppShell>
+      <Suspense fallback={<SignalFeedSkeleton />}>
+        <SignalFeedServer />
+      </Suspense>
+    </AppShell>
   );
 }

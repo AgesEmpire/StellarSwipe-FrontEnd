@@ -2,11 +2,14 @@
 
 import { useMemo, useRef } from "react";
 import { Bookmark, SlidersHorizontal, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Bookmark, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/api";
 import {
   FilterDirection,
   useSignalFilterStore,
+  useSignalFilterHydrated,
 } from "@/store/useSignalFilterStore";
 
 const DIRECTIONS: { label: string; value: FilterDirection }[] = [
@@ -63,13 +66,44 @@ export function SignalFeedFilters({
     asset,
     provider,
     bookmarkedOnly,
+    presets,
     setDirection,
     setAsset,
     setProvider,
     setBookmarkedOnly,
+    savePreset,
+    applyPreset,
+    deletePreset,
     reset,
   } = useSignalFilterStore();
+  const isHydrated = useSignalFilterHydrated();
   const assetInputRef = useRef<HTMLInputElement>(null);
+  const [presetName, setPresetName] = useState("");
+  const [showPresetInput, setShowPresetInput] = useState(false);
+
+  // Render a neutral placeholder until persisted filters are loaded.
+  // This prevents filter state from flickering from defaults to saved values.
+  if (!isHydrated) {
+    return (
+      <section
+        aria-label="Signal feed filters"
+        role="status"
+        aria-busy="true"
+        className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4"
+      >
+        <span className="sr-only">Loading filters…</span>
+        <div aria-hidden="true" className="h-4 w-16 rounded bg-surface-high animate-pulse" />
+        <div aria-hidden="true" className="flex gap-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-7 w-16 rounded-full bg-surface-high animate-pulse"
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   const counts = useMemo(() => {
     if (!signals) return null;
@@ -151,6 +185,50 @@ export function SignalFeedFilters({
         {quickProviders.map((providerLabel) => {
           const count = counts ? counts.provider(providerLabel) : null;
           return (
+        {quickAssets.map((assetLabel) => (
+          <button
+            key={assetLabel}
+            type="button"
+            onClick={() => setAsset(asset === assetLabel ? "" : assetLabel)}
+            aria-pressed={asset === assetLabel}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+              asset === assetLabel
+                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
+                : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
+            )}
+          >
+            {assetLabel}
+          </button>
+        ))}
+
+        {quickProviders.map((providerLabel) => (
+          <button
+            key={providerLabel}
+            type="button"
+            onClick={() =>
+              setProvider(provider === providerLabel ? "" : providerLabel)
+            }
+            aria-pressed={provider === providerLabel}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+              provider === providerLabel
+                ? "bg-orange-500/15 text-orange-300 border border-orange-500/40"
+                : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
+            )}
+          >
+            {providerLabel}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Direction pills */}
+        <fieldset
+          className="flex items-center gap-1"
+          aria-label="Filter by direction"
+        >
+          {DIRECTIONS.map(({ label, value }) => (
             <button
               key={providerLabel}
               type="button"
@@ -227,16 +305,18 @@ export function SignalFeedFilters({
                 placeholder="Asset (e.g. XLM)"
                 aria-label="Filter by asset"
                 maxLength={10}
-                className="rounded-full bg-surface border border-border px-3 py-1 text-xs text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-border-strong transition-colors w-32"
+                className="rounded-full bg-surface border border-border pl-3 pr-8 py-1 text-xs text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-border-strong transition-colors w-32"
               />
               {asset && (
                 <button
+                  type="button"
                   onClick={() => {
                     setAsset("");
                     assetInputRef.current?.focus();
                   }}
+                  title="Clear asset filter"
                   aria-label="Clear asset filter"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center text-gray-500 hover:text-gray-300"
                 >
                   <X size={11} />
                 </button>
@@ -266,7 +346,8 @@ export function SignalFeedFilters({
       {/* Active filter summary */}
       {isActive && (
         <p className="text-[11px] text-gray-500" aria-live="polite">
-          Showing: {[
+          Showing:{" "}
+          {[
             direction !== "ALL" && `Direction: ${direction}`,
             asset && `Asset: ${asset}`,
             provider && `Provider: ${provider}`,
@@ -276,6 +357,94 @@ export function SignalFeedFilters({
             .join(" · ")}
         </p>
       )}
+
+      {/* Presets */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-medium text-foreground-muted uppercase tracking-wide">
+            Presets
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowPresetInput((v) => !v)}
+            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
+            aria-label="Save current filters as preset"
+          >
+            <Save size={11} />
+            Save current
+          </button>
+        </div>
+
+        {showPresetInput && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = presetName.trim();
+              if (!name) return;
+              savePreset(name);
+              setPresetName("");
+              setShowPresetInput(false);
+            }}
+            className="flex gap-2"
+          >
+            <input
+              autoFocus
+              type="text"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              placeholder="Preset name…"
+              maxLength={40}
+              className="flex-1 rounded-full bg-surface border border-border px-3 py-1 text-xs text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Preset name"
+            />
+            <button
+              type="submit"
+              disabled={!presetName.trim()}
+              className="rounded-full bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-500 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPresetInput(false)}
+              className="rounded-full px-3 py-1 text-xs text-foreground-muted hover:text-foreground border border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
+
+        {presets.length > 0 && (
+          <ul
+            className="flex flex-wrap gap-2"
+            role="list"
+            aria-label="Saved filter presets"
+          >
+            {presets.map((preset) => (
+              <li key={preset.name} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyPreset(preset.name)}
+                  className="rounded-full bg-surface border border-border px-3 py-1 text-xs text-foreground hover:border-blue-500/60 hover:text-blue-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  title={`Apply preset: ${preset.name}`}
+                  aria-label={`Apply preset: ${preset.name}`}
+                >
+                  {preset.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deletePreset(preset.name)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-foreground-muted hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  title={`Delete preset: ${preset.name}`}
+                  aria-label={`Delete preset: ${preset.name}`}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }

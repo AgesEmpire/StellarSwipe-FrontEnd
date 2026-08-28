@@ -2,7 +2,10 @@
 
 import { Flame, Clock, Sparkles, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { FeedSortOrder, useSignalFilterStore } from "@/store/useSignalFilterStore";
+import {
+  FeedSortOrder,
+  useSignalFilterStore,
+} from "@/store/useSignalFilterStore";
 
 interface SortOption {
   value: FeedSortOrder;
@@ -35,7 +38,8 @@ const SORT_OPTIONS: SortOption[] = [
     label: "Confidence",
     icon: BarChart2,
     description: "Signals ranked by highest confidence score",
-    activeColor: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+    activeColor:
+      "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
     activeIconColor: "text-emerald-400",
   },
   {
@@ -61,32 +65,41 @@ export function SignalSortControls({ className }: SignalSortControlsProps) {
       aria-label="Sort signals"
       className={cn("flex flex-wrap items-center gap-1", className)}
     >
-      {SORT_OPTIONS.map(({ value, label, icon: Icon, description, activeColor, activeIconColor }) => {
-        const isActive = sortOrder === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setSortOrder(value)}
-            aria-pressed={isActive}
-            title={description}
-            aria-label={`Sort by ${label}: ${description}`}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
-              isActive
-                ? activeColor
-                : "bg-white/5 text-slate-400 border border-white/10 hover:border-white/20 hover:text-slate-300"
-            )}
-          >
-            <Icon
-              size={12}
-              aria-hidden="true"
-              className={cn(isActive ? activeIconColor : "text-slate-500")}
-            />
-            <span>{label}</span>
-          </button>
-        );
-      })}
+      {SORT_OPTIONS.map(
+        ({
+          value,
+          label,
+          icon: Icon,
+          description,
+          activeColor,
+          activeIconColor,
+        }) => {
+          const isActive = sortOrder === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSortOrder(value)}
+              aria-pressed={isActive}
+              title={description}
+              aria-label={`Sort by ${label}: ${description}`}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+                isActive
+                  ? activeColor
+                  : "bg-white/5 text-slate-400 border border-white/10 hover:border-white/20 hover:text-slate-300"
+              )}
+            >
+              <Icon
+                size={12}
+                aria-hidden="true"
+                className={cn(isActive ? activeIconColor : "text-slate-500")}
+              />
+              <span>{label}</span>
+            </button>
+          );
+        }
+      )}
     </div>
   );
 }
