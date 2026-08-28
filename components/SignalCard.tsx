@@ -28,6 +28,7 @@ import { TradeModal } from "@/components/TradeModal";
 import { SignalConflictNotice, type SignalConflictReason } from "@/components/SignalConflictNotice";
 import { cn } from "@/lib/utils";
 import { MiniChart } from "./chart/MiniChart";
+import { ChartDensityToggle } from "./chart/ChartDensityToggle";
 import { PremiumSignalBadge } from "@/components/PremiumSignalBadge";
 import { ProviderRatingBadge } from "@/components/ProviderRatingBadge";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
@@ -444,6 +445,10 @@ export function SignalCard({
               </div>
             </div>
 
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] uppercase tracking-wide text-foreground-subtle">ROI trend</p>
+              <ChartDensityToggle />
+            </div>
             <div className="flex items-center gap-2">
               {signalAction === "BUY" ? (
                 <TrendingUp size={16} className="text-accent-success" />
@@ -452,7 +457,7 @@ export function SignalCard({
               ) : (
                 <Minus size={16} className="text-foreground-subtle" />
               )}
-              <MiniChart data={roiHistory.map((p) => p.value)} className="flex-1" />
+              <MiniChart data={roiHistory.map((p) => p.value)} showAxis className="flex-1" />
             </div>
 
             {/* ── Issue #102: Expandable detail section with smooth animation ── */}

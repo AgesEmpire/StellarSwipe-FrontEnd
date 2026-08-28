@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useChartDensityStore, type ChartAxisDensity } from "@/store/useChartDensityStore";
 
 interface MiniChartProps {
   data: number[];
@@ -9,6 +10,41 @@ interface MiniChartProps {
   strokeWidth?: number;
   showArea?: boolean;
   className?: string;
+  /** X-axis tick labels aligned to `data` indices. Falls back to relative offsets (e.g. "-3", "now"). */
+  labels?: string[];
+  /** Render x-axis labels below the chart. */
+  showAxis?: boolean;
+  /** Overrides the global chart density preference for this instance. */
+  density?: ChartAxisDensity;
+}
+
+const DENSITY_TICK_TARGET: Record<ChartAxisDensity, number> = {
+  compact: 3,
+  standard: 5,
+  expanded: 8,
+};
+
+// Minimum horizontal space (px) a label needs so labels never overlap/clip.
+const MIN_LABEL_SPACING = 28;
+
+/** Picks evenly-spaced data indices to label, capped by both density and available width. */
+function computeTickIndices(dataLength: number, density: ChartAxisDensity, widthPx: number): number[] {
+  if (dataLength <= 1) return dataLength === 1 ? [0] : [];
+
+  const requested = DENSITY_TICK_TARGET[density];
+  const widthLimit = Math.max(2, Math.floor(widthPx / MIN_LABEL_SPACING) + 1);
+  const tickCount = Math.max(2, Math.min(requested, widthLimit, dataLength));
+
+  const indices = new Set<number>();
+  for (let i = 0; i < tickCount; i++) {
+    indices.add(Math.round((i / (tickCount - 1)) * (dataLength - 1)));
+  }
+  return Array.from(indices).sort((a, b) => a - b);
+}
+
+function defaultLabel(index: number, dataLength: number): string {
+  const offset = dataLength - 1 - index;
+  return offset === 0 ? "now" : `-${offset}`;
 }
 
 function createSmoothPath(points: { x: number; y: number }[]): string {
@@ -51,9 +87,14 @@ export function MiniChart({
   strokeWidth = 2,
   showArea = true,
   className = "",
+  labels,
+  showAxis = false,
+  density,
 }: MiniChartProps) {
-  const { path, areaPath, isPositive, gradientId } = useMemo(() => {
-    if (!data.length) return { path: "", areaPath: "", isPositive: true, gradientId: "" };
+  const globalDensity = useChartDensityStore((state) => state.density);
+  const effectiveDensity = density ?? globalDensity;
+  const { path, areaPath, isPositive, gradientId, points } = useMemo(() => {
+    if (!data.length) return { path: "", areaPath: "", isPositive: true, gradientId: "", points: [] as { x: number; y: number }[] };
 
     const values = data;
     const min = Math.min(...values);
@@ -71,22 +112,27 @@ export function MiniChart({
     const positive = values[values.length - 1] >= values[0];
     const id = `mini-chart-gradient-${Math.random().toString(36).slice(2, 9)}`;
 
-    return { path: linePath, areaPath: areaPathVal, isPositive: positive, gradientId: id };
+    return { path: linePath, areaPath: areaPathVal, isPositive: positive, gradientId: id, points };
   }, [data, width, height, showArea]);
+
+  const tickIndices = useMemo(
+    () => (showAxis ? computeTickIndices(data.length, effectiveDensity, width) : []),
+    [showAxis, data.length, effectiveDensity, width]
+  );
 
   if (!data.length) return null;
 
   const lineColor = isPositive ? "#22c55e" : "#ef4444";
   const areaOpacity = isPositive ? 0.15 : 0.1;
 
-  return (
+  const chart = (
     <svg
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
       aria-label={`Mini chart showing ${isPositive ? "positive" : "negative"} trend`}
       role="img"
-      className={`overflow-visible ${className}`}
+      className={showAxis ? "overflow-visible" : `overflow-visible ${className}`}
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -108,5 +154,32 @@ export function MiniChart({
         strokeLinejoin="round"
       />
     </svg>
+  );
+
+  if (!showAxis) return chart;
+
+  return (
+    <div className={`inline-block ${className}`}>
+      {chart}
+      <div className="relative mt-0.5 h-3" aria-hidden="true">
+        {tickIndices.map((idx) => {
+          const pct = (points[idx].x / width) * 100;
+          const isFirst = idx === tickIndices[0];
+          const isLast = idx === tickIndices[tickIndices.length - 1];
+          return (
+            <span
+              key={idx}
+              className="absolute top-0 whitespace-nowrap text-[9px] leading-3 text-slate-500"
+              style={{
+                left: `${pct}%`,
+                transform: isFirst ? "translateX(0)" : isLast ? "translateX(-100%)" : "translateX(-50%)",
+              }}
+            >
+              {labels?.[idx] ?? defaultLabel(idx, data.length)}
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }

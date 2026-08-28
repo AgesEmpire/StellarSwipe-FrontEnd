@@ -10,6 +10,7 @@ import { ComparisonCard } from "@/components/comparison/ComparisonCard";
 import { MetricToggleBar } from "@/components/comparison/MetricToggleBar";
 import { ComparisonChart } from "@/components/comparison/ComparisonChart";
 import { AddSignalPanel } from "@/components/comparison/AddSignalPanel";
+import { SnapshotNameField } from "@/components/comparison/SnapshotNameField";
 
 function computeBestValues(signals: ReturnType<typeof useComparisonStore.getState>["signals"]): Record<string, number> {
   const best: Record<string, number> = {};
@@ -53,6 +54,11 @@ export default function ComparePage() {
               <div>
                 <h1 className="text-2xl font-bold">Signal Comparison</h1>
                 <p className="text-sm text-gray-400">Compare up to 3 signals side-by-side</p>
+                {signals.length > 0 && (
+                  <div className="mt-1">
+                    <SnapshotNameField />
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 print:hidden">

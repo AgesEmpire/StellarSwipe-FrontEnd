@@ -198,6 +198,19 @@ export function SignalFeed() {
           <SignalSortControls />
           {/* Price precision toggle */}
           <PricePrecisionToggle />
+          {/* #574: last-updated / stale status, with a manual refresh action */}
+          <div className="flex items-center gap-2">
+            <SyncStatusIndicator status={syncStatus} />
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              aria-label="Refresh signal feed"
+              className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-medium text-slate-300 transition-colors hover:border-white/20 hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              Refresh
+            </button>
+          </div>
           {/* #98: show consistent loading state */}
           <div className="text-right text-sm text-foreground-muted" aria-live="polite" aria-atomic="true">
             {isFetching && !allSignals.length
