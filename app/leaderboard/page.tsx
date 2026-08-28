@@ -11,6 +11,9 @@ import {
   type LeaderboardTimeRange,
 } from "@/hooks/useLeaderboard";
 import { SignalProvider } from "@/lib/types";
+import { Loader2, ChevronUp, ChevronDown, Pin, PinOff } from "lucide-react";
+import { PageTransition } from "@/components/PageTransition";
+import { cn } from "@/lib/utils";
 import { ChevronUp, ChevronDown, Trophy } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { LeaderboardErrorBoundary } from "@/components/LeaderboardErrorBoundary";
@@ -21,6 +24,23 @@ import { EmptyState } from "@/components/ui/empty-state";
 
 type SortField = "rank" | "overallScore" | "winRate" | "recentPerformance";
 type SortDirection = "asc" | "desc";
+type ColumnKey = "rank" | "provider" | "overallScore" | "winRate" | "recentPerformance";
+
+interface ColumnConfig {
+  key: ColumnKey;
+  label: string;
+  width: number;
+  align: "left" | "right";
+  sortField?: SortField;
+}
+
+const COLUMNS: ColumnConfig[] = [
+  { key: "rank", label: "Rank", width: 72, align: "left", sortField: "rank" },
+  { key: "provider", label: "Provider", width: 220, align: "left" },
+  { key: "overallScore", label: "Score", width: 100, align: "right", sortField: "overallScore" },
+  { key: "winRate", label: "Win Rate", width: 100, align: "right", sortField: "winRate" },
+  { key: "recentPerformance", label: "Recent", width: 100, align: "right", sortField: "recentPerformance" },
+];
 
 // #595: documented, collision-free row action shortcuts for the leaderboard table
 const ROW_SHORTCUTS = [
@@ -78,10 +98,47 @@ function LeaderboardPageInner() {
     }
   };
 
+  const togglePin = (key: ColumnKey) => {
+    setPinned((current) =>
+      current.includes(key)
+        ? current.filter((k) => k !== key)
+        // Keep pinned columns in table order so sticky offsets stay contiguous.
+        : COLUMNS.map((c) => c.key).filter((k) => current.includes(k) || k === key)
+    );
+  };
+
+  const resetPins = () => setPinned([]);
+
+  // Left offset for each pinned column, computed from the widths of the
+  // pinned columns before it (in table order).
+  const pinnedOffsets = useMemo(() => {
+    const offsets: Partial<Record<ColumnKey, number>> = {};
+    let acc = 0;
+    for (const col of COLUMNS) {
+      if (pinned.includes(col.key)) {
+        offsets[col.key] = acc;
+        acc += col.width;
+      }
+    }
+    return offsets;
+  }, [pinned]);
+
   const truncateAddress = (address: string) => {
     return address.length > 20
       ? `${address.slice(0, 10)}...${address.slice(-8)}`
       : address;
+  };
+
+  const cellStyle = (key: ColumnKey): React.CSSProperties | undefined => {
+    if (!pinned.includes(key)) return undefined;
+    const isLastPinned = pinned[pinned.length - 1] === key;
+    return {
+      position: "sticky",
+      left: pinnedOffsets[key],
+      width: COLUMNS.find((c) => c.key === key)!.width,
+      zIndex: 1,
+      boxShadow: isLastPinned ? "2px 0 4px -2px rgba(0,0,0,0.3)" : undefined,
+    };
   };
 
   const SortHeader = ({
@@ -115,6 +172,21 @@ function LeaderboardPageInner() {
         ))}
     </button>
   );
+
+  const PinToggle = ({ column }: { column: ColumnConfig }) => {
+    const isPinned = pinned.includes(column.key);
+    return (
+      <button
+        type="button"
+        onClick={() => togglePin(column.key)}
+        aria-pressed={isPinned}
+        aria-label={`${isPinned ? "Unpin" : "Pin"} ${column.label} column`}
+        className="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        {isPinned ? <Pin size={12} className="fill-current" /> : <PinOff size={12} />}
+      </button>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -199,6 +271,26 @@ function LeaderboardPageInner() {
             </caption>
             <thead>
               <tr className="border-b bg-muted/50">
+                {COLUMNS.map((col) => (
+                  <th
+                    key={col.key}
+                    className={cn(
+                      "px-4 py-3 font-semibold text-foreground bg-muted/50",
+                      col.align === "left" ? "text-left" : "text-right",
+                      pinned.includes(col.key) && "bg-card"
+                    )}
+                    style={cellStyle(col.key)}
+                  >
+                    <div className={cn("flex items-center gap-1.5", col.align === "right" && "justify-end")}>
+                      {col.sortField ? (
+                        <SortHeader field={col.sortField} label={col.label} />
+                      ) : (
+                        <span>{col.label}</span>
+                      )}
+                      <PinToggle column={col} />
+                    </div>
+                  </th>
+                ))}
                 <th scope="col" aria-sort={sortField === "rank" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-left font-semibold text-foreground">
                   <SortHeader field="rank" label="Rank" />
                 </th>
@@ -254,28 +346,23 @@ function LeaderboardPageInner() {
                   }}
                   aria-label={`View profile for ${provider.name || provider.address}. Press C to copy address, arrow keys to move between rows.`}
                 >
-                  <td className="px-4 py-3 font-semibold text-foreground">#{provider.rank}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-0.5">
-                      {provider.name && (
-                        <p className="font-medium text-foreground">{provider.name}</p>
+                  {COLUMNS.map((col) => (
+                    <td
+                      key={col.key}
+                      className={cn(
+                        "px-4 py-3 bg-card",
+                        col.align === "right" ? "text-right" : "text-left",
+                        col.key === "rank" && "font-semibold text-foreground",
+                        col.key === "overallScore" && "text-right font-semibold text-green-600",
+                        col.key === "winRate" && "font-semibold text-foreground",
+                        col.key === "recentPerformance" &&
+                          (provider.recentPerformance >= 0 ? "text-green-600" : "text-red-600") + " font-semibold"
                       )}
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {truncateAddress(provider.address)}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-600">
-                    {provider.overallScore}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-foreground">
-                    {provider.winRate}%
-                  </td>
-                  <td className={`px-4 py-3 text-right font-semibold ${
-                    provider.recentPerformance >= 0 ? "text-green-600" : "text-red-600"
-                  }`}>
-                    {provider.recentPerformance >= 0 ? "+" : ""}{provider.recentPerformance}%
-                  </td>
+                      style={cellStyle(col.key)}
+                    >
+                      {renderCell(col.key, provider, truncateAddress)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -404,4 +491,30 @@ function LeaderboardPageInner() {
       <ScrollToTop />
     </>
   );
+}
+
+function renderCell(
+  key: ColumnKey,
+  provider: SignalProvider,
+  truncateAddress: (address: string) => string
+) {
+  switch (key) {
+    case "rank":
+      return `#${provider.rank}`;
+    case "provider":
+      return (
+        <div className="flex flex-col gap-0.5">
+          {provider.name && <p className="font-medium text-foreground">{provider.name}</p>}
+          <p className="text-xs text-muted-foreground font-mono">{truncateAddress(provider.address)}</p>
+        </div>
+      );
+    case "overallScore":
+      return provider.overallScore;
+    case "winRate":
+      return `${provider.winRate}%`;
+    case "recentPerformance":
+      return `${provider.recentPerformance >= 0 ? "+" : ""}${provider.recentPerformance}%`;
+    default:
+      return null;
+  }
 }

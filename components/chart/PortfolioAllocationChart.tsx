@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 import { PortfolioAllocationChartSkeleton } from "@/components/DashboardWidgetSkeletons";
 
 interface PortfolioAllocationChartProps {
@@ -19,6 +21,25 @@ export function PortfolioAllocationChart({
   height = 200,
 }: PortfolioAllocationChartProps) {
   const { assets, totalValue, isLoading } = usePortfolioStore();
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+
+  // Keep the selection in sync when the underlying data updates — clear it if
+  // the selected asset disappears, otherwise the panel always reflects the
+  // latest value for the still-selected symbol.
+  useEffect(() => {
+    if (selectedSymbol && !assets.some((a) => a.symbol === selectedSymbol)) {
+      setSelectedSymbol(null);
+    }
+  }, [assets, selectedSymbol]);
+
+  const selectedAsset = useMemo(
+    () => assets.find((a) => a.symbol === selectedSymbol) ?? null,
+    [assets, selectedSymbol]
+  );
+
+  const toggleSelection = (symbol: string) => {
+    setSelectedSymbol((current) => (current === symbol ? null : symbol));
+  };
 
   const [activeSegment, setActiveSegment] = useState<string | null>(null);
 
@@ -160,6 +181,30 @@ export function PortfolioAllocationChart({
             role="img"
             aria-label={`Portfolio allocation donut chart. ${arcs.map((a) => `${a.name} ${a.percentage.toFixed(1)}%`).join(", ")}`}
           >
+            {arcs.map((arc) => (
+              <g
+                key={arc.symbol}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedSymbol === arc.symbol}
+                aria-label={`${arc.name}, ${arc.percentage.toFixed(1)} percent. ${
+                  selectedSymbol === arc.symbol ? "Selected. Press to deselect." : "Press to inspect."
+                }`}
+                onClick={() => toggleSelection(arc.symbol)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleSelection(arc.symbol);
+                  }
+                }}
+                className="cursor-pointer outline-none focus-visible:opacity-90"
+              >
+                <path
+                  d={arc.path}
+                  fill={arc.color}
+                  stroke={selectedSymbol === arc.symbol ? "white" : "none"}
+                  strokeWidth={selectedSymbol === arc.symbol ? 2 : 0}
+                  className="transition-opacity hover:opacity-80"
             {arcs.map((arc) => {
               const isActive = arc.symbol === activeSegment;
               return (
@@ -225,6 +270,16 @@ export function PortfolioAllocationChart({
           )}
         </div>
 
+        {selectedAsset && (
+          <div
+            role="region"
+            aria-label={`${selectedAsset.name} details`}
+            className="mt-4 rounded-lg border border-border bg-surface p-3"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setSelectedSymbol(null);
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
         <ul
           className="mt-4 space-y-2"
           aria-label="Portfolio allocation breakdown"
@@ -237,14 +292,73 @@ export function PortfolioAllocationChart({
               <div className="flex items-center gap-2">
                 <span
                   className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: asset.color }}
+                  style={{ backgroundColor: selectedAsset.color }}
                   aria-hidden="true"
                 />
-                <span className="text-foreground">{asset.name}</span>
+                <p className="font-semibold text-foreground">
+                  {selectedAsset.name} ({selectedAsset.symbol})
+                </p>
               </div>
-              <span className="font-mono text-foreground-muted">
-                {asset.percentage.toFixed(1)}%
-              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedSymbol(null)}
+                aria-label="Close data point details"
+                className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              <dt className="text-muted-foreground">Allocation</dt>
+              <dd className="text-right font-mono text-foreground">
+                {selectedAsset.percentage.toFixed(1)}%
+              </dd>
+              <dt className="text-muted-foreground">Value</dt>
+              <dd className="text-right font-mono text-foreground">
+                ${selectedAsset.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </dd>
+              {typeof selectedAsset.unrealizedPnL === "number" && (
+                <>
+                  <dt className="text-muted-foreground">Unrealized P/L</dt>
+                  <dd
+                    className={cn(
+                      "text-right font-mono",
+                      selectedAsset.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"
+                    )}
+                  >
+                    {selectedAsset.unrealizedPnL >= 0 ? "+" : ""}
+                    {selectedAsset.unrealizedPnL.toFixed(2)}
+                  </dd>
+                </>
+              )}
+            </dl>
+          </div>
+        )}
+
+        <ul className="mt-4 space-y-2" aria-label="Portfolio allocation breakdown">
+          {assets.map((asset) => (
+            <li key={asset.symbol}>
+              <button
+                type="button"
+                onClick={() => toggleSelection(asset.symbol)}
+                aria-pressed={selectedSymbol === asset.symbol}
+                className={cn(
+                  "flex w-full items-center justify-between rounded px-1 py-0.5 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-500",
+                  selectedSymbol === asset.symbol ? "bg-white/5" : "hover:bg-white/5"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: asset.color }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-foreground">{asset.name}</span>
+                </div>
+                <span className="font-mono text-foreground-muted">
+                  {asset.percentage.toFixed(1)}%
+                </span>
+              </button>
             </li>
           ))}
         </ul>
