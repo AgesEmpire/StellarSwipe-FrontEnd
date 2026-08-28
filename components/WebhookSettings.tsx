@@ -5,6 +5,8 @@ import { useWebhookStore, type WebhookEventType } from "@/store/useWebhookStore"
 import { buildSamplePayload, dispatchWebhookEvent } from "@/services/webhookService";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus, Send, Copy } from "lucide-react";
+import { useValidationSummary } from "@/hooks/useValidationSummary";
+import { ValidationSummary } from "@/components/forms/ValidationSummary";
 
 const EVENT_OPTIONS: { value: WebhookEventType; label: string }[] = [
   { value: "new_signal", label: "New Signal" },
@@ -18,9 +20,18 @@ export function WebhookSettings() {
   const [selectedEvents, setSelectedEvents] = useState<WebhookEventType[]>(["new_signal"]);
   const [testStatus, setTestStatus] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const { errors, validate, clearFieldError } = useValidationSummary();
 
   const handleAdd = () => {
-    if (!url.trim() || !url.startsWith("http")) return;
+    const nextErrors = [];
+    if (!url.trim() || !url.startsWith("http")) {
+      nextErrors.push({ field: "webhook-url", message: "Webhook URL must be a valid http(s) address." });
+    }
+    if (selectedEvents.length === 0) {
+      nextErrors.push({ field: "webhook-events", message: "Select at least one event to send." });
+    }
+    if (!validate(nextErrors)) return;
+
     addWebhook(url.trim(), selectedEvents);
     setUrl("");
   };
@@ -48,19 +59,29 @@ export function WebhookSettings() {
       {/* Add webhook */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <h3 className="font-medium text-sm">Add Webhook</h3>
+        <ValidationSummary errors={errors} />
         <input
+          id="webhook-url"
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
+          onFocus={() => clearFieldError("webhook-url")}
           placeholder="https://your-app.com/webhook"
           className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           aria-label="Webhook URL"
         />
-        <div className="flex flex-wrap gap-2">
+        <div
+          id="webhook-events"
+          tabIndex={-1}
+          className="flex flex-wrap gap-2 focus:outline-none"
+        >
           {EVENT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setSelectedEvents((ev) => toggleEvent(ev, opt.value))}
+              onClick={() => {
+                setSelectedEvents((ev) => toggleEvent(ev, opt.value));
+                clearFieldError("webhook-events");
+              }}
               className={`rounded-full px-3 py-1 text-xs border transition-colors ${
                 selectedEvents.includes(opt.value)
                   ? "bg-blue-500 text-white border-blue-500"
@@ -72,7 +93,7 @@ export function WebhookSettings() {
             </button>
           ))}
         </div>
-        <Button size="sm" onClick={handleAdd} disabled={!url.trim()} className="gap-1">
+        <Button size="sm" onClick={handleAdd} className="gap-1">
           <Plus size={14} /> Add Webhook
         </Button>
       </div>

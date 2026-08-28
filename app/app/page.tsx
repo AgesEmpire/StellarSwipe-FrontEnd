@@ -17,13 +17,9 @@ import { WalletSelectionModal } from "@/components/WalletSelectionModal";
 import { SignalCard } from "@/components/SignalCard";
 import { WalletDropdown } from "@/components/WalletDropdown";
 import { PageTransition } from "@/components/PageTransition";
-import { PortfolioAllocationChart } from "@/components/chart/PortfolioAllocationChart";
-import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
-import { PnLWidget } from "@/components/chart/PnLWidget";
 import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatus";
-import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
-import { PositionStopLossControl } from "@/components/PositionStopLossControl";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
+import { DashboardWidgets } from "@/components/DashboardWidgets";
 
 export default function AppPage() {
   const { publicKey, connected } = useWallet();
@@ -211,6 +207,8 @@ export default function AppPage() {
                 </div>
               </div>
             </div>
+
+            <DashboardWidgets />
           </div>
         </div>
 

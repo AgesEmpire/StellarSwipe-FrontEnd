@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef } from "react";
-import { Bookmark, SlidersHorizontal, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Bookmark, ListFilter, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   FilterDirection,
   useSignalFilterStore,
 } from "@/store/useSignalFilterStore";
+import { SavedFiltersPanel } from "@/components/SavedFiltersPanel";
 
 const DIRECTIONS: { label: string; value: FilterDirection }[] = [
   { label: "All", value: "ALL" },
@@ -39,6 +40,7 @@ export function SignalFeedFilters({
     reset,
   } = useSignalFilterStore();
   const assetInputRef = useRef<HTMLInputElement>(null);
+  const [savedFiltersOpen, setSavedFiltersOpen] = useState(false);
 
   const isActive =
     direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
@@ -57,17 +59,34 @@ export function SignalFeedFilters({
           <SlidersHorizontal size={13} aria-hidden="true" />
           Filters
         </span>
-        {isActive && (
+        <div className="flex items-center gap-3">
           <button
-            onClick={reset}
-            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
-            aria-label="Clear all filters"
+            onClick={() => setSavedFiltersOpen((v) => !v)}
+            aria-expanded={savedFiltersOpen}
+            aria-controls="saved-filters-panel"
+            className="flex items-center gap-1 text-xs text-foreground-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
           >
-            <X size={12} />
-            Clear
+            <ListFilter size={12} />
+            Saved filters
           </button>
-        )}
+          {isActive && (
+            <button
+              onClick={reset}
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
+              aria-label="Clear all filters"
+            >
+              <X size={12} />
+              Clear
+            </button>
+          )}
+        </div>
       </div>
+
+      {savedFiltersOpen && (
+        <div id="saved-filters-panel">
+          <SavedFiltersPanel />
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button
