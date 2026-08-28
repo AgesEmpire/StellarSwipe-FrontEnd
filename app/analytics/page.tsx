@@ -7,6 +7,7 @@ import { PeriodComparisonWidget } from "@/components/comparison/PeriodComparison
 import { usePeriodComparison } from "@/hooks/usePeriodComparison";
 import { type ComparisonGranularity } from "@/lib/comparison";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { DateRangePicker, type DateRange } from "@/components/DateRangePicker";
 
 const PortfolioAllocationChart = dynamic(
   () =>
@@ -48,6 +49,12 @@ function AnalyticsPageInner() {
   // Period-over-period comparison state (#405)
   const [showPeriodComparison, setShowPeriodComparison] = useState(false);
   const [granularity, setGranularity] = useState<ComparisonGranularity>("month");
+  const [customRange, setCustomRange] = useState<DateRange>(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    return { start, end };
+  });
 
   // Pull current & prior period metrics from the portfolio store / demo data
   const {
@@ -112,6 +119,14 @@ function AnalyticsPageInner() {
           )}
         </div>
       )}
+
+      {/* Custom analytics date range */}
+      <div className="mb-6">
+        <h2 className="mb-2 text-sm font-semibold text-foreground-muted">
+          Custom range
+        </h2>
+        <DateRangePicker value={customRange} onChange={setCustomRange} />
+      </div>
 
       {/* Existing charts — unaffected by period comparison */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
