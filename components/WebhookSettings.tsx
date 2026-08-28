@@ -33,6 +33,7 @@ export function WebhookSettings() {
     Record<string, { state: "sending" | "success" | "failed"; message: string }>
   >({});
   const [copied, setCopied] = useState<string | null>(null);
+  const { errors, validate, clearFieldError } = useValidationSummary();
 
   const handleAdd = () => {
     const trimmed = url.trim();
@@ -99,7 +100,9 @@ export function WebhookSettings() {
       {/* Add webhook */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <h3 className="font-medium text-sm">Add Webhook</h3>
+        <ValidationSummary errors={errors} />
         <input
+          id="webhook-url"
           type="url"
           value={url}
           onChange={(e) => {

@@ -25,9 +25,8 @@ import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { PnLWidget } from "@/components/chart/PnLWidget";
 import { ResizableSplit } from "@/components/ResizableSplit";
 import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatus";
-import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
-import { PositionStopLossControl } from "@/components/PositionStopLossControl";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
+import { DashboardWidgets } from "@/components/DashboardWidgets";
 
 export default function AppPage() {
   const { publicKey, connected } = useWallet();
