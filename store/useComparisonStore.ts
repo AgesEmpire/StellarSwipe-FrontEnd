@@ -6,9 +6,17 @@ export const MAX_SIGNALS = 3;
 /** Alias used by the ComparisonTray component and its tests. */
 export const MAX_COMPARISON = MAX_SIGNALS;
 
+export interface SnapshotNameResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface ComparisonState {
   signals: Signal[];
   hiddenMetrics: string[];
+  snapshotName: string;
+  // Names already claimed by a previous snapshot, used for duplicate checks.
+  snapshotNameHistory: string[];
   limitReached: boolean;
   addSignal: (signal: Signal) => boolean;
   removeSignal: (id: string) => void;
@@ -18,6 +26,7 @@ interface ComparisonState {
   toggleMetric: (key: string) => void;
   isSelected: (id: string) => boolean;
   canAdd: () => boolean;
+  setSnapshotName: (name: string) => SnapshotNameResult;
   dismissLimitMessage: () => void;
 }
 
@@ -26,6 +35,8 @@ export const useComparisonStore = create<ComparisonState>()(
     (set, get) => ({
       signals: [],
       hiddenMetrics: [],
+      snapshotName: "",
+      snapshotNameHistory: [],
       limitReached: false,
 
       addSignal: (signal) => {
@@ -46,6 +57,31 @@ export const useComparisonStore = create<ComparisonState>()(
           limitReached: false,
         })),
 
+      clearSignals: () => set({ signals: [], snapshotName: "" }),
+
+      setSnapshotName: (name) => {
+        const trimmed = name.trim();
+        const { snapshotName, snapshotNameHistory } = get();
+
+        if (!trimmed) {
+          return { ok: false, error: "Snapshot name cannot be empty." };
+        }
+
+        const isDuplicate =
+          trimmed.toLowerCase() !== snapshotName.toLowerCase() &&
+          snapshotNameHistory.some((n) => n.toLowerCase() === trimmed.toLowerCase());
+        if (isDuplicate) {
+          return { ok: false, error: "That name is already in use. Choose a different one." };
+        }
+
+        set({
+          snapshotName: trimmed,
+          snapshotNameHistory: snapshotNameHistory.some((n) => n.toLowerCase() === trimmed.toLowerCase())
+            ? snapshotNameHistory
+            : [...snapshotNameHistory, trimmed],
+        });
+        return { ok: true };
+      },
       clearSignals: () => set({ signals: [], limitReached: false }),
       clearAll: () => set({ signals: [], limitReached: false }),
 

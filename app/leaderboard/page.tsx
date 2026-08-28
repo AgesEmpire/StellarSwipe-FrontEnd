@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useLeaderboard } from "@/hooks/useLeaderboard";
+import { SignalProvider } from "@/lib/types";
+import { Loader2, ChevronUp, ChevronDown, Keyboard } from "lucide-react";
 import {
   useLeaderboard,
   type LeaderboardTimeRange,
@@ -38,6 +42,11 @@ const COLUMNS: ColumnConfig[] = [
   { key: "recentPerformance", label: "Recent", width: 100, align: "right", sortField: "recentPerformance" },
 ];
 
+// #595: documented, collision-free row action shortcuts for the leaderboard table
+const ROW_SHORTCUTS = [
+  { keys: "↑ / ↓", action: "Move focus between rows" },
+  { keys: "Enter", action: "Open the focused provider's profile" },
+  { keys: "C", action: "Copy the focused provider's address" },
 const TIME_RANGE_TABS: { value: LeaderboardTimeRange; label: string }[] = [
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
@@ -65,7 +74,8 @@ function LeaderboardPageInner() {
   } = useLeaderboard();
   const [sortField, setSortField] = useState<SortField>("rank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [pinned, setPinned] = useState<ColumnKey[]>([]);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
 
   const sortedProviders = useMemo(() => {
     if (!providers) return [];
@@ -205,20 +215,21 @@ function LeaderboardPageInner() {
   return (
     <PageTransition>
       <main className="flex min-h-screen flex-col gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-        <header className="w-full flex items-center justify-between gap-4">
+        <header className="w-full flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Leaderboard</h1>
             <p className="text-sm text-gray-400 mt-2">Top-performing signal providers</p>
           </div>
-          {pinned.length > 0 && (
-            <button
-              type="button"
-              onClick={resetPins}
-              className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
-            >
-              Reset pinned columns
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen((v) => !v)}
+            aria-expanded={shortcutsOpen}
+            aria-controls="leaderboard-shortcuts-help"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:border-white/20 hover:text-white transition-colors"
+          >
+            <Keyboard size={13} aria-hidden="true" />
+            Shortcuts
+          </button>
         </header>
     <>
       <PageTransition>
@@ -231,6 +242,27 @@ function LeaderboardPageInner() {
               Top-performing signal providers
             </p>
           </header>
+
+        {shortcutsOpen && (
+          <div
+            id="leaderboard-shortcuts-help"
+            role="note"
+            aria-label="Keyboard shortcuts for table rows"
+            className="w-full rounded-lg border bg-card p-4 text-sm"
+          >
+            <p className="mb-2 font-semibold text-foreground">Row shortcuts</p>
+            <ul className="space-y-1">
+              {ROW_SHORTCUTS.map((s) => (
+                <li key={s.keys} className="flex items-center gap-2 text-muted-foreground">
+                  <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                    {s.keys}
+                  </kbd>
+                  <span>{s.action}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="w-full overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
@@ -274,7 +306,7 @@ function LeaderboardPageInner() {
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={tbodyRef}>
               {sortedProviders.map((provider) => (
                 <tr
                   key={provider.id}
@@ -282,12 +314,37 @@ function LeaderboardPageInner() {
                   onClick={() => router.push(`/provider/${provider.id}`)}
                   tabIndex={0}
                   onKeyDown={(e) => {
+                    // Never hijack keystrokes meant for a focused form field.
+                    const tag = (e.target as HTMLElement).tagName;
+                    if (tag === "INPUT" || tag === "TEXTAREA") return;
+
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       router.push(`/provider/${provider.id}`);
+                      return;
+                    }
+
+                    if (e.key === "c" || e.key === "C") {
+                      e.preventDefault();
+                      navigator.clipboard?.writeText(provider.address).then(() => {
+                        toast.success("Address copied");
+                      }).catch(() => {
+                        toast.error("Couldn't copy address");
+                      });
+                      return;
+                    }
+
+                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      const rows = Array.from(
+                        tbodyRef.current?.querySelectorAll<HTMLElement>("tr[tabindex]") ?? []
+                      );
+                      const idx = rows.indexOf(e.currentTarget);
+                      const next = e.key === "ArrowDown" ? rows[idx + 1] : rows[idx - 1];
+                      next?.focus();
                     }
                   }}
-                  aria-label={`View profile for ${provider.name || provider.address}`}
+                  aria-label={`View profile for ${provider.name || provider.address}. Press C to copy address, arrow keys to move between rows.`}
                 >
                   {COLUMNS.map((col) => (
                     <td
