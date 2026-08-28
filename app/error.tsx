@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, RefreshCw, Home, Flag } from "lucide-react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
+
+const SUPPORT_EMAIL = "support@stellarswipe.io";
 
 export default function Error({
   error,
@@ -11,9 +14,14 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [sentryEventId, setSentryEventId] = useState<string | null>(null);
+
   useEffect(() => {
-    console.error("[Route Error] Route-level error:", error);
+    Sentry.captureException(error);
+    setSentryEventId(Sentry.lastEventId() ?? null);
   }, [error]);
+
+  const reportHref = buildReportHref(error.digest, sentryEventId);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-4">
@@ -27,8 +35,8 @@ export default function Error({
         </h2>
 
         <p className="mb-4 text-sm text-foreground-muted">
-          This page encountered an error. Please try again or return to the
-          home page.
+          This page encountered an error. Please try again or return to the home
+          page.
         </p>
 
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -48,7 +56,34 @@ export default function Error({
             Go Home
           </Link>
         </div>
+
+        <a
+          href={reportHref}
+          data-error-digest={error.digest ?? ""}
+          data-sentry-event-id={sentryEventId ?? ""}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-transparent px-4 py-2.5 text-sm font-medium text-foreground-muted transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Flag className="h-4 w-4" />
+          Report this error
+        </a>
       </div>
     </div>
   );
+}
+
+function buildReportHref(
+  digest: string | undefined,
+  eventId: string | null
+): string {
+  const subject = encodeURIComponent("Error Report – StellarSwipe");
+  const body = encodeURIComponent(
+    [
+      `Error ID: ${digest ?? "n/a"}`,
+      `Sentry Event ID: ${eventId ?? "n/a"}`,
+      "",
+      "Please describe what you were doing when the error occurred:",
+      "",
+    ].join("\n")
+  );
+  return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
 }

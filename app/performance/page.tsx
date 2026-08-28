@@ -1,8 +1,12 @@
 "use client";
 
 import { PerformanceDashboard } from "@/components/performance/PerformanceDashboard";
+import { NetworkErrorState } from "@/components/NetworkErrorState";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 export default function PerformancePage() {
+  const { isOnline } = useNetworkStatus();
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <div className="mb-8">
@@ -14,6 +18,17 @@ export default function PerformancePage() {
           performance, and user experience.
         </p>
       </div>
+
+      {!isOnline && (
+        <div className="mb-6">
+          <NetworkErrorState
+            context="performance metrics"
+            onRetry={() => window.location.reload()}
+            variant="banner"
+          />
+        </div>
+      )}
+
       <PerformanceDashboard />
     </main>
   );

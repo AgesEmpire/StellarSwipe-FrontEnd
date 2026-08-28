@@ -10,7 +10,7 @@ export interface TradeRequest {
   id: string;
   signalId: string;
   asset: string;
-  direction: 'BUY' | 'SELL';
+  direction: "BUY" | "SELL";
   amount: number;
   slippageTolerance: number;
 }
@@ -106,7 +106,9 @@ class TradeExecutionService {
   }
 
   /** Measure execution time of any async fn */
-  async measure<T>(fn: () => Promise<T>): Promise<{ result: T; durationMs: number }> {
+  async measure<T>(
+    fn: () => Promise<T>
+  ): Promise<{ result: T; durationMs: number }> {
     const start = performance.now();
     const result = await fn();
     return { result, durationMs: Math.round(performance.now() - start) };
@@ -133,15 +135,23 @@ class TradeExecutionService {
     this.processing = false;
   }
 
-  private async executeWithTimeout(request: TradeRequest): Promise<TradeResult> {
+  private async executeWithTimeout(
+    request: TradeRequest
+  ): Promise<TradeResult> {
     const start = performance.now();
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Trade execution timeout')), this.EXECUTION_TIMEOUT_MS)
+      setTimeout(
+        () => reject(new Error("Trade execution timeout")),
+        this.EXECUTION_TIMEOUT_MS
+      )
     );
 
     try {
       const result = await Promise.race([this.executeTrade(request), timeout]);
-      return { ...result, executionTimeMs: Math.round(performance.now() - start) };
+      return {
+        ...result,
+        executionTimeMs: Math.round(performance.now() - start),
+      };
     } catch (err) {
       return {
         id: request.id,
@@ -152,11 +162,11 @@ class TradeExecutionService {
     }
   }
 
-  private async executeTrade(request: TradeRequest): Promise<Omit<TradeResult, 'executionTimeMs'>> {
+  private async executeTrade(
+    request: TradeRequest
+  ): Promise<Omit<TradeResult, "executionTimeMs">> {
     // Prefetch rate in parallel with any other needed data
-    const [rate] = await Promise.all([
-      this.getExchangeRate(request.asset),
-    ]);
+    const [rate] = await Promise.all([this.getExchangeRate(request.asset)]);
 
     // Simulate blockchain submission (replace with stellar-sdk call)
     await new Promise((r) => setTimeout(r, 300 + Math.random() * 400));
@@ -175,7 +185,10 @@ class TradeExecutionService {
     return 0.1 + Math.random() * 0.05;
   }
 
-  private async fetchBalance(_address: string, _asset: string): Promise<number> {
+  private async fetchBalance(
+    _address: string,
+    _asset: string
+  ): Promise<number> {
     // Replace with actual Horizon account fetch
     await new Promise((r) => setTimeout(r, 50));
     return 1000 + Math.random() * 500;
