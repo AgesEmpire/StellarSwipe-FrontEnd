@@ -34,6 +34,8 @@ import {
   type SignalConflictReason,
 } from "@/components/SignalConflictNotice";
 import { cn } from "@/lib/utils";
+import { MiniChart } from "./chart/MiniChart";
+import { ChartDensityToggle } from "./chart/ChartDensityToggle";
 import { SignalSparkline } from "./chart/SignalSparkline";
 import { useDataSaverStore } from "@/store/useDataSaverStore";
 import { shouldDisableDecorativeAnimation } from "@/lib/dataSaver";
@@ -710,6 +712,10 @@ export function SignalCard({
               </div>
             </div>
 
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] uppercase tracking-wide text-foreground-subtle">ROI trend</p>
+              <ChartDensityToggle />
+            </div>
             <div className="flex items-center gap-2">
               {signalAction === "BUY" ? (
                 <TrendingUp size={16} className="text-accent-success" />
@@ -718,6 +724,7 @@ export function SignalCard({
               ) : (
                 <Minus size={16} className="text-foreground-subtle" />
               )}
+              <MiniChart data={roiHistory.map((p) => p.value)} showAxis className="flex-1" />
               <SignalSparkline data={roiHistory.map((p) => p.value)} />
             </div>
 
