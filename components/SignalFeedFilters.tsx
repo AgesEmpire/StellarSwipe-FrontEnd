@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Bookmark, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Signal } from "@/lib/api";
 import {
   FilterDirection,
   useSignalFilterStore,
@@ -19,6 +20,34 @@ interface SignalFeedFiltersProps {
   availableAssets?: string[];
   /** Unique provider names derived from the current signal list */
   availableProviders?: string[];
+  /** Current (unfiltered) signal dataset, used to derive per-option result counts */
+  signals?: Signal[];
+  /** Whether the signal dataset is still loading — shows a loading state for counts */
+  isLoadingCounts?: boolean;
+}
+
+/** Small badge that renders a per-option result count with distinct loading/empty/unavailable states */
+function CountBadge({ count, isLoading }: { count: number | null; isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <span
+        className="ml-1.5 inline-block h-2.5 w-2.5 animate-spin rounded-full border-2 border-current border-t-transparent align-middle opacity-60"
+        aria-hidden="true"
+      />
+    );
+  }
+  if (count === null) {
+    return (
+      <span className="ml-1 text-[10px] opacity-40" aria-hidden="true">
+        &ndash;
+      </span>
+    );
+  }
+  return (
+    <span className={cn("ml-1 text-[10px] tabular-nums", count === 0 ? "opacity-40" : "opacity-80")}>
+      ({count})
+    </span>
+  );
 }
 
 const MAX_QUICK_FILTERS = 4;
@@ -26,6 +55,8 @@ const MAX_QUICK_FILTERS = 4;
 export function SignalFeedFilters({
   availableAssets = [],
   availableProviders = [],
+  signals,
+  isLoadingCounts = false,
 }: SignalFeedFiltersProps) {
   const {
     direction,
@@ -39,6 +70,16 @@ export function SignalFeedFilters({
     reset,
   } = useSignalFilterStore();
   const assetInputRef = useRef<HTMLInputElement>(null);
+
+  const counts = useMemo(() => {
+    if (!signals) return null;
+    return {
+      direction: (value: FilterDirection) =>
+        value === "ALL" ? signals.length : signals.filter((s) => s.action === value).length,
+      asset: (value: string) => signals.filter((s) => s.asset === value).length,
+      provider: (value: string) => signals.filter((s) => s.providerId === value).length,
+    };
+  }, [signals]);
 
   const isActive =
     direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
@@ -85,63 +126,78 @@ export function SignalFeedFilters({
           Bookmarked
         </button>
 
-        {quickAssets.map((assetLabel) => (
-          <button
-            key={assetLabel}
-            type="button"
-            onClick={() => setAsset(asset === assetLabel ? "" : assetLabel)}
-            aria-pressed={asset === assetLabel}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-              asset === assetLabel
-                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
-                : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
-            )}
-          >
-            {assetLabel}
-          </button>
-        ))}
+        {quickAssets.map((assetLabel) => {
+          const count = counts ? counts.asset(assetLabel) : null;
+          return (
+            <button
+              key={assetLabel}
+              type="button"
+              onClick={() => setAsset(asset === assetLabel ? "" : assetLabel)}
+              aria-pressed={asset === assetLabel}
+              aria-label={`Filter by asset ${assetLabel}${count !== null ? `, ${count} results` : ""}`}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                asset === assetLabel
+                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
+                  : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
+              )}
+            >
+              {assetLabel}
+              <CountBadge count={count} isLoading={isLoadingCounts} />
+            </button>
+          );
+        })}
 
-        {quickProviders.map((providerLabel) => (
-          <button
-            key={providerLabel}
-            type="button"
-            onClick={() => setProvider(provider === providerLabel ? "" : providerLabel)}
-            aria-pressed={provider === providerLabel}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-              provider === providerLabel
-                ? "bg-orange-500/15 text-orange-300 border border-orange-500/40"
-                : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
-            )}
-          >
-            {providerLabel}
-          </button>
-        ))}
+        {quickProviders.map((providerLabel) => {
+          const count = counts ? counts.provider(providerLabel) : null;
+          return (
+            <button
+              key={providerLabel}
+              type="button"
+              onClick={() => setProvider(provider === providerLabel ? "" : providerLabel)}
+              aria-pressed={provider === providerLabel}
+              aria-label={`Filter by provider ${providerLabel}${count !== null ? `, ${count} results` : ""}`}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                provider === providerLabel
+                  ? "bg-orange-500/15 text-orange-300 border border-orange-500/40"
+                  : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
+              )}
+            >
+              {providerLabel}
+              <CountBadge count={count} isLoading={isLoadingCounts} />
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {/* Direction pills */}
         <fieldset className="flex items-center gap-1" aria-label="Filter by direction">
-          {DIRECTIONS.map(({ label, value }) => (
-            <button
-              key={value}
-              onClick={() => setDirection(value)}
-              aria-pressed={direction === value}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                direction === value
-                  ? value === "BUY"
-                    ? "bg-green-500/20 text-green-400 border border-green-500/40"
-                    : value === "SELL"
-                    ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                    : "bg-blue-500/20 text-blue-400 border border-blue-500/40"
-                  : "bg-surface text-foreground-muted border border-border hover:border-border-strong hover:text-foreground"
-              )}
-            >
-              {label}
-            </button>
-          ))}
+          {DIRECTIONS.map(({ label, value }) => {
+            const count = counts ? counts.direction(value) : null;
+            return (
+              <button
+                key={value}
+                onClick={() => setDirection(value)}
+                aria-pressed={direction === value}
+                aria-label={`Filter by direction ${label}${count !== null ? `, ${count} results` : ""}`}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  direction === value
+                    ? value === "BUY"
+                      ? "bg-green-500/20 text-green-400 border border-green-500/40"
+                      : value === "SELL"
+                      ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                      : "bg-blue-500/20 text-blue-400 border border-blue-500/40"
+                    : "bg-surface text-foreground-muted border border-border hover:border-border-strong hover:text-foreground"
+                )}
+              >
+                {label}
+                <CountBadge count={count} isLoading={isLoadingCounts} />
+              </button>
+            );
+          })}
         </fieldset>
 
         {/* Asset filter */}
@@ -153,10 +209,11 @@ export function SignalFeedFilters({
               aria-label="Filter by asset"
               className="appearance-none rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-white/20 transition-colors pr-6"
             >
-              <option value="">All assets</option>
+              <option value="">All assets{counts ? ` (${counts.direction("ALL")})` : ""}</option>
               {availableAssets.map((a) => (
                 <option key={a} value={a}>
                   {a}
+                  {counts ? ` (${counts.asset(a)})` : ""}
                 </option>
               ))}
             </select>
@@ -199,6 +256,7 @@ export function SignalFeedFilters({
             {availableProviders.map((p) => (
               <option key={p} value={p}>
                 {p}
+                {counts ? ` (${counts.provider(p)})` : ""}
               </option>
             ))}
           </select>

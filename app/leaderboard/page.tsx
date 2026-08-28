@@ -1,20 +1,39 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { SignalProvider } from "@/lib/types";
-import { Loader2, ChevronUp, ChevronDown } from "lucide-react";
+import { Loader2, ChevronUp, ChevronDown, Pin, PinOff } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
+import { cn } from "@/lib/utils";
 
 type SortField = "rank" | "overallScore" | "winRate" | "recentPerformance";
 type SortDirection = "asc" | "desc";
+type ColumnKey = "rank" | "provider" | "overallScore" | "winRate" | "recentPerformance";
+
+interface ColumnConfig {
+  key: ColumnKey;
+  label: string;
+  width: number;
+  align: "left" | "right";
+  sortField?: SortField;
+}
+
+const COLUMNS: ColumnConfig[] = [
+  { key: "rank", label: "Rank", width: 72, align: "left", sortField: "rank" },
+  { key: "provider", label: "Provider", width: 220, align: "left" },
+  { key: "overallScore", label: "Score", width: 100, align: "right", sortField: "overallScore" },
+  { key: "winRate", label: "Win Rate", width: 100, align: "right", sortField: "winRate" },
+  { key: "recentPerformance", label: "Recent", width: 100, align: "right", sortField: "recentPerformance" },
+];
 
 export default function LeaderboardPage() {
   const router = useRouter();
   const { data: providers, isLoading, error } = useLeaderboard();
   const [sortField, setSortField] = useState<SortField>("rank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [pinned, setPinned] = useState<ColumnKey[]>([]);
 
   const sortedProviders = useMemo(() => {
     if (!providers) return [];
@@ -37,8 +56,45 @@ export default function LeaderboardPage() {
     }
   };
 
+  const togglePin = (key: ColumnKey) => {
+    setPinned((current) =>
+      current.includes(key)
+        ? current.filter((k) => k !== key)
+        // Keep pinned columns in table order so sticky offsets stay contiguous.
+        : COLUMNS.map((c) => c.key).filter((k) => current.includes(k) || k === key)
+    );
+  };
+
+  const resetPins = () => setPinned([]);
+
+  // Left offset for each pinned column, computed from the widths of the
+  // pinned columns before it (in table order).
+  const pinnedOffsets = useMemo(() => {
+    const offsets: Partial<Record<ColumnKey, number>> = {};
+    let acc = 0;
+    for (const col of COLUMNS) {
+      if (pinned.includes(col.key)) {
+        offsets[col.key] = acc;
+        acc += col.width;
+      }
+    }
+    return offsets;
+  }, [pinned]);
+
   const truncateAddress = (address: string) => {
     return address.length > 20 ? `${address.slice(0, 10)}...${address.slice(-8)}` : address;
+  };
+
+  const cellStyle = (key: ColumnKey): React.CSSProperties | undefined => {
+    if (!pinned.includes(key)) return undefined;
+    const isLastPinned = pinned[pinned.length - 1] === key;
+    return {
+      position: "sticky",
+      left: pinnedOffsets[key],
+      width: COLUMNS.find((c) => c.key === key)!.width,
+      zIndex: 1,
+      boxShadow: isLastPinned ? "2px 0 4px -2px rgba(0,0,0,0.3)" : undefined,
+    };
   };
 
   const SortHeader = ({
@@ -68,6 +124,21 @@ export default function LeaderboardPage() {
     </button>
   );
 
+  const PinToggle = ({ column }: { column: ColumnConfig }) => {
+    const isPinned = pinned.includes(column.key);
+    return (
+      <button
+        type="button"
+        onClick={() => togglePin(column.key)}
+        aria-pressed={isPinned}
+        aria-label={`${isPinned ? "Unpin" : "Pin"} ${column.label} column`}
+        className="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        {isPinned ? <Pin size={12} className="fill-current" /> : <PinOff size={12} />}
+      </button>
+    );
+  };
+
   if (isLoading) {
     return (
       <PageTransition>
@@ -91,28 +162,46 @@ export default function LeaderboardPage() {
   return (
     <PageTransition>
       <main className="flex min-h-screen flex-col gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-        <header className="w-full">
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Leaderboard</h1>
-          <p className="text-sm text-gray-400 mt-2">Top-performing signal providers</p>
+        <header className="w-full flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Leaderboard</h1>
+            <p className="text-sm text-gray-400 mt-2">Top-performing signal providers</p>
+          </div>
+          {pinned.length > 0 && (
+            <button
+              type="button"
+              onClick={resetPins}
+              className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
+            >
+              Reset pinned columns
+            </button>
+          )}
         </header>
 
         <div className="w-full overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-semibold text-foreground">
-                  <SortHeader field="rank" label="Rank" />
-                </th>
-                <th className="px-4 py-3 text-left font-semibold text-foreground">Provider</th>
-                <th className="px-4 py-3 text-right font-semibold text-foreground">
-                  <SortHeader field="overallScore" label="Score" className="justify-end" />
-                </th>
-                <th className="px-4 py-3 text-right font-semibold text-foreground">
-                  <SortHeader field="winRate" label="Win Rate" className="justify-end" />
-                </th>
-                <th className="px-4 py-3 text-right font-semibold text-foreground">
-                  <SortHeader field="recentPerformance" label="Recent" className="justify-end" />
-                </th>
+                {COLUMNS.map((col) => (
+                  <th
+                    key={col.key}
+                    className={cn(
+                      "px-4 py-3 font-semibold text-foreground bg-muted/50",
+                      col.align === "left" ? "text-left" : "text-right",
+                      pinned.includes(col.key) && "bg-card"
+                    )}
+                    style={cellStyle(col.key)}
+                  >
+                    <div className={cn("flex items-center gap-1.5", col.align === "right" && "justify-end")}>
+                      {col.sortField ? (
+                        <SortHeader field={col.sortField} label={col.label} />
+                      ) : (
+                        <span>{col.label}</span>
+                      )}
+                      <PinToggle column={col} />
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -131,28 +220,23 @@ export default function LeaderboardPage() {
                   }}
                   aria-label={`View profile for ${provider.name || provider.address}`}
                 >
-                  <td className="px-4 py-3 font-semibold text-foreground">#{provider.rank}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-0.5">
-                      {provider.name && (
-                        <p className="font-medium text-foreground">{provider.name}</p>
+                  {COLUMNS.map((col) => (
+                    <td
+                      key={col.key}
+                      className={cn(
+                        "px-4 py-3 bg-card",
+                        col.align === "right" ? "text-right" : "text-left",
+                        col.key === "rank" && "font-semibold text-foreground",
+                        col.key === "overallScore" && "text-right font-semibold text-green-600",
+                        col.key === "winRate" && "font-semibold text-foreground",
+                        col.key === "recentPerformance" &&
+                          (provider.recentPerformance >= 0 ? "text-green-600" : "text-red-600") + " font-semibold"
                       )}
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {truncateAddress(provider.address)}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-600">
-                    {provider.overallScore}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-foreground">
-                    {provider.winRate}%
-                  </td>
-                  <td className={`px-4 py-3 text-right font-semibold ${
-                    provider.recentPerformance >= 0 ? "text-green-600" : "text-red-600"
-                  }`}>
-                    {provider.recentPerformance >= 0 ? "+" : ""}{provider.recentPerformance}%
-                  </td>
+                      style={cellStyle(col.key)}
+                    >
+                      {renderCell(col.key, provider, truncateAddress)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -167,4 +251,30 @@ export default function LeaderboardPage() {
       </main>
     </PageTransition>
   );
+}
+
+function renderCell(
+  key: ColumnKey,
+  provider: SignalProvider,
+  truncateAddress: (address: string) => string
+) {
+  switch (key) {
+    case "rank":
+      return `#${provider.rank}`;
+    case "provider":
+      return (
+        <div className="flex flex-col gap-0.5">
+          {provider.name && <p className="font-medium text-foreground">{provider.name}</p>}
+          <p className="text-xs text-muted-foreground font-mono">{truncateAddress(provider.address)}</p>
+        </div>
+      );
+    case "overallScore":
+      return provider.overallScore;
+    case "winRate":
+      return `${provider.winRate}%`;
+    case "recentPerformance":
+      return `${provider.recentPerformance >= 0 ? "+" : ""}${provider.recentPerformance}%`;
+    default:
+      return null;
+  }
 }

@@ -20,6 +20,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { PortfolioAllocationChart } from "@/components/chart/PortfolioAllocationChart";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { PnLWidget } from "@/components/chart/PnLWidget";
+import { ResizableSplit } from "@/components/ResizableSplit";
 import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatus";
 import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
 import { PositionStopLossControl } from "@/components/PositionStopLossControl";
@@ -143,11 +144,18 @@ export default function AppPage() {
         </div>
 
         <div className="mx-auto w-full max-w-7xl">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
+          <ResizableSplit
+            storageKey="app-detail-panel-width"
+            minRightWidth={280}
+            maxRightWidth={520}
+            defaultRightWidth={360}
+            left={
             <div className="flex flex-col gap-4 min-w-0">
               <SignalFeedFilters
                 availableAssets={availableAssets}
                 availableProviders={availableProviders}
+                signals={signals}
+                isLoadingCounts={isLoading}
               />
 
               <div className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -211,7 +219,15 @@ export default function AppPage() {
                 </div>
               </div>
             </div>
-          </div>
+            }
+            right={
+              <>
+                <PortfolioAllocationChart />
+                <PortfolioSummaryCards />
+                <PnLWidget />
+              </>
+            }
+          />
         </div>
 
         <TradeModal
