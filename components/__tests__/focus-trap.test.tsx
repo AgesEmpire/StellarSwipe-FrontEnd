@@ -52,7 +52,7 @@ describe("useFocusTrap basics", () => {
 
   it("restores focus to previous element on close", async () => {
     function Wrapper() {
-      const [open, setOpen] = useState(true);
+      const [open, setOpen] = useState(false);
       return (
         <div>
           <button data-testid="trigger">trigger</button>
@@ -65,24 +65,27 @@ describe("useFocusTrap basics", () => {
       );
     }
 
-    const { getByTestId } = render(<Wrapper />);
+    const { getByTestId, getByText } = render(<Wrapper />);
 
     const trigger = getByTestId("trigger") as HTMLButtonElement;
-    const inside = getByTestId("inside") as HTMLButtonElement;
 
-    // Focus the trigger, then open overlay
+    // Focus the trigger, then open overlay via the reopen button
     trigger.focus();
+    const reopen = getByText("reopen") as HTMLButtonElement;
+    reopen.click();
 
     // Wait for rAF scheduled by the hook to run
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
+    const inside = getByTestId("inside") as HTMLButtonElement;
+
     // inside should be focused
     expect(document.activeElement?.textContent).toContain("inside");
 
     // Close overlay by clicking close button
-    const closeBtn = document.querySelectorAll("button")[3] as HTMLButtonElement;
+    const closeBtn = getByText("close") as HTMLButtonElement;
     closeBtn.click();
 
     // After unmount, focus should restore to trigger
