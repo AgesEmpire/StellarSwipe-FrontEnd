@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useChartTooltip } from "@/hooks/useChartTooltip";
+import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 
 interface Candle {
   open: number;
@@ -54,6 +55,10 @@ export function CandlestickChart({
       },
       dataLength: candles.length,
     });
+  const { ref: tooltipRef, offset: tooltipOffset } = useTooltipCollision<HTMLDivElement>(
+    isVisible,
+    [activeIndex]
+  );
 
   if (!candles.length) return null;
 
@@ -159,6 +164,7 @@ export function CandlestickChart({
       {/* Floating tooltip */}
       {isVisible && activeCandle && (
         <div
+          ref={tooltipRef}
           role="tooltip"
           className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 shadow-md"
           style={{
@@ -167,6 +173,7 @@ export function CandlestickChart({
             whiteSpace: "nowrap",
             fontSize: 10,
             color: "white",
+            transform: `translate(${tooltipOffset.x}px, ${tooltipOffset.y}px)`,
           }}
           aria-hidden="true"
         >

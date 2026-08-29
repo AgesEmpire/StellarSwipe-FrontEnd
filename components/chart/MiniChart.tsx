@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useChartDensityStore, type ChartAxisDensity } from "@/store/useChartDensityStore";
 import { useChartTooltip } from "@/hooks/useChartTooltip";
+import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 
 interface MiniChartProps {
   data: number[];
@@ -98,10 +99,8 @@ export function MiniChart({
   const globalDensity = useChartDensityStore((state) => state.density);
   const effectiveDensity = density ?? globalDensity;
   const { path, areaPath, isPositive, gradientId, points } = useMemo(() => {
-    if (!data.length) return { path: "", areaPath: "", isPositive: true, gradientId: "", points: [] as { x: number; y: number }[] };
-  const { path, areaPath, isPositive, gradientId, points } = useMemo(() => {
     if (!data.length)
-      return { path: "", areaPath: "", isPositive: true, gradientId: "", points: [] };
+      return { path: "", areaPath: "", isPositive: true, gradientId: "", points: [] as { x: number; y: number }[] };
 
     const values = data;
     const min = Math.min(...values);
@@ -119,21 +118,13 @@ export function MiniChart({
     const positive = values[values.length - 1] >= values[0];
     const id = `mini-chart-gradient-${Math.random().toString(36).slice(2, 9)}`;
 
-    return { path: linePath, areaPath: areaPathVal, isPositive: positive, gradientId: id, points };
+    return { path: linePath, areaPath: areaPathVal, isPositive: positive, gradientId: id, points: pts };
   }, [data, width, height, showArea]);
 
   const tickIndices = useMemo(
     () => (showAxis ? computeTickIndices(data.length, effectiveDensity, width) : []),
     [showAxis, data.length, effectiveDensity, width]
   );
-    return {
-      path: linePath,
-      areaPath: areaPathVal,
-      isPositive: positive,
-      gradientId: id,
-      points: pts,
-    };
-  }, [data, width, height, showArea]);
 
   const trend = isPositive ? "positive" : "negative";
   const { activeIndex, isVisible, activeDescription, tooltipId, containerProps, showAt, hide } =
@@ -147,35 +138,20 @@ export function MiniChart({
       },
       dataLength: data.length,
     });
+  const { ref: tooltipRef, offset: tooltipOffset } = useTooltipCollision<HTMLDivElement>(
+    isVisible,
+    [activeIndex]
+  );
 
   if (!data.length) return null;
 
   const lineColor = isPositive ? "#22c55e" : "#ef4444";
   const areaOpacity = isPositive ? 0.15 : 0.1;
 
-  const chart = (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      aria-label={`Mini chart showing ${isPositive ? "positive" : "negative"} trend`}
-      role="img"
-      className={showAxis ? "overflow-visible" : `overflow-visible ${className}`}
-    >
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={lineColor} stopOpacity={areaOpacity} />
-          <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-
-      {showArea && areaPath && (
-        <path d={areaPath} fill={`url(#${gradientId})`} />
-      )}
   // Hit-area width per data point
   const hitW = points.length > 1 ? width / points.length : width;
 
-  return (
+  const chart = (
     <div className={`relative inline-block ${className}`} style={{ width, height }}>
       {/* Accessible live region for screen readers */}
       <span
@@ -255,6 +231,7 @@ export function MiniChart({
       {/* Floating tooltip */}
       {isVisible && activeIndex !== null && points[activeIndex] && (
         <div
+          ref={tooltipRef}
           role="tooltip"
           className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 text-[10px] text-white shadow-md"
           style={{
@@ -264,6 +241,7 @@ export function MiniChart({
             ),
             top: points[activeIndex].y - 28,
             whiteSpace: "nowrap",
+            transform: `translate(${tooltipOffset.x}px, ${tooltipOffset.y}px)`,
           }}
           aria-hidden="true"
         >

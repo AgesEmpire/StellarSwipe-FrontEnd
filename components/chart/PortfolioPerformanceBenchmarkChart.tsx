@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PortfolioPerformanceBenchmarkChartSkeleton } from "@/components/DashboardWidgetSkeletons";
 import { useChartTooltip } from "@/hooks/useChartTooltip";
+import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 
 interface PortfolioPerformanceBenchmarkChartProps {
   className?: string;
@@ -172,6 +173,14 @@ export function PortfolioPerformanceBenchmarkChart({
     },
     dataLength: chartData.benchmarkPts?.length ?? 0,
   });
+  const { ref: portfolioTooltipRef, offset: portfolioTooltipOffset } =
+    useTooltipCollision<HTMLDivElement>(portfolioTooltip.isVisible, [
+      portfolioTooltip.activeIndex,
+    ]);
+  const { ref: benchmarkTooltipRef, offset: benchmarkTooltipOffset } =
+    useTooltipCollision<HTMLDivElement>(benchmarkTooltip.isVisible, [
+      benchmarkTooltip.activeIndex,
+    ]);
 
   if (isLoading) {
     return <PortfolioPerformanceBenchmarkChartSkeleton className={className} />;
@@ -365,12 +374,14 @@ export function PortfolioPerformanceBenchmarkChart({
               const pt = chartData.portfolioPts[portfolioTooltip.activeIndex!];
               return (
                 <div
+                  ref={portfolioTooltipRef}
                   role="tooltip"
                   className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 text-[10px] text-white shadow-md"
                   style={{
                     left: Math.min(Math.max(0, pt.x - 24), (chartData.width ?? 320) - 70),
                     top: Math.max(0, pt.y - 36),
                     whiteSpace: "nowrap",
+                    transform: `translate(${portfolioTooltipOffset.x}px, ${portfolioTooltipOffset.y}px)`,
                   }}
                   aria-hidden="true"
                 >
@@ -388,12 +399,14 @@ export function PortfolioPerformanceBenchmarkChart({
               const pt = chartData.benchmarkPts[benchmarkTooltip.activeIndex!];
               return (
                 <div
+                  ref={benchmarkTooltipRef}
                   role="tooltip"
                   className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 text-[10px] text-white shadow-md"
                   style={{
                     left: Math.min(Math.max(0, pt.x - 24), (chartData.width ?? 320) - 70),
                     top: Math.max(0, pt.y - 36),
                     whiteSpace: "nowrap",
+                    transform: `translate(${benchmarkTooltipOffset.x}px, ${benchmarkTooltipOffset.y}px)`,
                   }}
                   aria-hidden="true"
                 >
