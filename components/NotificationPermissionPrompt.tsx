@@ -102,7 +102,7 @@ export function NotificationPermissionPrompt({
 
   const containerClasses =
     variant === "floating"
-      ? "fixed bottom-4 right-4 z-40 w-[min(92vw,380px)] animate-in fade-in slide-in-from-bottom-4"
+      ? "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 w-[min(92vw,380px)] animate-in fade-in slide-in-from-bottom-4"
       : "w-full";
 
   return (
@@ -162,7 +162,8 @@ export function NotificationPermissionPrompt({
       </div>
 
       <p className="mt-3 text-[10px] text-foreground-muted">
-        You can change this anytime from Preferences → Notifications.
+        Skip this and you just won&apos;t get alerts yet — you can turn
+        notifications on anytime from Preferences → Notifications.
       </p>
     </div>
   );
