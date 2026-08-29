@@ -12,11 +12,11 @@ export function NavHeader() {
   const pathname = usePathname();
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
-  // Register keyboard shortcut for "?" to open help modal
+  // Register keyboard shortcut for "?" to toggle the help modal
   useKeyboardShortcuts([
     {
       key: "?",
-      callback: () => setShowKeyboardHelp(true),
+      callback: () => setShowKeyboardHelp((open) => !open),
     },
   ]);
 
