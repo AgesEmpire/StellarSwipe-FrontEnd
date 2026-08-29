@@ -16,12 +16,15 @@ interface UseFocusTrapOptions {
  * - If the previously-focused element is gone from the DOM, falls back to
  *   `document.body` so the user is never left without a focus target.
  */
+import { useRef, useEffect } from "react";
 import { pushOverlay, popOverlay, isTopOverlay } from "./overlayManager";
 
 export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Captured when the trap activates, not when it deactivates.
   const previousActiveElement = useRef<Element | null>(null);
+  // Store rAF id so it can be cancelled on cleanup
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isActive) return;
@@ -62,8 +65,9 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
       target?.focus({ preventScroll: true });
     };
 
-    // Small delay so the modal animation has started before we steal focus.
-    const focusTimer = setTimeout(focusInitial, 16);
+    // Use requestAnimationFrame to focus after browser painting/animations so
+    // tests and animations are less flaky than an arbitrary setTimeout.
+    rafRef.current = window.requestAnimationFrame(() => focusInitial());
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
@@ -97,7 +101,10 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      clearTimeout(focusTimer);
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       document.removeEventListener("keydown", handleKeyDown);
 
       // Unregister from overlay stack so underlying overlays regain topmost status.

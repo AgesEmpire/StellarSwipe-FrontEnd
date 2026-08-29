@@ -1,0 +1,96 @@
+/** @jest-environment jsdom */
+import React from "react";
+import { render, fireEvent, act } from "@testing-library/react";
+import { useRef, useState } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+
+function TestOverlay({ open, initialFocus, children }: any) {
+  const ref = useFocusTrap({ isActive: open, initialFocus });
+  return open ? (
+    <div ref={ref} role="dialog">
+      {children}
+    </div>
+  ) : null;
+}
+
+describe("useFocusTrap basics", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  it("moves focus to initial focus and traps Tab within overlay", () => {
+    const { getByText } = render(
+      <div>
+        <button>outside</button>
+        <TestOverlay open={true} initialFocus={"button:first-of-type"}>
+          <button>first</button>
+          <button>second</button>
+        </TestOverlay>
+      </div>
+    );
+
+    // rAF scheduling: advance timers to allow RAF to run
+    act(() => {
+      jest.advanceTimersByTime(16);
+    });
+
+    const first = getByText("first") as HTMLButtonElement;
+    const second = getByText("second") as HTMLButtonElement;
+
+    expect(document.activeElement).toBe(first);
+
+    // Tab should move focus to second
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(second);
+
+    // Tab should wrap back to first
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+
+    // Shift+Tab from first should go to second
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(second);
+  });
+
+  it("restores focus to previous element on close", () => {
+    function Wrapper() {
+      const [open, setOpen] = useState(true);
+      return (
+        <div>
+          <button data-testid="trigger">trigger</button>
+          <button onClick={() => setOpen(true)}>reopen</button>
+          <TestOverlay open={open} initialFocus={"button:first-of-type"}>
+            <button data-testid="inside">inside</button>
+          </TestOverlay>
+          <button onClick={() => setOpen(false)}>close</button>
+        </div>
+      );
+    }
+
+    const { getByTestId } = render(<Wrapper />);
+
+    const trigger = getByTestId("trigger") as HTMLButtonElement;
+    const inside = getByTestId("inside") as HTMLButtonElement;
+
+    // Focus the trigger, then open overlay
+    trigger.focus();
+
+    act(() => {
+      jest.advanceTimersByTime(16);
+    });
+
+    // inside should be focused
+    expect(document.activeElement).toBe(inside);
+
+    // Close overlay by clicking close button
+    const closeBtn = document.querySelectorAll("button")[3] as HTMLButtonElement;
+    closeBtn.click();
+
+    // After unmount, focus should restore to trigger
+    expect(document.activeElement).toBe(trigger);
+  });
+});
