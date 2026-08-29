@@ -23,6 +23,12 @@ interface ShortcutConfig {
 export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // When a modal dialog is open it owns the keyboard (its own Escape /
+      // Tab handling takes precedence), so don't fire global shortcuts that
+      // could navigate away or double-trigger actions underneath it.
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.('[role="dialog"]')) return;
+
       // Ignore shortcuts if user is typing in an input or textarea
       const isTyping =
         event.target instanceof HTMLInputElement ||

@@ -1,21 +1,30 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useLeaderboard } from "@/hooks/useLeaderboard";
-import { SignalProvider } from "@/lib/types";
-import { Loader2, ChevronUp, ChevronDown, Keyboard } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  Keyboard,
+  Pin,
+  PinOff,
+  Trophy,
+} from "lucide-react";
 import {
   useLeaderboard,
   type LeaderboardTimeRange,
 } from "@/hooks/useLeaderboard";
-import { SignalProvider } from "@/lib/types";
-import { Loader2, ChevronUp, ChevronDown, Pin, PinOff } from "lucide-react";
+import type { SignalProvider } from "@/lib/types";
 import { PageTransition } from "@/components/PageTransition";
 import { cn } from "@/lib/utils";
-import { ChevronUp, ChevronDown, Trophy } from "lucide-react";
-import { PageTransition } from "@/components/PageTransition";
 import { LeaderboardErrorBoundary } from "@/components/LeaderboardErrorBoundary";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -24,7 +33,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 
 type SortField = "rank" | "overallScore" | "winRate" | "recentPerformance";
 type SortDirection = "asc" | "desc";
-type ColumnKey = "rank" | "provider" | "overallScore" | "winRate" | "recentPerformance";
+type ColumnKey =
+  | "rank"
+  | "provider"
+  | "overallScore"
+  | "winRate"
+  | "recentPerformance";
 
 interface ColumnConfig {
   key: ColumnKey;
@@ -37,9 +51,27 @@ interface ColumnConfig {
 const COLUMNS: ColumnConfig[] = [
   { key: "rank", label: "Rank", width: 72, align: "left", sortField: "rank" },
   { key: "provider", label: "Provider", width: 220, align: "left" },
-  { key: "overallScore", label: "Score", width: 100, align: "right", sortField: "overallScore" },
-  { key: "winRate", label: "Win Rate", width: 100, align: "right", sortField: "winRate" },
-  { key: "recentPerformance", label: "Recent", width: 100, align: "right", sortField: "recentPerformance" },
+  {
+    key: "overallScore",
+    label: "Score",
+    width: 100,
+    align: "right",
+    sortField: "overallScore",
+  },
+  {
+    key: "winRate",
+    label: "Win Rate",
+    width: 100,
+    align: "right",
+    sortField: "winRate",
+  },
+  {
+    key: "recentPerformance",
+    label: "Recent",
+    width: 100,
+    align: "right",
+    sortField: "recentPerformance",
+  },
 ];
 
 // #595: documented, collision-free row action shortcuts for the leaderboard table
@@ -47,12 +79,32 @@ const ROW_SHORTCUTS = [
   { keys: "↑ / ↓", action: "Move focus between rows" },
   { keys: "Enter", action: "Open the focused provider's profile" },
   { keys: "C", action: "Copy the focused provider's address" },
+];
+
 const TIME_RANGE_TABS: { value: LeaderboardTimeRange; label: string }[] = [
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
   { value: "all-time", label: "All Time" },
 ];
+
+// #677: every sortable metric gets an obvious, one-click control in the page
+// header (in addition to the column headers).
+const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: "rank", label: "Rank" },
+  { value: "overallScore", label: "Score" },
+  { value: "winRate", label: "Win Rate" },
+  { value: "recentPerformance", label: "Recent" },
+];
+
+// Sensible default direction per metric: rankings ascend, performance
+// metrics descend (best first).
+const DEFAULT_DIRECTION: Record<SortField, SortDirection> = {
+  rank: "asc",
+  overallScore: "desc",
+  winRate: "desc",
+  recentPerformance: "desc",
+};
 
 export default function LeaderboardPage() {
   return (
@@ -74,6 +126,7 @@ function LeaderboardPageInner() {
   } = useLeaderboard();
   const [sortField, setSortField] = useState<SortField>("rank");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [pinned, setPinned] = useState<ColumnKey[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
 
@@ -91,10 +144,10 @@ function LeaderboardPageInner() {
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setSortDirection((dir) => (dir === "asc" ? "desc" : "asc"));
     } else {
       setSortField(field);
-      setSortDirection("asc");
+      setSortDirection(DEFAULT_DIRECTION[field]);
     }
   };
 
@@ -102,8 +155,8 @@ function LeaderboardPageInner() {
     setPinned((current) =>
       current.includes(key)
         ? current.filter((k) => k !== key)
-        // Keep pinned columns in table order so sticky offsets stay contiguous.
-        : COLUMNS.map((c) => c.key).filter((k) => current.includes(k) || k === key)
+        : // Keep pinned columns in table order so sticky offsets stay contiguous.
+          COLUMNS.map((c) => c.key).filter((k) => current.includes(k) || k === key)
     );
   };
 
@@ -129,7 +182,7 @@ function LeaderboardPageInner() {
       : address;
   };
 
-  const cellStyle = (key: ColumnKey): React.CSSProperties | undefined => {
+  const cellStyle = (key: ColumnKey): CSSProperties | undefined => {
     if (!pinned.includes(key)) return undefined;
     const isLastPinned = pinned[pinned.length - 1] === key;
     return {
@@ -140,6 +193,9 @@ function LeaderboardPageInner() {
       boxShadow: isLastPinned ? "2px 0 4px -2px rgba(0,0,0,0.3)" : undefined,
     };
   };
+
+  const activeSortLabel =
+    SORT_OPTIONS.find((o) => o.value === sortField)?.label ?? "rank";
 
   const SortHeader = ({
     field,
@@ -212,36 +268,111 @@ function LeaderboardPageInner() {
     );
   }
 
+
   return (
     <PageTransition>
       <main className="flex min-h-screen flex-col gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-        <header className="w-full flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Leaderboard</h1>
-            <p className="text-sm text-gray-400 mt-2">Top-performing signal providers</p>
+        <header className="w-full flex flex-col gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                Leaderboard
+              </h1>
+              <p className="text-sm text-gray-400 mt-2">
+                Top-performing signal providers
+              </p>
+            </div>
+
+            {/* #677: always-visible, stateful sort controls */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div
+                role="group"
+                aria-label="Sort leaderboard by metric"
+                className="flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleSort(option.value)}
+                    aria-pressed={sortField === option.value}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                      sortField === option.value
+                        ? "bg-blue-500/15 text-blue-300"
+                        : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSortDirection((dir) => (dir === "asc" ? "desc" : "asc"))
+                  }
+                  aria-pressed={sortDirection === "desc"}
+                  aria-label={`Sorted by ${activeSortLabel} ${
+                    sortDirection === "asc" ? "ascending" : "descending"
+                  }. Activate to switch direction.`}
+                  title={`Sorted ${sortDirection === "asc" ? "ascending" : "descending"}`}
+                  className="flex items-center gap-1 rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  {sortDirection === "asc" ? (
+                    <ArrowUp size={13} aria-hidden="true" />
+                  ) : (
+                    <ArrowDown size={13} aria-hidden="true" />
+                  )}
+                  <span>{sortDirection === "asc" ? "Asc" : "Desc"}</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShortcutsOpen((v) => !v)}
+                aria-expanded={shortcutsOpen}
+                aria-controls="leaderboard-shortcuts-help"
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:border-white/20 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <Keyboard size={13} aria-hidden="true" />
+                Shortcuts
+              </button>
+
+              {pinned.length > 0 && (
+                <button
+                  type="button"
+                  onClick={resetPins}
+                  className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
+                >
+                  Reset pinned columns
+                </button>
+              )}
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setShortcutsOpen((v) => !v)}
-            aria-expanded={shortcutsOpen}
-            aria-controls="leaderboard-shortcuts-help"
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:border-white/20 hover:text-white transition-colors"
+
+          {/* Time range tabs */}
+          <div
+            className="flex gap-1 border-b border-border"
+            role="tablist"
+            aria-label="Leaderboard time range"
           >
-            <Keyboard size={13} aria-hidden="true" />
-            Shortcuts
-          </button>
+            {TIME_RANGE_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                role="tab"
+                aria-selected={timeRange === tab.value}
+                onClick={() => setTimeRange(tab.value)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  timeRange === tab.value
+                    ? "border-blue-500 text-blue-400"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </header>
-    <>
-      <PageTransition>
-        <main className="flex min-h-screen flex-col gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-          <header className="w-full">
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Leaderboard
-            </h1>
-            <p className="text-sm text-gray-400 mt-2">
-              Top-performing signal providers
-            </p>
-          </header>
 
         {shortcutsOpen && (
           <div
@@ -267,13 +398,24 @@ function LeaderboardPageInner() {
         <div className="w-full overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
             <caption className="sr-only">
-              Signal provider leaderboard, sorted by {sortField} ({sortDirection === "asc" ? "ascending" : "descending"}). Activate a row to view that provider&apos;s profile.
+              Signal provider leaderboard for the {activeSortLabel.toLowerCase()} range,
+              sorted by {activeSortLabel} (
+              {sortDirection === "asc" ? "ascending" : "descending"}). Activate a
+              row to view that provider&apos;s profile.
             </caption>
             <thead>
               <tr className="border-b bg-muted/50">
                 {COLUMNS.map((col) => (
                   <th
                     key={col.key}
+                    scope="col"
+                    aria-sort={
+                      col.sortField === sortField
+                        ? sortDirection === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
                     className={cn(
                       "px-4 py-3 font-semibold text-foreground bg-muted/50",
                       col.align === "left" ? "text-left" : "text-right",
@@ -281,7 +423,12 @@ function LeaderboardPageInner() {
                     )}
                     style={cellStyle(col.key)}
                   >
-                    <div className={cn("flex items-center gap-1.5", col.align === "right" && "justify-end")}>
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5",
+                        col.align === "right" && "justify-end"
+                      )}
+                    >
                       {col.sortField ? (
                         <SortHeader field={col.sortField} label={col.label} />
                       ) : (
@@ -291,19 +438,6 @@ function LeaderboardPageInner() {
                     </div>
                   </th>
                 ))}
-                <th scope="col" aria-sort={sortField === "rank" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-left font-semibold text-foreground">
-                  <SortHeader field="rank" label="Rank" />
-                </th>
-                <th scope="col" className="px-4 py-3 text-left font-semibold text-foreground">Provider</th>
-                <th scope="col" aria-sort={sortField === "overallScore" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-right font-semibold text-foreground">
-                  <SortHeader field="overallScore" label="Score" className="justify-end" />
-                </th>
-                <th scope="col" aria-sort={sortField === "winRate" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-right font-semibold text-foreground">
-                  <SortHeader field="winRate" label="Win Rate" className="justify-end" />
-                </th>
-                <th scope="col" aria-sort={sortField === "recentPerformance" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-right font-semibold text-foreground">
-                  <SortHeader field="recentPerformance" label="Recent" className="justify-end" />
-                </th>
               </tr>
             </thead>
             <tbody ref={tbodyRef}>
@@ -312,6 +446,7 @@ function LeaderboardPageInner() {
                   key={provider.id}
                   className="border-b hover:bg-muted/30 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   onClick={() => router.push(`/provider/${provider.id}`)}
+                  role="link"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     // Never hijack keystrokes meant for a focused form field.
@@ -326,11 +461,10 @@ function LeaderboardPageInner() {
 
                     if (e.key === "c" || e.key === "C") {
                       e.preventDefault();
-                      navigator.clipboard?.writeText(provider.address).then(() => {
-                        toast.success("Address copied");
-                      }).catch(() => {
-                        toast.error("Couldn't copy address");
-                      });
+                      navigator.clipboard
+                        ?.writeText(provider.address)
+                        .then(() => toast.success("Address copied"))
+                        .catch(() => toast.error("Couldn't copy address"));
                       return;
                     }
 
@@ -346,6 +480,7 @@ function LeaderboardPageInner() {
                   }}
                   aria-label={`View profile for ${provider.name || provider.address}. Press C to copy address, arrow keys to move between rows.`}
                 >
+
                   {COLUMNS.map((col) => (
                     <td
                       key={col.key}
@@ -353,10 +488,13 @@ function LeaderboardPageInner() {
                         "px-4 py-3 bg-card",
                         col.align === "right" ? "text-right" : "text-left",
                         col.key === "rank" && "font-semibold text-foreground",
-                        col.key === "overallScore" && "text-right font-semibold text-green-600",
+                        col.key === "overallScore" &&
+                          "text-right font-semibold text-green-600",
                         col.key === "winRate" && "font-semibold text-foreground",
                         col.key === "recentPerformance" &&
-                          (provider.recentPerformance >= 0 ? "text-green-600" : "text-red-600") + " font-semibold"
+                          (provider.recentPerformance >= 0
+                            ? "text-green-600"
+                            : "text-red-600") + " font-semibold"
                       )}
                       style={cellStyle(col.key)}
                     >
@@ -368,128 +506,18 @@ function LeaderboardPageInner() {
             </tbody>
           </table>
         </div>
-          <div
-            className="flex gap-1 border-b border-border"
-            role="tablist"
-            aria-label="Leaderboard time range"
-          >
-            {TIME_RANGE_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                role="tab"
-                aria-selected={timeRange === tab.value}
-                onClick={() => setTimeRange(tab.value)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  timeRange === tab.value
-                    ? "border-blue-500 text-blue-400"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
 
-          <div className="w-full overflow-x-auto rounded-lg border bg-card">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-3 text-left font-semibold text-foreground">
-                    <SortHeader field="rank" label="Rank" />
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground">
-                    Provider
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground">
-                    <SortHeader
-                      field="overallScore"
-                      label="Score"
-                      className="justify-end"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground">
-                    <SortHeader
-                      field="winRate"
-                      label="Win Rate"
-                      className="justify-end"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground">
-                    <SortHeader
-                      field="recentPerformance"
-                      label="Recent"
-                      className="justify-end"
-                    />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedProviders.map((provider) => (
-                  <tr
-                    key={provider.id}
-                    className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/provider/${provider.id}`)}
-                    role="link"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        router.push(`/provider/${provider.id}`);
-                      }
-                    }}
-                    aria-label={`View profile for ${
-                      provider.name || provider.address
-                    }`}
-                  >
-                    <td className="px-4 py-3 font-semibold text-foreground">
-                      #{provider.rank}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-0.5">
-                        {provider.name && (
-                          <p className="font-medium text-foreground">
-                            {provider.name}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {truncateAddress(provider.address)}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-green-600">
-                      {provider.overallScore}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-foreground">
-                      {provider.winRate}%
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-right font-semibold ${
-                        provider.recentPerformance >= 0
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {provider.recentPerformance >= 0 ? "+" : ""}
-                      {provider.recentPerformance}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {sortedProviders.length === 0 && (
+          <EmptyState
+            title="No providers available"
+            description="No signal providers are ranked for this time range yet. Try another range or check back soon."
+            icon={<Trophy size={28} className="text-slate-400" />}
+          />
+        )}
 
-          {sortedProviders.length === 0 && (
-            <EmptyState
-              title="No providers available"
-              description="Once signal providers appear on the leaderboard, they'll show up here."
-              icon={<Trophy className="h-7 w-7 text-muted-foreground" />}
-              className="py-10"
-            />
-          )}
-        </main>
-      </PageTransition>
-      <ScrollToTop />
-    </>
+        <ScrollToTop />
+      </main>
+    </PageTransition>
   );
 }
 
@@ -504,8 +532,12 @@ function renderCell(
     case "provider":
       return (
         <div className="flex flex-col gap-0.5">
-          {provider.name && <p className="font-medium text-foreground">{provider.name}</p>}
-          <p className="text-xs text-muted-foreground font-mono">{truncateAddress(provider.address)}</p>
+          {provider.name && (
+            <p className="font-medium text-foreground">{provider.name}</p>
+          )}
+          <p className="text-xs text-muted-foreground font-mono">
+            {truncateAddress(provider.address)}
+          </p>
         </div>
       );
     case "overallScore":
@@ -518,3 +550,4 @@ function renderCell(
       return null;
   }
 }
+

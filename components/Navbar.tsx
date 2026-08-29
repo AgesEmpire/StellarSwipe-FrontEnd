@@ -230,9 +230,9 @@ export function Navbar() {
     () => [
       {
         key: "?",
-        description: "Open keyboard shortcuts overlay",
+        description: "Open or close the keyboard shortcuts overlay",
         category: "Modals" as const,
-        handler: () => setHelpModalOpen(true),
+        handler: () => setHelpModalOpen((open) => !open),
       },
       {
         key: "n",

@@ -5,6 +5,7 @@ import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTra
 import { journalEntrySchema, type JournalEntry } from "@/lib/journalSchema";
 import { createJournalEntry, updateJournalEntry } from "@/lib/journalApi";
 import { Button } from "@/components/ui/button";
+import { ValidationSummary } from "@/components/forms/ValidationSummary";
 import { Plus, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useSubmitGuard } from "@/hooks/useSubmitGuard";
@@ -18,6 +19,17 @@ interface JournalEntryFormProps {
   /** Called to close edit mode without saving. */
   onEditCancel?: () => void;
 }
+
+// Maps schema field names to their input element ids so the validation
+// summary's links can focus the exact field.
+const FIELD_IDS: Record<string, string> = {
+  date: "journal-entry-date",
+  assetPair: "journal-entry-asset-pair",
+  amount: "journal-entry-amount",
+  price: "journal-entry-price",
+  token: "journal-entry-token",
+  fee: "journal-entry-fee",
+};
 
 export function JournalEntryForm({
   editEntry,
@@ -46,6 +58,9 @@ export function JournalEntryForm({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // True once the user has attempted to submit, so the validation summary
+  // only appears after a failed submit — never on first render.
+  const [submitted, setSubmitted] = useState(false);
 
   // Submit guard: prevents duplicate submissions on both click and Enter paths
   const { isSubmitting, guard, submitButtonProps } = useSubmitGuard();
@@ -79,6 +94,7 @@ export function JournalEntryForm({
       outcome: "PENDING",
     });
     setErrors({});
+    setSubmitted(false);
     setSubmitError(null);
     setIsDirty(false);
   }, []);
@@ -108,6 +124,54 @@ export function JournalEntryForm({
     setErrors({});
     return result.data;
   }, []);
+
+  /**
+   * Updates a single field and clears its inline error immediately, so a
+   * message disappears the moment the user starts fixing it (rather than
+   * lingering until the next submit attempt).
+   */
+  const updateField = useCallback((field: keyof JournalEntry, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
+  /**
+   * Validates a single field on blur so required fields surface their
+   * errors inline — before the user ever attempts to submit.
+   */
+  const validateField = useCallback((field: keyof JournalEntry) => {
+    const current = {
+      ...formDataRef.current,
+      fee: formDataRef.current.fee || "0",
+    };
+    const result = journalEntrySchema.safeParse(current);
+    setErrors((prev) => {
+      const next = { ...prev };
+      const issue = result.success
+        ? undefined
+        : result.error.issues.find((i) => i.path[0] === field);
+      if (issue) {
+        next[field] = issue.message;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
+  }, []);
+
+  /** Summary entries (with element ids) for the ValidationSummary panel. */
+  const summaryErrors = useMemo(() => {
+    if (!submitted) return [];
+    return Object.entries(errors).map(([field, message]) => ({
+      field: FIELD_IDS[field] ?? field,
+      message,
+    }));
+  }, [errors, submitted]);
 
   /** Optimistic create: add entry locally → call API → replace id or rollback. */
   const submitCreateEntry = useCallback(
@@ -219,6 +283,7 @@ export function JournalEntryForm({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setSubmitError(null);
+      setSubmitted(true);
 
       const data = validateCurrentForm();
       if (!data) return;
@@ -276,6 +341,13 @@ export function JournalEntryForm({
         </div>
       )}
 
+      {/* Field-level summary shown only after a failed submit attempt */}
+      {submitted && (
+        <div className="mb-4">
+          <ValidationSummary errors={summaryErrors} />
+        </div>
+      )}
+
       {/*
         form onSubmit covers both the submit button click *and* the Enter key
         pressed from any field. useSubmitGuard ensures only one in-flight
@@ -288,7 +360,8 @@ export function JournalEntryForm({
             id="journal-entry-date"
             type="date"
             value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            onChange={(e) => updateField("date", e.target.value)}
+            onBlur={() => validateField("date")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.date}
@@ -304,7 +377,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="e.g. XLM/USDC"
             value={formData.assetPair || ""}
-            onChange={(e) => setFormData({ ...formData, assetPair: e.target.value })}
+            onChange={(e) => updateField("assetPair", e.target.value)}
+            onBlur={() => validateField("assetPair")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.assetPair}
@@ -320,7 +394,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="0.00"
             value={formData.amount || ""}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            onChange={(e) => updateField("amount", e.target.value)}
+            onBlur={() => validateField("amount")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.amount}
@@ -336,7 +411,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="0.00"
             value={formData.price || ""}
-            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            onChange={(e) => updateField("price", e.target.value)}
+            onBlur={() => validateField("price")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.price}
@@ -352,7 +428,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="e.g. XLM"
             value={formData.token || ""}
-            onChange={(e) => setFormData({ ...formData, token: e.target.value })}
+            onChange={(e) => updateField("token", e.target.value)}
+            onBlur={() => validateField("token")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.token}
@@ -368,7 +445,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="0.00"
             value={formData.fee || ""}
-            onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
+            onChange={(e) => updateField("fee", e.target.value)}
+            onBlur={() => validateField("fee")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.fee}

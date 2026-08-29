@@ -583,15 +583,20 @@ export function SignalCard({
                   }}
                   title={bookmarkedLabel}
                   aria-label={bookmarkedLabel}
+                  aria-pressed={isBookmarked}
                   disabled={dismissPending || dismissed}
                   className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60",
+                    "flex h-11 w-11 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 active:scale-95",
                     isBookmarked
-                      ? "bg-sky-500/15 text-sky-300"
-                      : "bg-white/5 text-slate-300 hover:bg-white/10"
+                      ? "bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <Bookmark size={18} aria-hidden="true" />
+                  <Bookmark
+                    size={18}
+                    aria-hidden="true"
+                    fill={isBookmarked ? "currentColor" : "none"}
+                  />
                 </button>
                 <button
                   type="button"
