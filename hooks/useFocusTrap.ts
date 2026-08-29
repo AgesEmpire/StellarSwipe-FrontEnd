@@ -25,6 +25,7 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
   const previousActiveElement = useRef<Element | null>(null);
   // Store rAF id so it can be cancelled on cleanup
   const rafRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isActive) return;
@@ -68,6 +69,9 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
     // Use requestAnimationFrame to focus after browser painting/animations so
     // tests and animations are less flaky than an arbitrary setTimeout.
     rafRef.current = window.requestAnimationFrame(() => focusInitial());
+    // Also schedule a short timeout as a fallback for environments where rAF
+    // may not run predictably (JS DOM in tests). This makes tests more robust.
+    const timeoutId = window.setTimeout(() => focusInitial(), 20);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
@@ -104,6 +108,10 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
       if (rafRef.current !== null) {
         window.cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
+      }
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
       document.removeEventListener("keydown", handleKeyDown);
 
