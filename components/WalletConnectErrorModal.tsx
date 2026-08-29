@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { isTopOverlay } from "@/hooks/overlayManager";
 
 export type WalletConnectErrorReason =
   | "not_found"

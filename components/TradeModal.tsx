@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Info, AlertCircle, ArrowLeft, CheckCircle } from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { isTopOverlay } from "@/hooks/overlayManager";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { usePositionLimitStore } from "@/store/usePositionLimitStore";
 import { FeeDisclosurePanel } from "@/components/FeeDisclosurePanel";

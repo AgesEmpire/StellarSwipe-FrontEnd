@@ -15,6 +15,7 @@ import {
 import { isConnected } from "@stellar/freighter-api";
 import { useWallet } from "@/hooks/useWallet";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { isTopOverlay } from "@/hooks/overlayManager";
 import { WalletConnectErrorModal } from "@/components/WalletConnectErrorModal";
 import { QRPairingPanel } from "@/components/QRPairingPanel";
 
