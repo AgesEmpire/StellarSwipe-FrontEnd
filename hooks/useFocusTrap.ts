@@ -66,12 +66,19 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
       target?.focus({ preventScroll: true });
     };
 
-    // Use requestAnimationFrame to focus after browser painting/animations so
-    // tests and animations are less flaky than an arbitrary setTimeout.
+    // Try to focus immediately first — this helps in test environments where
+    // rAF may not fire reliably. Then also schedule rAF and a short timeout
+    // as fallbacks so real browsers with animations still get a stable timing.
+    try {
+      focusInitial();
+    } catch (err) {
+      // swallow — focusing can fail in odd test environments
+    }
+
     rafRef.current = window.requestAnimationFrame(() => focusInitial());
     // Also schedule a short timeout as a fallback for environments where rAF
     // may not run predictably (JS DOM in tests). This makes tests more robust.
-    const timeoutId = window.setTimeout(() => focusInitial(), 20);
+    timeoutRef.current = window.setTimeout(() => focusInitial(), 20);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
