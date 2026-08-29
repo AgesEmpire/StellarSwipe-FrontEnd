@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { isTopOverlay } from "@/hooks/overlayManager";
 
 export type WalletConnectErrorReason =
   | "not_found"
@@ -73,11 +74,14 @@ export function WalletConnectErrorModal({
     initialFocus: '[data-autofocus="true"]',
   });
 
-  // ESC to close
+  // ESC to close only if this modal is the topmost overlay (prevents nested
+  // modals from closing their parents).
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      const el = focusTrapRef.current as HTMLElement | null;
+      if (isTopOverlay(el)) onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
