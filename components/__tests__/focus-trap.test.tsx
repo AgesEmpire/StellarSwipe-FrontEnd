@@ -14,15 +14,9 @@ function TestOverlay({ open, initialFocus, children }: any) {
 }
 
 describe("useFocusTrap basics", () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
-  afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
-  });
+  // Use real timers so requestAnimationFrame runs naturally in jsdom.
 
-  it("moves focus to initial focus and traps Tab within overlay", () => {
+  it("moves focus to initial focus and traps Tab within overlay", async () => {
     const { getByText } = render(
       <div>
         <button>outside</button>
@@ -33,9 +27,9 @@ describe("useFocusTrap basics", () => {
       </div>
     );
 
-    // rAF scheduling: advance timers to allow RAF to run
-    act(() => {
-      jest.advanceTimersByTime(16);
+    // Wait a microtask to allow the requestAnimationFrame callback to run
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     const first = getByText("first") as HTMLButtonElement;
@@ -56,7 +50,7 @@ describe("useFocusTrap basics", () => {
     expect(document.activeElement === second).toBe(true);
   });
 
-  it("restores focus to previous element on close", () => {
+  it("restores focus to previous element on close", async () => {
     function Wrapper() {
       const [open, setOpen] = useState(true);
       return (
@@ -79,8 +73,9 @@ describe("useFocusTrap basics", () => {
     // Focus the trigger, then open overlay
     trigger.focus();
 
-    act(() => {
-      jest.advanceTimersByTime(16);
+    // Wait for rAF scheduled by the hook to run
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     // inside should be focused
