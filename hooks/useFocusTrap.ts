@@ -16,6 +16,8 @@ interface UseFocusTrapOptions {
  * - If the previously-focused element is gone from the DOM, falls back to
  *   `document.body` so the user is never left without a focus target.
  */
+import { pushOverlay, popOverlay, isTopOverlay } from "./overlayManager";
+
 export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Captured when the trap activates, not when it deactivates.
@@ -26,6 +28,10 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
 
     const container = containerRef.current;
     if (!container) return;
+
+    // Register this overlay as active so global handlers can determine the
+    // topmost overlay in nested scenarios.
+    pushOverlay(container);
 
     // Capture the trigger element before we move focus away.
     previousActiveElement.current = document.activeElement;
@@ -69,6 +75,12 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
       const last = elements[elements.length - 1];
       const active = document.activeElement;
 
+      // Only enforce the focus trap if either:
+      // - focus is currently inside this container, or
+      // - this overlay is the topmost one. This avoids interfering with
+      //   nested overlays where a topmost child should control Tab behavior.
+      if (!container.contains(active) && !isTopOverlay(container)) return;
+
       if (e.shiftKey) {
         if (active === first || !container.contains(active)) {
           e.preventDefault();
@@ -87,6 +99,9 @@ export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
     return () => {
       clearTimeout(focusTimer);
       document.removeEventListener("keydown", handleKeyDown);
+
+      // Unregister from overlay stack so underlying overlays regain topmost status.
+      popOverlay(container);
 
       // Restore focus — fall back to body if the element is gone from the DOM.
       const prev = previousActiveElement.current;

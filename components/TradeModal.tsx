@@ -138,8 +138,15 @@ export function TradeModal({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
+        // Only close when this modal is the topmost overlay.
+        const el = focusTrapRef.current as HTMLElement | null;
+        // Import here to avoid circular imports at module scope.
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { isTopOverlay } = require("@/hooks/overlayManager");
+        if (isTopOverlay(el)) {
+          e.preventDefault();
+          onClose();
+        }
         return;
       }
 
