@@ -41,19 +41,19 @@ describe("useFocusTrap basics", () => {
     const first = getByText("first") as HTMLButtonElement;
     const second = getByText("second") as HTMLButtonElement;
 
-    expect(document.activeElement).toBe(first);
+    expect(document.activeElement === first).toBe(true);
 
     // Tab should move focus to second
     fireEvent.keyDown(document, { key: "Tab" });
-    expect(document.activeElement).toBe(second);
+    expect(document.activeElement === second).toBe(true);
 
     // Tab should wrap back to first
     fireEvent.keyDown(document, { key: "Tab" });
-    expect(document.activeElement).toBe(first);
+    expect(document.activeElement === first).toBe(true);
 
     // Shift+Tab from first should go to second
     fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
-    expect(document.activeElement).toBe(second);
+    expect(document.activeElement === second).toBe(true);
   });
 
   it("restores focus to previous element on close", () => {
@@ -84,13 +84,13 @@ describe("useFocusTrap basics", () => {
     });
 
     // inside should be focused
-    expect(document.activeElement).toBe(inside);
+    expect(document.activeElement === inside).toBe(true);
 
     // Close overlay by clicking close button
     const closeBtn = document.querySelectorAll("button")[3] as HTMLButtonElement;
     closeBtn.click();
 
     // After unmount, focus should restore to trigger
-    expect(document.activeElement).toBe(trigger);
+    expect(document.activeElement === trigger).toBe(true);
   });
 });
