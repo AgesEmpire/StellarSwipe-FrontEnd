@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
 import { PageTransitionPlaceholder } from "@/components/PageTransitionPlaceholder";
+import { RouteAnnouncer } from "@/components/RouteAnnouncer";
 import { TradeStatusBanner } from "@/components/TradeStatusBanner";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
@@ -103,6 +104,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           <NetworkStatusIndicator />
+          <RouteAnnouncer />
           <ScrollRestoration />
           <WebVitalsReporting />
           <Navbar />

@@ -16,9 +16,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { PageTransition } from "@/components/PageTransition";
 import { UnfollowDialog } from "@/components/UnfollowDialog";
 import { useUnfollowDialog } from "@/hooks/useUnfollowDialog";
+import { usePaginationClamp } from "@/hooks/usePaginationClamp";
 
 const SIGNALS_PER_PAGE = 5;
 
@@ -29,8 +31,8 @@ export default function ProviderProfilePage() {
 
   const { data: provider, isLoading: providerLoading } =
     useProviderProfile(providerId);
-  const { data: signals = [] } = useProviderSignals(providerId);
-  const [currentPage, setCurrentPage] = useState(0);
+  const { data: signals = [], isFetching: signalsFetching } =
+    useProviderSignals(providerId);
 
   // Follow state — in a real app this comes from a query/store
   const [isFollowing, setIsFollowing] = useState(true);
@@ -47,11 +49,22 @@ export default function ProviderProfilePage() {
   const { dialogState, requestUnfollow, handleConfirm, handleCancel } =
     useUnfollowDialog(handleUnfollow);
 
-  const paginatedSignals = signals.slice(
-    currentPage * SIGNALS_PER_PAGE,
-    (currentPage + 1) * SIGNALS_PER_PAGE
-  );
-  const totalPages = Math.ceil(signals.length / SIGNALS_PER_PAGE);
+  // Keeps `page` valid as `signals` changes shape (new data, filtering,
+  // etc.) instead of pointing at a page that no longer exists.
+  const {
+    page: currentPage,
+    totalPages,
+    offset,
+    canGoPrevious,
+    canGoNext,
+    goToPrevious,
+    goToNext,
+  } = usePaginationClamp({
+    totalItems: signals.length,
+    pageSize: SIGNALS_PER_PAGE,
+    resetKey: providerId,
+  });
+  const paginatedSignals = signals.slice(offset, offset + SIGNALS_PER_PAGE);
 
   if (providerLoading) {
     return (
@@ -278,33 +291,16 @@ export default function ProviderProfilePage() {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                disabled={currentPage === 0}
-                aria-label="Previous page"
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage + 1} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages - 1, currentPage + 1))
-                }
-                disabled={currentPage === totalPages - 1}
-                aria-label="Next page"
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <PaginationControls
+            page={currentPage}
+            totalPages={totalPages}
+            canGoPrevious={canGoPrevious}
+            canGoNext={canGoNext}
+            onPrevious={goToPrevious}
+            onNext={goToNext}
+            isLoading={signalsFetching}
+            className="mt-4 pt-4 border-t"
+          />
         </div>
       </main>
 

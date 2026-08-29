@@ -249,8 +249,10 @@ export function JournalEntryForm({
   const showForm = isOpen || isEditing;
   if (!showForm) return null;
 
+  const handleCancel = isEditing ? onEditCancel : () => { setIsOpen(false); resetForm(); };
+
   return (
-    <div className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
+    <div className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 pb-24 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300 sm:pb-6">
       <div className="mb-6 flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">
           {isEditing ? "Edit Journal Entry" : "New Journal Entry"}
@@ -281,7 +283,7 @@ export function JournalEntryForm({
         pressed from any field. useSubmitGuard ensures only one in-flight
         request is sent regardless of which path triggered submission.
       */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <form id="journal-entry-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label htmlFor="journal-entry-date" className="text-xs font-medium text-slate-400">Date</label>
           <input
@@ -407,7 +409,7 @@ export function JournalEntryForm({
           </select>
         </div>
 
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 hidden sm:block">
           <Button
             type="submit"
             className="w-full gap-2"
@@ -418,6 +420,40 @@ export function JournalEntryForm({
           </Button>
         </div>
       </form>
+
+      {/*
+        Mobile sticky action bar — on small screens the form can run long
+        enough (many fields, on-screen keyboard open) that the inline submit
+        button above scrolls out of view. Pin Save/Cancel to the bottom of
+        the viewport instead so they're always reachable without covering
+        the field the user is editing (the form's own bottom padding above
+        reserves space for this bar). `submit`+`form` ties this button to
+        the form above without duplicating the submit logic. Only rendered
+        while an editable draft (new or edit) is actually open.
+      */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-white/10 bg-slate-900/95 px-4 pt-3 backdrop-blur sm:hidden"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          className="flex-1"
+          onClick={handleCancel}
+          disabled={isSubmitting}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          form="journal-entry-form"
+          className="flex-1 gap-2"
+          {...submitButtonProps}
+        >
+          {isSubmitting && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
+          {isEditing ? "Save Changes" : "Save Entry"}
+        </Button>
+      </div>
     </div>
   );
 }
