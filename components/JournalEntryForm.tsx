@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo } from "react";
+import type { z } from "zod";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
 import { journalEntrySchema, type JournalEntry } from "@/lib/journalSchema";
 import { createJournalEntry, updateJournalEntry } from "@/lib/journalApi";
@@ -47,6 +48,61 @@ export function JournalEntryForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Tracks which fields the user has interacted with. Errors surface for a
+  // field once it is blurred (or on change once it is already touched), so
+  // required fields get inline feedback *before* the user hits submit.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const validateField = useCallback(
+    (field: string, value: string): string | undefined => {
+      const shape = journalEntrySchema.shape as Record<string, z.ZodTypeAny>;
+      const result = shape[field]?.safeParse(value);
+      if (!result || result.success) return undefined;
+      return result.error.issues[0]?.message;
+    },
+    []
+  );
+
+  // Live re-validation: once a field is touched (or already shows an error),
+  // typing clears/fixes the message immediately instead of waiting for submit.
+  const handleFieldChange = useCallback(
+    (field: string, value: string) => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+      if (touched[field] || errors[field]) {
+        const message = validateField(field, value);
+        setErrors((prev) => {
+          const next = { ...prev };
+          if (message) next[field] = message;
+          else delete next[field];
+          return next;
+        });
+      }
+    },
+    [touched, errors, validateField]
+  );
+
+  const handleFieldBlur = useCallback(
+    (field: string, value: string) => {
+      setTouched((prev) => ({ ...prev, [field]: true }));
+      const message = validateField(field, value);
+      setErrors((prev) => {
+        const next = { ...prev };
+        if (message) next[field] = message;
+        else delete next[field];
+        return next;
+      });
+    },
+    [validateField]
+  );
+
+  const markAllTouched = useCallback(() => {
+    const all = Object.keys(journalEntrySchema.shape).reduce<Record<string, boolean>>(
+      (acc, field) => ({ ...acc, [field]: true }),
+      {}
+    );
+    setTouched(all);
+  }, []);
+
   // Submit guard: prevents duplicate submissions on both click and Enter paths
   const { isSubmitting, guard, submitButtonProps } = useSubmitGuard();
 
@@ -80,6 +136,7 @@ export function JournalEntryForm({
     });
     setErrors({});
     setSubmitError(null);
+    setTouched({});
     setIsDirty(false);
   }, []);
 
@@ -220,6 +277,9 @@ export function JournalEntryForm({
       e.preventDefault();
       setSubmitError(null);
 
+      // Surface inline errors for every field on submit, not just the ones
+      // the user already blurred.
+      markAllTouched();
       const data = validateCurrentForm();
       if (!data) return;
 
@@ -233,10 +293,25 @@ export function JournalEntryForm({
         }
       });
     },
-    [validateCurrentForm, isEditing, editEntry, submitEditEntry, submitCreateEntry, resetForm, guard]
+    [validateCurrentForm, isEditing, editEntry, submitEditEntry, submitCreateEntry, resetForm, guard, markAllTouched]
   );
 
   // ── Render ──────────────────────────────────────────────────────────
+
+  // "Ready to save" sense: once any field has been interacted with, give
+  // immediate feedback on whether the current state is valid or still needs
+  // attention — before the user attempts a submit.
+  const isFormValid = useMemo(
+    () =>
+      journalEntrySchema
+        .safeParse({ ...formData, fee: formData.fee || "0" })
+        .success,
+    [formData]
+  );
+  const hasTouchedAny = useMemo(
+    () => Object.keys(touched).length > 0,
+    [touched]
+  );
 
   if (!isOpen && !isEditing) {
     return (
@@ -288,7 +363,8 @@ export function JournalEntryForm({
             id="journal-entry-date"
             type="date"
             value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            onChange={(e) => handleFieldChange("date", e.target.value)}
+            onBlur={(e) => handleFieldBlur("date", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.date}
@@ -304,7 +380,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="e.g. XLM/USDC"
             value={formData.assetPair || ""}
-            onChange={(e) => setFormData({ ...formData, assetPair: e.target.value })}
+            onChange={(e) => handleFieldChange("assetPair", e.target.value)}
+            onBlur={(e) => handleFieldBlur("assetPair", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.assetPair}
@@ -320,7 +397,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="0.00"
             value={formData.amount || ""}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            onChange={(e) => handleFieldChange("amount", e.target.value)}
+            onBlur={(e) => handleFieldBlur("amount", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.amount}
@@ -336,7 +414,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="0.00"
             value={formData.price || ""}
-            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            onChange={(e) => handleFieldChange("price", e.target.value)}
+            onBlur={(e) => handleFieldBlur("price", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.price}
@@ -352,7 +431,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="e.g. XLM"
             value={formData.token || ""}
-            onChange={(e) => setFormData({ ...formData, token: e.target.value })}
+            onChange={(e) => handleFieldChange("token", e.target.value)}
+            onBlur={(e) => handleFieldBlur("token", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.token}
@@ -368,7 +448,8 @@ export function JournalEntryForm({
             type="text"
             placeholder="0.00"
             value={formData.fee || ""}
-            onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
+            onChange={(e) => handleFieldChange("fee", e.target.value)}
+            onBlur={(e) => handleFieldBlur("fee", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
             aria-invalid={!!errors.fee}
@@ -382,7 +463,8 @@ export function JournalEntryForm({
           <select
             id="journal-entry-status"
             value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+            onChange={(e) => handleFieldChange("status", e.target.value)}
+            onBlur={(e) => handleFieldBlur("status", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
           >
@@ -397,7 +479,8 @@ export function JournalEntryForm({
           <select
             id="journal-entry-outcome"
             value={formData.outcome}
-            onChange={(e) => setFormData({ ...formData, outcome: e.target.value as any })}
+            onChange={(e) => handleFieldChange("outcome", e.target.value)}
+            onBlur={(e) => handleFieldBlur("outcome", e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
           >
@@ -416,6 +499,18 @@ export function JournalEntryForm({
             {isSubmitting && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
             {isEditing ? "Save Changes" : "Save Entry"}
           </Button>
+          {hasTouchedAny && (
+            <p
+              role="status"
+              className={`mt-2 text-center text-xs ${
+                isFormValid ? "text-emerald-400" : "text-slate-400"
+              }`}
+            >
+              {isFormValid
+                ? "Looks good — ready to save."
+                : "Fix the highlighted fields to save."}
+            </p>
+          )}
         </div>
       </form>
     </div>
