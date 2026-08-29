@@ -74,8 +74,6 @@ export function WalletConnectErrorModal({
     initialFocus: '[data-autofocus="true"]',
   });
 
-import { isTopOverlay } from "@/hooks/overlayManager";
-
   // ESC to close only if this modal is the topmost overlay (prevents nested
   // modals from closing their parents).
   useEffect(() => {

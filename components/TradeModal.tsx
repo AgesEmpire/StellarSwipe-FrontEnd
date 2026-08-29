@@ -134,8 +134,6 @@ export function TradeModal({
   }, [open]);
 
   // Keyboard shortcuts: Escape → close, Enter (outside interactive elements) → confirm
-import { isTopOverlay } from "@/hooks/overlayManager";
-
   useEffect(() => {
     if (!open) return;
 

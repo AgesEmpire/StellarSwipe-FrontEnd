@@ -84,8 +84,6 @@ export function WalletSelectionModal({
     };
   }, [open]);
 
-import { isTopOverlay } from "@/hooks/overlayManager";
-
   // ESC to close — only when this modal is the topmost overlay so nested
   // overlays don't close their parents when Esc is pressed.
   useEffect(() => {
