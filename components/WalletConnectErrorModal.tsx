@@ -73,6 +73,8 @@ export function WalletConnectErrorModal({
     initialFocus: '[data-autofocus="true"]',
   });
 
+import { isTopOverlay } from "@/hooks/overlayManager";
+
   // ESC to close only if this modal is the topmost overlay (prevents nested
   // modals from closing their parents).
   useEffect(() => {
@@ -80,9 +82,6 @@ export function WalletConnectErrorModal({
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const el = focusTrapRef.current as HTMLElement | null;
-      // Import here to avoid circular imports at module scope.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { isTopOverlay } = require("@/hooks/overlayManager");
       if (isTopOverlay(el)) onClose();
     };
     window.addEventListener("keydown", handler);

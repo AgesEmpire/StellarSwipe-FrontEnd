@@ -83,6 +83,8 @@ export function WalletSelectionModal({
     };
   }, [open]);
 
+import { isTopOverlay } from "@/hooks/overlayManager";
+
   // ESC to close — only when this modal is the topmost overlay so nested
   // overlays don't close their parents when Esc is pressed.
   useEffect(() => {
@@ -90,9 +92,6 @@ export function WalletSelectionModal({
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const el = focusTrapRef.current as HTMLElement | null;
-      // Import locally to avoid circular import at module scope.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { isTopOverlay } = require("@/hooks/overlayManager");
       if (isTopOverlay(el)) onClose();
     };
     window.addEventListener("keydown", handler);
