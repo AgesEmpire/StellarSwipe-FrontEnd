@@ -19,6 +19,8 @@ import { Search, X, SlidersHorizontal } from "lucide-react";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
+import { DataPanelError } from "@/components/DataPanelError";
+import { classifyError } from "@/hooks/usePanelError";
 
 interface SignalResponse {
   items: Signal[];
@@ -359,12 +361,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         }}
       >
         {isError && (
-          <div
-            role="alert"
-            className="rounded-3xl border border-accent-danger/20 bg-accent-danger/10 p-5 text-sm text-accent-danger"
-          >
-            {error?.message ?? "There was a problem loading the signal feed."}
-          </div>
+          <DataPanelError
+            errorInfo={classifyError(error)}
+            onRetry={() => refetch()}
+          />
         )}
 
         {!isLoading && !isError && signals.length === 0 && (

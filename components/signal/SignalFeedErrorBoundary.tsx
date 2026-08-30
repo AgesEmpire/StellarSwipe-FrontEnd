@@ -1,8 +1,7 @@
 "use client";
 
 import { Component, ErrorInfo, ReactNode } from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { DataPanelFallback } from "@/components/DataPanelError";
 
 interface Props {
   children: ReactNode;
@@ -38,33 +37,11 @@ export class SignalFeedErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center"
-        >
-          <AlertTriangle className="h-10 w-10 text-destructive" aria-hidden="true" />
-
-          <div>
-            <p className="font-semibold text-destructive">Signal feed unavailable</p>
-            <p className="mt-2 text-sm text-foreground-muted">
-              Something went wrong while displaying the signal feed. The rest of the
-              dashboard is unaffected.
-            </p>
-          </div>
-
-          <Button
-            variant="default"
-            size="sm"
-            onClick={this.handleRetry}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw size={16} aria-hidden="true" />
-            Retry
-          </Button>
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8">
+          <DataPanelFallback onRetry={this.handleRetry} />
 
           {this.state.error && (
-            <details className="mt-2 w-full text-left">
+            <details className="mt-4 w-full text-left">
               <summary className="cursor-pointer text-xs text-foreground-subtle hover:text-foreground-muted">
                 Error details (for debugging)
               </summary>
