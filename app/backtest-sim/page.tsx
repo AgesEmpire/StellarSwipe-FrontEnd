@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import dynamic from "next/dynamic"
+import dynamic from "next/dynamic";
 
 const BacktestTool = dynamic(() => import("../../components/BacktestTool"), {
   loading: () => (
@@ -10,13 +10,23 @@ const BacktestTool = dynamic(() => import("../../components/BacktestTool"), {
     </div>
   ),
   ssr: false,
-})
+});
 
-export default function BacktestPage() {
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+
+function BacktestPageInner() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Signal Backtesting Simulation</h1>
       <BacktestTool />
     </div>
-  )
+  );
+}
+
+export default function BacktestPage() {
+  return (
+    <RouteErrorBoundary featureName="Backtest Simulator">
+      <BacktestPageInner />
+    </RouteErrorBoundary>
+  );
 }

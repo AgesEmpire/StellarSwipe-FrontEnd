@@ -6,9 +6,11 @@ import { useToastStore, type ToastMessage } from "@/store/useToastStore";
 import { cn } from "@/lib/utils";
 
 const toneStyles: Record<ToastMessage["tone"], string> = {
-  success: "border-accent-success/30 bg-accent-success/10 text-foreground shadow-sm",
-  error:   "border-accent-danger/30  bg-accent-danger/10  text-foreground shadow-sm",
-  info:    "border-accent-sky/30     bg-accent-sky/10     text-foreground shadow-sm",
+  success:
+    "border-accent-success/30 bg-accent-success/10 text-foreground shadow-sm",
+  error:
+    "border-accent-danger/30  bg-accent-danger/10  text-foreground shadow-sm",
+  info: "border-accent-sky/30     bg-accent-sky/10     text-foreground shadow-sm",
 };
 
 const toneIcons: Record<ToastMessage["tone"], typeof CheckCircle2> = {

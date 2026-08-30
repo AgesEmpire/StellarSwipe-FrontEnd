@@ -12,33 +12,91 @@ export const SORT_ORDER_LABELS: Record<FeedSortOrder, string> = {
   confidence: "Confidence",
 };
 
+export interface FilterPreset {
+  name: string;
+  direction: FilterDirection;
+  asset: string;
+  provider: string;
+  bookmarkedOnly: boolean;
+  sortOrder: FeedSortOrder;
+}
+
 interface SignalFilterState {
   direction: FilterDirection;
   asset: string;
   provider: string;
   bookmarkedOnly: boolean;
   sortOrder: FeedSortOrder;
+  presets: FilterPreset[];
+  _hasHydrated: boolean;
+  setHasHydrated: (hydrated: boolean) => void;
   setDirection: (d: FilterDirection) => void;
   setAsset: (a: string) => void;
   setProvider: (p: string) => void;
   setBookmarkedOnly: (selected: boolean) => void;
   setSortOrder: (o: FeedSortOrder) => void;
+  savePreset: (name: string) => void;
+  applyPreset: (name: string) => void;
+  deletePreset: (name: string) => void;
   reset: () => void;
 }
 
 export const useSignalFilterStore = create<SignalFilterState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       direction: "ALL",
       asset: "",
       provider: "",
       bookmarkedOnly: false,
       sortOrder: "latest",
+      presets: [],
+      _hasHydrated: false,
+      setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
       setDirection: (direction) => set({ direction }),
       setAsset: (asset) => set({ asset }),
       setProvider: (provider) => set({ provider }),
       setBookmarkedOnly: (selected) => set({ bookmarkedOnly: selected }),
       setSortOrder: (sortOrder) => set({ sortOrder }),
+      savePreset: (name) => {
+        const {
+          direction,
+          asset,
+          provider,
+          bookmarkedOnly,
+          sortOrder,
+          presets,
+        } = get();
+        const preset: FilterPreset = {
+          name,
+          direction,
+          asset,
+          provider,
+          bookmarkedOnly,
+          sortOrder,
+        };
+        const existing = presets.findIndex((p) => p.name === name);
+        if (existing >= 0) {
+          const updated = [...presets];
+          updated[existing] = preset;
+          set({ presets: updated });
+        } else {
+          set({ presets: [...presets, preset] });
+        }
+      },
+      applyPreset: (name) => {
+        const preset = get().presets.find((p) => p.name === name);
+        if (!preset) return;
+        set({
+          direction: preset.direction,
+          asset: preset.asset,
+          provider: preset.provider,
+          bookmarkedOnly: preset.bookmarkedOnly,
+          sortOrder: preset.sortOrder,
+        });
+      },
+      deletePreset: (name) => {
+        set({ presets: get().presets.filter((p) => p.name !== name) });
+      },
       reset: () =>
         set({
           direction: "ALL",
@@ -48,6 +106,15 @@ export const useSignalFilterStore = create<SignalFilterState>()(
           sortOrder: "latest",
         }),
     }),
-    { name: "signal-filter-store" }
+    {
+      name: "signal-filter-store",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
   )
 );
+
+/** Returns `true` once localStorage has been read and state is stable. */
+export const useSignalFilterHydrated = () =>
+  useSignalFilterStore((s) => s._hasHydrated);
