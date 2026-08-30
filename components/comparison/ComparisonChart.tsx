@@ -1,6 +1,6 @@
 "use client";
 
-import type { Signal } from "@/lib/api";
+import type { Signal } from "@/lib/api-types.generated";
 
 interface ComparisonChartProps {
   signals: Signal[];
@@ -13,8 +13,8 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
 
   const metrics = [
     { label: "Confidence", getValue: (s: Signal) => s.confidence },
-    { label: "R/R Ratio", getValue: (s: Signal) => parseFloat(s.stats?.riskReward ?? "0") || 0, scale: 10 },
-    { label: "Target ∆%", getValue: (s: Signal) => s.stats ? ((s.stats.targetPrice - s.stats.entryPrice) / s.stats.entryPrice) * 100 : 0, scale: 100 },
+    { label: "R/R Ratio", getValue: (s: Signal) => 0, scale: 10 },
+    { label: "Target ∆%", getValue: (s: Signal) => 0, scale: 100 },
   ];
 
   return (
@@ -22,16 +22,27 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
       {metrics.map(({ label, getValue, scale = 100 }) => {
         const values = signals.map(getValue);
         const maxVal = Math.max(...values, scale * 0.01);
+        const unit = label === "Confidence" ? "%" : "";
         return (
-          <div key={label}>
-            <p className="text-xs text-gray-400 mb-2">{label}</p>
-            <div className="space-y-1.5">
+          <div
+            key={label}
+            role="img"
+            aria-label={`${label} by asset: ${signals
+              .map((s, i) => `${s.asset} ${values[i].toFixed(1)}${unit}`)
+              .join(", ")}`}
+          >
+            <p className="text-xs text-gray-400 mb-2" id={`comparison-${label}`}>
+              {label}
+            </p>
+            <div className="space-y-1.5" aria-hidden="true">
               {signals.map((signal, i) => {
                 const val = values[i];
                 const pct = Math.min((val / maxVal) * 100, 100);
                 return (
                   <div key={signal.id} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-300 w-16 truncate shrink-0">{signal.asset}</span>
+                    <span className="text-xs text-gray-300 w-16 truncate shrink-0">
+                      {signal.ticker}
+                    </span>
                     <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
@@ -39,7 +50,9 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
                       />
                     </div>
                     <span className="text-xs font-mono text-gray-300 w-12 text-right shrink-0">
-                      {val.toFixed(1)}{label === "Confidence" ? "%" : ""}
+                      {val.toFixed(1)}{unit}
+                      {val.toFixed(1)}
+                      {label === "Confidence" ? "%" : ""}
                     </span>
                   </div>
                 );
