@@ -47,13 +47,11 @@ export function AvatarImage({
   const bgColor = deriveHslColor(name);
 
   const sizePx = size;
-  const sizeClass = `h-[${sizePx}px] w-[${sizePx}px]`;
 
   return (
     <span
       className={cn(
         "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full",
-        sizeClass,
         className
       )}
       style={{ width: sizePx, height: sizePx }}

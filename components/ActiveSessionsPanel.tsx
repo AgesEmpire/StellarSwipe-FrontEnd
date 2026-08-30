@@ -29,6 +29,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   type Session,
   formatLastActive,
   canRevoke,
@@ -177,6 +185,7 @@ export function ActiveSessionsPanel({
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokingAll, setRevokingAll] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
+  const [confirmRevokeAllOpen, setConfirmRevokeAllOpen] = useState(false);
 
   // Single-session revoke with optimistic update + rollback
   const handleRevoke = useCallback(
@@ -206,10 +215,12 @@ export function ActiveSessionsPanel({
     setRowError(null);
     try {
       await onRevokeAll();
+      setConfirmRevokeAllOpen(false);
     } catch {
       // Rollback on failure
       setSessions(snapshot);
       setRowError("Failed to revoke all sessions. Please try again.");
+      setConfirmRevokeAllOpen(false);
     } finally {
       setRevokingAll(false);
     }
@@ -235,7 +246,7 @@ export function ActiveSessionsPanel({
               variant="outline"
               size="sm"
               disabled={revokingAll}
-              onClick={handleRevokeAll}
+              onClick={() => setConfirmRevokeAllOpen(true)}
               aria-label={t("sessions.revoke_all", { count: otherCount })}
               className="shrink-0 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/60 disabled:opacity-50"
             >
@@ -319,6 +330,51 @@ export function ActiveSessionsPanel({
           </ul>
         )}
       </CardContent>
+
+      <Dialog
+        open={confirmRevokeAllOpen}
+        onOpenChange={(next) => {
+          if (revokingAll) return;
+          setConfirmRevokeAllOpen(next);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Revoke all other sessions?</DialogTitle>
+            <DialogDescription>
+              This will sign out {otherCount}{" "}
+              {otherCount === 1 ? "device" : "devices"} other than your
+              current session. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmRevokeAllOpen(false)}
+              disabled={revokingAll}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRevokeAll}
+              disabled={revokingAll}
+              className="gap-2 bg-red-500/90 text-white hover:bg-red-500"
+            >
+              {revokingAll ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                  Revoking…
+                </>
+              ) : (
+                <>
+                  <ShieldAlert size={13} aria-hidden="true" />
+                  Revoke {otherCount} {otherCount === 1 ? "session" : "sessions"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
