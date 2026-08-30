@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Info, Shield, SlidersHorizontal } from "lucide-react";
 import { usePositionLimitStore } from "@/store/usePositionLimitStore";
+import { useSegmentedControlKeyboard } from "@/hooks/useSegmentedControlKeyboard";
 
 interface PositionLimitToggleProps {
   /** Total portfolio balance in XLM (or base asset) */
@@ -20,6 +21,15 @@ export function PositionLimitToggle({
   const { enabled, percentage, toggle, setPercentage } = usePositionLimitStore();
 
   const portfolioAvailable = portfolioBalance !== null && portfolioBalance !== undefined && !isLoading;
+
+  const percentagePresets = [1, 3, 5, 10, 15, 25];
+  const activePresetIndex = percentagePresets.indexOf(percentage);
+
+  const { groupRef: presetGroupRef, handleKeyDown: handlePresetKeyDown } = useSegmentedControlKeyboard({
+    itemCount: percentagePresets.length,
+    activeIndex: activePresetIndex >= 0 ? activePresetIndex : 0,
+    onActiveChange: (i) => setPercentage(percentagePresets[i]),
+  });
 
   const calculatedLimit = useMemo(() => {
     if (!portfolioAvailable || !enabled) return null;
@@ -152,13 +162,22 @@ export function PositionLimitToggle({
           </div>
 
           {/* Quick presets */}
-          <div className="flex gap-1.5">
-            {[1, 3, 5, 10, 15, 25].map((val) => (
+          <div
+            ref={presetGroupRef}
+            role="radiogroup"
+            aria-label="Position limit presets"
+            onKeyDown={handlePresetKeyDown}
+            className="flex gap-1.5"
+          >
+            {percentagePresets.map((val, index) => (
               <button
                 key={val}
+                type="button"
+                role="radio"
+                aria-checked={percentage === val}
+                tabIndex={percentage === val ? 0 : -1}
                 onClick={() => setPercentage(val)}
                 aria-label={`Set position limit to ${val}%`}
-                aria-pressed={percentage === val}
                 className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                   percentage === val
                     ? "bg-accent-primary/10 text-accent-sky ring-1 ring-[hsl(var(--accent-primary)/0.3)]"
