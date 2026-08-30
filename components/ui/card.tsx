@@ -1,6 +1,18 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-xl border border-border bg-card text-card-foreground shadow-elevation-1",
+        className
+      )}
+      {...props}
+    />
+  )
+);
 /**
  * Card — a rounded surface container used to visually group related content.
  *
@@ -22,18 +34,19 @@ import { cn } from "@/lib/utils";
  *
  * @see {@link https://storybook.stellarswipe.dev/?path=/docs/ui-card--docs Storybook — Card}
  */
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        "rounded-xl border border-border bg-card text-card-foreground shadow-sm",
-        className
-      )}
-      {...props}
-    />
-  )
-);
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "rounded-xl border border-border bg-card text-card-foreground shadow-sm",
+      className
+    )}
+    {...props}
+  />
+));
 Card.displayName = "Card";
 
 /**
@@ -48,11 +61,16 @@ Card.displayName = "Card";
  *   <p className="text-sm text-muted-foreground">Last updated 5 min ago</p>
  * </CardHeader>
  */
-const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("flex flex-col gap-1.5 p-5 pb-3", className)} {...props} />
-  )
-);
+const CardHeader = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex flex-col gap-1.5 p-5 pb-3", className)}
+    {...props}
+  />
+));
 CardHeader.displayName = "CardHeader";
 
 /**
@@ -69,11 +87,12 @@ CardHeader.displayName = "CardHeader";
  *   </dl>
  * </CardContent>
  */
-const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("px-5 pb-5", className)} {...props} />
-  )
-);
+const CardContent = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn("px-5 pb-5", className)} {...props} />
+));
 CardContent.displayName = "CardContent";
 
 export { Card, CardHeader, CardContent };

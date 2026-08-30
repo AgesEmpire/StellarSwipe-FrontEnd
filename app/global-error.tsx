@@ -1,9 +1,11 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import { useEffect } from "react";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, RefreshCw, Home, Flag } from "lucide-react";
 import Link from "next/link";
+
+const SUPPORT_EMAIL = "support@stellarswipe.io";
 
 export default function GlobalError({
   error,
@@ -12,9 +14,14 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [sentryEventId, setSentryEventId] = useState<string | null>(null);
+
   useEffect(() => {
     Sentry.captureException(error);
+    setSentryEventId(Sentry.lastEventId() ?? null);
   }, [error]);
+
+  const reportHref = buildReportHref(error.digest, sentryEventId);
 
   return (
     <html>
@@ -51,9 +58,36 @@ export default function GlobalError({
                 Go Home
               </Link>
             </div>
+
+            <a
+              href={reportHref}
+              data-error-digest={error.digest ?? ""}
+              data-sentry-event-id={sentryEventId ?? ""}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-transparent px-4 py-2.5 text-sm font-medium text-foreground-muted transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Flag className="h-4 w-4" />
+              Report this error
+            </a>
           </div>
         </div>
       </body>
     </html>
   );
+}
+
+function buildReportHref(
+  digest: string | undefined,
+  eventId: string | null
+): string {
+  const subject = encodeURIComponent("Error Report – StellarSwipe");
+  const body = encodeURIComponent(
+    [
+      `Error ID: ${digest ?? "n/a"}`,
+      `Sentry Event ID: ${eventId ?? "n/a"}`,
+      "",
+      "Please describe what you were doing when the error occurred:",
+      "",
+    ].join("\n")
+  );
+  return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
 }

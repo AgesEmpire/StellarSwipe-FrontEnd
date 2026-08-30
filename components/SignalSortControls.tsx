@@ -36,7 +36,8 @@ const SORT_OPTIONS: SortOption[] = [
     label: "Confidence",
     icon: BarChart2,
     description: "Signals ranked by highest confidence score",
-    activeColor: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+    activeColor:
+      "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
     activeIconColor: "text-emerald-400",
   },
   {
