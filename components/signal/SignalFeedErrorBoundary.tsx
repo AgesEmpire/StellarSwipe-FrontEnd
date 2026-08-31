@@ -1,9 +1,7 @@
 "use client";
 
 import { Component, ErrorInfo, ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
-import * as Sentry from "@sentry/nextjs";
-import { RetryStateCard } from "@/components/ui/RetryStateCard";
+import { DataPanelFallback } from "@/components/DataPanelError";
 
 interface Props {
   children: ReactNode;
@@ -43,13 +41,20 @@ export class SignalFeedErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <RetryStateCard
-          title="Signal feed unavailable"
-          description="Something went wrong while displaying the signal feed. The rest of the dashboard is unaffected."
-          onRetry={this.handleRetry}
-          icon={<AlertTriangle className="h-10 w-10 text-destructive" aria-hidden="true" />}
-          details={this.state.error?.message ?? null}
-        />
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8">
+          <DataPanelFallback onRetry={this.handleRetry} />
+
+          {this.state.error && (
+            <details className="mt-4 w-full text-left">
+              <summary className="cursor-pointer text-xs text-foreground-subtle hover:text-foreground-muted">
+                Error details (for debugging)
+              </summary>
+              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-black/20 p-2 text-xs text-foreground-muted">
+                {this.state.error.message}
+              </pre>
+            </details>
+          )}
+        </div>
       );
     }
 

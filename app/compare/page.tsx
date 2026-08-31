@@ -94,7 +94,14 @@ function ComparePageContent() {
   } = useComparisonStore();
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [activeMobileIndex, setActiveMobileIndex] = useState(0);
+  const [exportingImage, setExportingImage] = useState(false);
+  const [pendingExport, setPendingExport] = useState<
+    "csv" | "image" | "pdf" | null
+  >(null);
+  const [exportFormat, setExportFormat] = useState<"csv" | "image" | "pdf">(
+    "csv"
+  );
+  const tableRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useMediaQuery("(max-width: 639px)");
@@ -203,9 +210,7 @@ function ComparePageContent() {
     },
   };
 
-  const handleExportPDF = () => setPendingExport("pdf");
-  const handleExportCsv = () => setPendingExport("csv");
-  const handleExportImage = () => setPendingExport("image");
+  const handleExport = () => setPendingExport(exportFormat);
 
   const runPendingExport = async () => {
     if (pendingExport === "csv") {
@@ -277,33 +282,39 @@ function ComparePageContent() {
                     )}
                     {copied ? "Copied!" : "Share Link"}
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportPDF}
-                    className="gap-2"
+                  <label htmlFor="export-format" className="sr-only">
+                    Export format
+                  </label>
+                  <select
+                    id="export-format"
+                    value={exportFormat}
+                    onChange={(e) =>
+                      setExportFormat(
+                        e.target.value as "csv" | "image" | "pdf"
+                      )
+                    }
+                    disabled={exportingImage}
+                    className="h-9 rounded-md border border-white/10 bg-white/5 px-2 text-sm text-white disabled:opacity-50"
                   >
-                    <Printer className="h-4 w-4" />
-                    Export PDF
-                  </Button>
+                    <option value="csv">CSV (.csv)</option>
+                    <option value="image">Image (.png)</option>
+                    <option value="pdf">PDF (print)</option>
+                  </select>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleExportCsv}
-                    className="gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportImage}
+                    onClick={handleExport}
                     disabled={exportingImage}
                     className="gap-2"
                   >
-                    <ImageIcon className="h-4 w-4" />
-                    {exportingImage ? "Capturing…" : "Export Image"}
+                    {exportFormat === "pdf" ? (
+                      <Printer className="h-4 w-4" />
+                    ) : exportFormat === "image" ? (
+                      <ImageIcon className="h-4 w-4" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {exportingImage ? "Capturing…" : "Export"}
                   </Button>
                   <Button
                     variant="ghost"
