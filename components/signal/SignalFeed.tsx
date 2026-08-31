@@ -24,18 +24,8 @@ import { Search, X, SlidersHorizontal } from "lucide-react";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
-import { queryOptions as queryOpts } from "@/lib/queryOptions";
-import { useI18n } from "@/hooks/useI18n";
-import { fetchSignals } from "@/lib/api";
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
-import { NetworkErrorState } from "@/components/NetworkErrorState";
-import {
-  clampSplitRatio,
-  computeSplitRatioFromClientX,
-  persistSplitRatio,
-  readPersistedSplitRatio,
-} from "@/lib/splitView";
+import { DataPanelError } from "@/components/DataPanelError";
+import { classifyError } from "@/hooks/usePanelError";
 
 interface SignalResponse {
   items: Signal[];
@@ -555,13 +545,30 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         availableMarkets={availableAssets}
       />
 
-      {/* Pull-to-refresh indicator — visible on touch devices only */}
-      <div className="sm:hidden" data-testid="pull-to-refresh-container">
-        <PullToRefreshIndicator
-          pullDistance={pullDistance}
-          isRefreshing={isRefreshing}
-        />
-      </div>
+      <div
+        ref={parentRef}
+        className="max-h-[70vh] overflow-auto"
+        role="feed"
+        aria-busy={isLoading}
+        aria-label="Signal list"
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+          const articles = Array.from(
+            (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>("article[tabindex]")
+          );
+          const idx = articles.indexOf(document.activeElement as HTMLElement);
+          if (idx === -1) return;
+          e.preventDefault();
+          const next = e.key === "ArrowDown" ? articles[idx + 1] : articles[idx - 1];
+          next?.focus();
+        }}
+      >
+        {isError && (
+          <DataPanelError
+            errorInfo={classifyError(error)}
+            onRetry={() => refetch()}
+          />
+        )}
 
       {isError && signals.length > 0 && (
         <div className="mb-3">
