@@ -2,10 +2,8 @@
 
 import { Flame, Clock, Sparkles, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  FeedSortOrder,
-  useSignalFilterStore,
-} from "@/store/useSignalFilterStore";
+import { FeedSortOrder, useSignalFilterStore } from "@/store/useSignalFilterStore";
+import { useSegmentedControlKeyboard } from "@/hooks/useSegmentedControlKeyboard";
 
 interface SortOption {
   value: FeedSortOrder;
@@ -59,47 +57,50 @@ interface SignalSortControlsProps {
 export function SignalSortControls({ className }: SignalSortControlsProps) {
   const { sortOrder, setSortOrder } = useSignalFilterStore();
 
+  const activeIndex = SORT_OPTIONS.findIndex((o) => o.value === sortOrder);
+
+  const { groupRef, handleKeyDown } = useSegmentedControlKeyboard({
+    itemCount: SORT_OPTIONS.length,
+    activeIndex: activeIndex >= 0 ? activeIndex : 0,
+    onActiveChange: (i) => setSortOrder(SORT_OPTIONS[i].value),
+  });
+
   return (
     <div
-      role="group"
+      ref={groupRef}
+      role="radiogroup"
       aria-label="Sort signals"
+      onKeyDown={handleKeyDown}
       className={cn("flex flex-wrap items-center gap-1", className)}
     >
-      {SORT_OPTIONS.map(
-        ({
-          value,
-          label,
-          icon: Icon,
-          description,
-          activeColor,
-          activeIconColor,
-        }) => {
-          const isActive = sortOrder === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setSortOrder(value)}
-              aria-pressed={isActive}
-              title={description}
-              aria-label={`Sort by ${label}: ${description}`}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
-                isActive
-                  ? activeColor
-                  : "bg-white/5 text-slate-400 border border-white/10 hover:border-white/20 hover:text-slate-300"
-              )}
-            >
-              <Icon
-                size={12}
-                aria-hidden="true"
-                className={cn(isActive ? activeIconColor : "text-slate-500")}
-              />
-              <span>{label}</span>
-            </button>
-          );
-        }
-      )}
+      {SORT_OPTIONS.map(({ value, label, icon: Icon, description, activeColor, activeIconColor }, index) => {
+        const isActive = sortOrder === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            tabIndex={isActive ? 0 : -1}
+            onClick={() => setSortOrder(value)}
+            title={description}
+            aria-label={`Sort by ${label}: ${description}`}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+              isActive
+                ? activeColor
+                : "bg-white/5 text-slate-400 border border-white/10 hover:border-white/20 hover:text-slate-300"
+            )}
+          >
+            <Icon
+              size={12}
+              aria-hidden="true"
+              className={cn(isActive ? activeIconColor : "text-slate-500")}
+            />
+            <span>{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
