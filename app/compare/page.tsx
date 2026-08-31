@@ -1,21 +1,10 @@
 "use client";
 
-import { Suspense, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Plus,
-  Trash2,
-  Printer,
-  GitCompare,
-  Link as LinkIcon,
-  Check,
-  Download,
-  Image as ImageIcon,
-  AlertCircle,
-  X as XIcon,
-} from "lucide-react";
+import { Plus, Trash2, Printer, GitCompare, Link as LinkIcon, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -26,14 +15,8 @@ import { ComparisonChart } from "@/components/comparison/ComparisonChart";
 import { AddSignalPanel } from "@/components/comparison/AddSignalPanel";
 import { SnapshotNameField } from "@/components/comparison/SnapshotNameField";
 import { fetchSignals } from "@/lib/api";
-import { ComparisonErrorBoundary } from "@/components/ComparisonErrorBoundary";
-import {
-  downloadComparisonCsv,
-  downloadComparisonImage,
-} from "@/lib/exportComparison";
-import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
-import { toast } from "@/lib/toast";
-import { useI18n } from "@/hooks/useI18n";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { cn } from "@/lib/utils";
 
 const ComparisonCard = dynamic(
   () =>
@@ -121,6 +104,7 @@ function ComparePageContent() {
   const tableRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isMobile = useMediaQuery("(max-width: 639px)");
 
   // On mount: restore comparison from URL ?ids=a,b,c
   useEffect(() => {
@@ -457,57 +441,152 @@ function ComparePageContent() {
                 />
               </div>
 
-              {/* Side-by-side cards — horizontal scroll on mobile */}
-              <div
-                ref={tableRef}
-                className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
-              >
-                <div
-                  className="flex gap-4"
-                  style={{ minWidth: `${signals.length * 220}px` }}
-                >
-                  {signals.map((signal) => (
-                    <motion.div
-                      key={signal.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="flex-1"
-                      style={{ minWidth: 200 }}
-                    >
-                      <ComparisonCard
-                        signal={signal}
-                        onRemove={() => removeSignal(signal.id)}
-                        hiddenMetrics={hiddenMetrics}
-                        bestValues={bestValues}
-                      />
-                    </motion.div>
-                  ))}
+              {/* ── Desktop: side-by-side split view ── */}
+              {!isMobile && (
+                <div className="overflow-x-auto pb-4">
+                  <div className="flex gap-4" style={{ minWidth: `${signals.length * 220}px` }}>
+                    {signals.map((signal) => (
+                      <motion.div
+                        key={signal.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="flex-1"
+                        style={{ minWidth: 200 }}
+                      >
+                        <ComparisonCard
+                          signal={signal}
+                          onRemove={() => removeSignal(signal.id)}
+                          hiddenMetrics={hiddenMetrics}
+                          bestValues={bestValues}
+                        />
+                      </motion.div>
+                    ))}
 
-                  {/* Placeholder slot when fewer than 3 */}
-                  {canAdd() && (
-                    <div
-                      className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-white/10 min-h-[200px] cursor-pointer hover:border-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 print:hidden"
-                      style={{ minWidth: 200 }}
-                      onClick={() => setAddPanelOpen(true)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setAddPanelOpen(true);
-                        }
-                      }}
-                      aria-label="Add another signal"
-                    >
-                      <div className="text-center text-gray-400">
-                        <Plus className="h-8 w-8 mx-auto mb-2" aria-hidden="true" />
-                        <p className="text-sm">Add signal</p>
+                    {/* Placeholder slot when fewer than 3 */}
+                    {canAdd() && (
+                      <div
+                        className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-white/10 min-h-[200px] cursor-pointer hover:border-white/20 transition-colors print:hidden"
+                        style={{ minWidth: 200 }}
+                        onClick={() => setAddPanelOpen(true)}
+                        role="button"
+                        aria-label="Add another signal"
+                      >
+                        <div className="text-center text-gray-600">
+                          <Plus className="h-8 w-8 mx-auto mb-2" />
+                          <p className="text-sm">Add signal</p>
+                        </div>
                       </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Mobile: tabbed single-card view ── */}
+              {isMobile && (
+                <div>
+                  {/* Tab bar */}
+                  <div
+                    role="tablist"
+                    aria-label="Compare signals"
+                    className="flex gap-2 mb-4 overflow-x-auto pb-1"
+                  >
+                    {signals.map((signal, index) => (
+                      <button
+                        key={signal.id}
+                        role="tab"
+                        aria-selected={index === activeMobileIndex}
+                        aria-controls={`comparison-panel-${signal.id}`}
+                        id={`comparison-tab-${signal.id}`}
+                        tabIndex={index === activeMobileIndex ? 0 : -1}
+                        onClick={() => setActiveMobileIndex(index)}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors shrink-0",
+                          index === activeMobileIndex
+                            ? "bg-blue-600/20 text-blue-300 border border-blue-500/30"
+                            : "bg-gray-800 text-gray-400 border border-white/10 hover:border-white/20"
+                        )}
+                      >
+                        {signal.action === "BUY" ? (
+                          <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" aria-hidden="true" />
+                        ) : (
+                          <span className="h-2 w-2 rounded-full bg-red-400 shrink-0" aria-hidden="true" />
+                        )}
+                        {signal.asset}
+                      </button>
+                    ))}
+                    {canAdd() && (
+                      <button
+                        onClick={() => setAddPanelOpen(true)}
+                        className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 border border-dashed border-white/10 hover:border-white/20 transition-colors shrink-0"
+                        aria-label="Add signal to comparison"
+                      >
+                        <Plus className="h-3 w-3" aria-hidden="true" />
+                        Add
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Navigation arrows */}
+                  {signals.length > 1 && (
+                    <div className="flex items-center justify-between mb-3 print:hidden">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveMobileIndex((i) => Math.max(0, i - 1))}
+                        disabled={activeMobileIndex === 0}
+                        className="gap-1 text-xs"
+                        aria-label="Previous signal"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Prev
+                      </Button>
+                      <span className="text-xs text-gray-500" aria-live="polite">
+                        {activeMobileIndex + 1} / {signals.length}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveMobileIndex((i) => Math.min(signals.length - 1, i + 1))}
+                        disabled={activeMobileIndex === signals.length - 1}
+                        className="gap-1 text-xs"
+                        aria-label="Next signal"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
                   )}
+
+                  {/* Active card panel — preserves scroll context per card */}
+                  <AnimatePresence mode="wait">
+                    {signals[activeMobileIndex] && (
+                      <motion.div
+                        key={signals[activeMobileIndex].id}
+                        role="tabpanel"
+                        id={`comparison-panel-${signals[activeMobileIndex].id}`}
+                        aria-labelledby={`comparison-tab-${signals[activeMobileIndex].id}`}
+                        tabIndex={0}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ComparisonCard
+                          signal={signals[activeMobileIndex]}
+                          onRemove={() => {
+                            removeSignal(signals[activeMobileIndex].id);
+                            // Clamp index after removal
+                            setActiveMobileIndex((i) => Math.min(i, Math.max(0, signals.length - 2)));
+                          }}
+                          hiddenMetrics={hiddenMetrics}
+                          bestValues={bestValues}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </div>
+              )}
 
               {/* Performance chart */}
               {signals.length >= 2 && (
