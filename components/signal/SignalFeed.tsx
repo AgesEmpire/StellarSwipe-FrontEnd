@@ -24,8 +24,17 @@ import { Search, X, SlidersHorizontal } from "lucide-react";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
-import { DataPanelError } from "@/components/DataPanelError";
-import { classifyError } from "@/hooks/usePanelError";
+import { NetworkErrorState } from "@/components/NetworkErrorState";
+import { useI18n } from "@/hooks/useI18n";
+import { fetchSignals } from "@/lib/api";
+import { queryOptions } from "@/lib/queryOptions";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import {
+  readPersistedSplitRatio,
+  persistSplitRatio,
+  clampSplitRatio,
+  computeSplitRatioFromClientX,
+} from "@/lib/splitView";
 
 interface SignalResponse {
   items: Signal[];
@@ -60,6 +69,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   const snoozedMap = useSnoozeStore((state) => state.snoozed);
   const pruneExpiredSnoozes = useSnoozeStore((state) => state.pruneExpired);
   const [providerSearch, setProviderSearch] = useState(provider);
+  // #685: debounce the free-text search term used for filtering so a fast
+  // typist doesn't trigger a full re-filter of the signal list on every
+  // keystroke. The input itself still updates instantly via providerSearch.
+  const [debouncedSearch, setDebouncedSearch] = useState(provider);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const { addView } = useRecentlyViewedStore();
   // Bumped on a timer so expired snoozes are re-evaluated and signals return.
@@ -100,7 +113,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     },
     getNextPageParam: (lastPage: SignalResponse) => lastPage.nextPage,
     initialPageParam: 1,
-    staleTime: queryOpts.signal.staleTime,
+    staleTime: queryOptions.signal.staleTime,
     placeholderData: (prev) => prev,
     // Seed the cache with the server-fetched first page so no client waterfall occurs
     ...(initialData && {
@@ -116,6 +129,11 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     [data]
   );
 
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(providerSearch), 150);
+    return () => clearTimeout(handle);
+  }, [providerSearch]);
+
   const availableProviders = useMemo(
     () => [...new Set(allSignals.map((s) => s.ticker))].sort(),
     [allSignals]
@@ -128,7 +146,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
 
   const filteredSignals = useMemo<Signal[]>(() => {
     let filtered = [...allSignals];
-    const searchTerm = providerSearch.trim().toLowerCase();
+    const searchTerm = debouncedSearch.trim().toLowerCase();
 
     if (direction !== "ALL") {
       filtered = filtered.filter((s) => s.action === direction);
@@ -168,7 +186,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     direction,
     asset,
     provider,
-    providerSearch,
+    debouncedSearch,
     bookmarkedOnly,
     bookmarkedIds,
     snoozedMap,
@@ -421,8 +439,12 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         <div className="flex flex-col items-end gap-2">
           {/* Sort controls — persistent across browsing */}
           <SignalSortControls />
-          {/* Price precision toggle */}
-          <PricePrecisionToggle />
+          <div className="flex items-center gap-2">
+            {/* Price precision toggle */}
+            <PricePrecisionToggle />
+            {/* Density toggle — persisted across sessions */}
+            <FeedDensityToggle />
+          </div>
           {/* #574: last-updated / stale status, with a manual refresh action */}
           <div className="flex items-center gap-2">
             <SyncStatusIndicator status={syncStatus} />
@@ -435,11 +457,6 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             >
               Refresh
             </button>
-          <div className="flex items-center gap-2">
-            {/* Price precision toggle */}
-            <PricePrecisionToggle />
-            {/* Density toggle — persisted across sessions */}
-            <FeedDensityToggle />
           </div>
           {/* #98: show consistent loading state */}
           <div
@@ -546,41 +563,6 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       />
 
       <div
-        ref={parentRef}
-        className="max-h-[70vh] overflow-auto"
-        role="feed"
-        aria-busy={isLoading}
-        aria-label="Signal list"
-        onKeyDown={(e) => {
-          if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-          const articles = Array.from(
-            (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>("article[tabindex]")
-          );
-          const idx = articles.indexOf(document.activeElement as HTMLElement);
-          if (idx === -1) return;
-          e.preventDefault();
-          const next = e.key === "ArrowDown" ? articles[idx + 1] : articles[idx - 1];
-          next?.focus();
-        }}
-      >
-        {isError && (
-          <DataPanelError
-            errorInfo={classifyError(error)}
-            onRetry={() => refetch()}
-          />
-        )}
-
-      {isError && signals.length > 0 && (
-        <div className="mb-3">
-          <NetworkErrorState
-            context="the latest signals"
-            onRetry={() => refetch()}
-            variant="banner"
-          />
-        </div>
-      )}
-
-      <div
         ref={splitContainerRef}
         className="lg:grid lg:items-start lg:gap-0"
         style={
@@ -595,7 +577,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       >
         <div className="min-w-0">
           <div
-            ref={setScrollEl}
+            ref={(el) => {
+              setScrollEl(el);
+              parentRef.current = el;
+            }}
             className="max-h-[70vh] overflow-auto"
             role="feed"
             aria-busy={isLoading}
