@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { pushOverlay, popOverlay, isTopOverlay } from "./overlayManager";
 
 interface UseFocusTrapOptions {
   isActive: boolean;
@@ -16,8 +17,6 @@ interface UseFocusTrapOptions {
  * - If the previously-focused element is gone from the DOM, falls back to
  *   `document.body` so the user is never left without a focus target.
  */
-import { useRef, useEffect } from "react";
-import { pushOverlay, popOverlay, isTopOverlay } from "./overlayManager";
 
 export function useFocusTrap({ isActive, initialFocus }: UseFocusTrapOptions) {
   const containerRef = useRef<HTMLDivElement>(null);

@@ -54,3 +54,36 @@ describe("SignalSparkline – Data Saver conditional rendering", () => {
     ).toBeTruthy();
   });
 });
+
+describe("SignalSparkline – unavailable-data fallback (issue #684)", () => {
+  it("shows a clear fallback with no data at all, instead of an empty box", () => {
+    render(<SignalSparkline data={[]} />);
+
+    const placeholder = screen.getByTestId("chart-unavailable-placeholder");
+    expect(placeholder).toBeTruthy();
+    expect(placeholder.textContent).toMatch(/no chart data yet/i);
+    expect(placeholder.getAttribute("aria-label")).toMatch(/no price data is available/i);
+  });
+
+  it("shows a distinct fallback when there is only one data point", () => {
+    render(<SignalSparkline data={[42]} />);
+
+    const placeholder = screen.getByTestId("chart-unavailable-placeholder");
+    expect(placeholder).toBeTruthy();
+    expect(placeholder.textContent).toMatch(/not enough history yet/i);
+    expect(placeholder.getAttribute("aria-label")).toMatch(/needs a bit more price history/i);
+  });
+
+  it("does not show the unavailable fallback once there are at least two points", () => {
+    render(<SignalSparkline data={[1, 2]} />);
+    expect(screen.queryByTestId("chart-unavailable-placeholder")).toBeNull();
+  });
+
+  it("prefers the unavailable-data message over the Data Saver placeholder", () => {
+    useDataSaverStore.getState().setDataSaverEnabled(true);
+    render(<SignalSparkline data={[]} />);
+
+    expect(screen.getByTestId("chart-unavailable-placeholder")).toBeTruthy();
+    expect(screen.queryByTestId("data-saver-chart-placeholder")).toBeNull();
+  });
+});
