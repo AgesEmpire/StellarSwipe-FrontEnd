@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
@@ -120,24 +119,6 @@ export function PortfolioAllocationChart({
   }, [chartData, width, height]);
 
   if (isLoading) {
-    return (
-      <Card className={cn("w-full", className)} role="status" aria-label="Loading portfolio allocation">
-        <CardHeader>
-          <h2 className="text-base font-semibold text-foreground">Portfolio Allocation</h2>
-        </CardHeader>
-        <CardContent>
-          <span className="sr-only">Loading portfolio allocation…</span>
-          <div className="flex h-48 items-center justify-center">
-            <div className="skeleton-shimmer h-36 w-36 rounded-full bg-surface-high" />
-          </div>
-          <div className="mt-4 space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="skeleton-shimmer h-4 w-full rounded bg-surface-high" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
     return <PortfolioAllocationChartSkeleton className={className} />;
   }
 
@@ -181,57 +162,40 @@ export function PortfolioAllocationChart({
             role="img"
             aria-label={`Portfolio allocation donut chart. ${arcs.map((a) => `${a.name} ${a.percentage.toFixed(1)}%`).join(", ")}`}
           >
-            {arcs.map((arc) => (
-              <g
-                key={arc.symbol}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selectedSymbol === arc.symbol}
-                aria-label={`${arc.name}, ${arc.percentage.toFixed(1)} percent. ${
-                  selectedSymbol === arc.symbol ? "Selected. Press to deselect." : "Press to inspect."
-                }`}
-                onClick={() => toggleSelection(arc.symbol)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleSelection(arc.symbol);
-                  }
-                }}
-                className="cursor-pointer outline-none focus-visible:opacity-90"
-              >
-                <path
-                  d={arc.path}
-                  fill={arc.color}
-                  stroke={selectedSymbol === arc.symbol ? "white" : "none"}
-                  strokeWidth={selectedSymbol === arc.symbol ? 2 : 0}
-                  className="transition-opacity hover:opacity-80"
             {arcs.map((arc) => {
-              const isActive = arc.symbol === activeSegment;
+              const isSelected = selectedSymbol === arc.symbol;
+              const isActive = activeSegment === arc.symbol;
               return (
                 <g
                   key={arc.symbol}
                   role="button"
-                  aria-label={`${arc.name}: ${arc.percentage.toFixed(1)}% ($${arc.value?.toLocaleString() ?? ""})`}
-                  aria-pressed={isActive}
                   tabIndex={0}
-                  style={{ outline: "none", cursor: "pointer" }}
+                  aria-pressed={isSelected}
+                  aria-label={`${arc.name}, ${arc.percentage.toFixed(1)} percent. ${
+                    isSelected ? "Selected. Press to deselect." : "Press to inspect."
+                  }`}
+                  onClick={() => toggleSelection(arc.symbol)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleSelection(arc.symbol);
+                    }
+                  }}
                   onPointerEnter={() => setActiveSegment(arc.symbol)}
                   onPointerLeave={() => setActiveSegment(null)}
                   onTouchStart={(e) => { e.preventDefault(); setActiveSegment(arc.symbol); }}
                   onTouchEnd={() => setActiveSegment(null)}
                   onFocus={() => setActiveSegment(arc.symbol)}
                   onBlur={() => setActiveSegment(null)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setActiveSegment(isActive ? null : arc.symbol);
-                    }
-                  }}
+                  className="cursor-pointer outline-none focus-visible:opacity-90"
+                  style={{ outline: "none" }}
                 >
                   <path
                     d={arc.path}
                     fill={arc.color}
-                    className="transition-opacity"
+                    stroke={isSelected ? "white" : "none"}
+                    strokeWidth={isSelected ? 2 : 0}
+                    className="transition-opacity hover:opacity-80"
                     opacity={activeSegment === null || isActive ? 1 : 0.5}
                     style={isActive ? { filter: "brightness(1.15)" } : undefined}
                   />
@@ -252,7 +216,7 @@ export function PortfolioAllocationChart({
             })}
           </svg>
 
-          {/* Floating tooltip for active segment */}
+          {/* Floating tooltip for the hovered/focused segment */}
           {activeArc && (
             <div
               role="tooltip"
@@ -270,6 +234,7 @@ export function PortfolioAllocationChart({
           )}
         </div>
 
+        {/* Persistent detail panel for the clicked/selected asset */}
         {selectedAsset && (
           <div
             role="region"
@@ -280,15 +245,6 @@ export function PortfolioAllocationChart({
             }}
           >
             <div className="flex items-start justify-between gap-2">
-        <ul
-          className="mt-4 space-y-2"
-          aria-label="Portfolio allocation breakdown"
-        >
-          {assets.map((asset) => (
-            <li
-              key={asset.symbol}
-              className="flex items-center justify-between text-sm"
-            >
               <div className="flex items-center gap-2">
                 <span
                   className="h-3 w-3 rounded-full"

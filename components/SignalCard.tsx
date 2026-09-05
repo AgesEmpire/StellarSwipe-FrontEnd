@@ -34,7 +34,6 @@ import {
   type SignalConflictReason,
 } from "@/components/SignalConflictNotice";
 import { cn } from "@/lib/utils";
-import { MiniChart } from "./chart/MiniChart";
 import { ChartDensityToggle } from "./chart/ChartDensityToggle";
 import { SignalSparkline } from "./chart/SignalSparkline";
 import { useDataSaverStore } from "@/store/useDataSaverStore";
@@ -729,7 +728,6 @@ export function SignalCard({
               ) : (
                 <Minus size={16} className="text-foreground-subtle" />
               )}
-              <MiniChart data={roiHistory.map((p) => p.value)} showAxis className="flex-1" />
               <SignalSparkline data={roiHistory.map((p) => p.value)} />
             </div>
 
