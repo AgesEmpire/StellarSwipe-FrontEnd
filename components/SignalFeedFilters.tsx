@@ -1,9 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { Bookmark, SlidersHorizontal, X } from "lucide-react";
-import { useRef, useState } from "react";
-import { Bookmark, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Bookmark, ListFilter, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/api";
 import {
@@ -81,6 +79,17 @@ export function SignalFeedFilters({
   const assetInputRef = useRef<HTMLInputElement>(null);
   const [presetName, setPresetName] = useState("");
   const [showPresetInput, setShowPresetInput] = useState(false);
+  const [savedFiltersOpen, setSavedFiltersOpen] = useState(false);
+
+  const counts = useMemo(() => {
+    if (!signals) return null;
+    return {
+      direction: (value: FilterDirection) =>
+        value === "ALL" ? signals.length : signals.filter((s) => s.action === value).length,
+      asset: (value: string) => signals.filter((s) => s.asset === value).length,
+      provider: (value: string) => signals.filter((s) => s.providerId === value).length,
+    };
+  }, [signals]);
 
   // Render a neutral placeholder until persisted filters are loaded.
   // This prevents filter state from flickering from defaults to saved values.
@@ -105,16 +114,6 @@ export function SignalFeedFilters({
       </section>
     );
   }
-
-  const counts = useMemo(() => {
-    if (!signals) return null;
-    return {
-      direction: (value: FilterDirection) =>
-        value === "ALL" ? signals.length : signals.filter((s) => s.action === value).length,
-      asset: (value: string) => signals.filter((s) => s.asset === value).length,
-      provider: (value: string) => signals.filter((s) => s.providerId === value).length,
-    };
-  }, [signals]);
 
   const isActive =
     direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
@@ -203,50 +202,6 @@ export function SignalFeedFilters({
         {quickProviders.map((providerLabel) => {
           const count = counts ? counts.provider(providerLabel) : null;
           return (
-        {quickAssets.map((assetLabel) => (
-          <button
-            key={assetLabel}
-            type="button"
-            onClick={() => setAsset(asset === assetLabel ? "" : assetLabel)}
-            aria-pressed={asset === assetLabel}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-              asset === assetLabel
-                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
-                : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
-            )}
-          >
-            {assetLabel}
-          </button>
-        ))}
-
-        {quickProviders.map((providerLabel) => (
-          <button
-            key={providerLabel}
-            type="button"
-            onClick={() =>
-              setProvider(provider === providerLabel ? "" : providerLabel)
-            }
-            aria-pressed={provider === providerLabel}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-              provider === providerLabel
-                ? "bg-orange-500/15 text-orange-300 border border-orange-500/40"
-                : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
-            )}
-          >
-            {providerLabel}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Direction pills */}
-        <fieldset
-          className="flex items-center gap-1"
-          aria-label="Filter by direction"
-        >
-          {DIRECTIONS.map(({ label, value }) => (
             <button
               key={providerLabel}
               type="button"
