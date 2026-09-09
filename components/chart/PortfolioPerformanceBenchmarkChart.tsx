@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { useXLMPriceHistory, type PricePoint } from "@/hooks/usePriceHistory";
 import {
@@ -187,7 +188,45 @@ export function PortfolioPerformanceBenchmarkChart({
   }
 
   if (assets.length === 0) {
-    return null;
+    return (
+      <Card className={cn("w-full", className)}>
+        <CardHeader>
+          <h2 className="text-base font-semibold text-foreground">
+            Portfolio Performance vs XLM Benchmark
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            title="No portfolio history yet"
+            description="Once you hold at least one asset, we'll chart your performance against the XLM benchmark here."
+            className="h-48 rounded-xl bg-transparent py-6"
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // #684: assets exist, but there isn't yet enough price history to plot a
+  // meaningful line (e.g. the benchmark feed hasn't returned points yet).
+  // Show a clear explanation instead of a blank chart area.
+  const hasChartableHistory = Boolean(chartData.portfolioPath) && portfolioPoints.length > 0;
+  if (!hasChartableHistory) {
+    return (
+      <Card className={cn("w-full", className)}>
+        <CardHeader>
+          <h2 className="text-base font-semibold text-foreground">
+            Portfolio Performance vs XLM Benchmark
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            title="Not enough history yet"
+            description="We need a bit more price history before we can chart your performance against the XLM benchmark. Check back shortly."
+            className="h-48 rounded-xl bg-transparent py-6"
+          />
+        </CardContent>
+      </Card>
+    );
   }
 
   const outperformance = performanceDelta?.outperformance ?? 0;

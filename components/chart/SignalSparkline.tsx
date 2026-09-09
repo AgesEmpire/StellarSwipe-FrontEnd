@@ -27,6 +27,31 @@ export function SignalSparkline({ data, className }: SignalSparklineProps) {
   const { chartStyle, setChartStyle } = useChartStyleStore();
   const dataSaverEnabled = useDataSaverStore((s) => s.dataSaverEnabled);
 
+  // #684: a line/candlestick chart needs at least two points to show a trend.
+  // Surface a clear, styled explanation instead of silently rendering nothing.
+  if (data.length < 2) {
+    const isEmpty = data.length === 0;
+    return (
+      <div
+        role="status"
+        aria-label={
+          isEmpty
+            ? "No price data is available for this asset yet. Check back once trading activity begins."
+            : "This asset needs a bit more price history before a chart can be shown."
+        }
+        data-testid="chart-unavailable-placeholder"
+        className={cn(
+          "flex h-10 flex-1 items-center justify-center rounded-md border border-dashed border-white/10 bg-white/5 px-2 text-center text-[11px] text-foreground-muted",
+          className
+        )}
+      >
+        <span aria-hidden="true">
+          {isEmpty ? "No chart data yet" : "Not enough history yet"}
+        </span>
+      </div>
+    );
+  }
+
   if (!shouldRenderMiniChart(dataSaverEnabled)) {
     return (
       <div

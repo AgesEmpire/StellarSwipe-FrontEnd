@@ -1,6 +1,7 @@
 "use client";
 
 import type { Signal } from "@/lib/api-types.generated";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface ComparisonChartProps {
   signals: Signal[];
@@ -9,7 +10,15 @@ interface ComparisonChartProps {
 const COLORS = ["#60a5fa", "#34d399", "#f472b6"];
 
 export function ComparisonChart({ signals }: ComparisonChartProps) {
-  if (signals.length === 0) return null;
+  if (signals.length === 0) {
+    return (
+      <EmptyState
+        title="No signals to compare yet"
+        description="Add two or more signals above to see a side-by-side comparison chart."
+        className="rounded-xl bg-transparent py-6"
+      />
+    );
+  }
 
   const metrics = [
     { label: "Confidence", getValue: (s: Signal) => s.confidence },
@@ -28,7 +37,7 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
             key={label}
             role="img"
             aria-label={`${label} by asset: ${signals
-              .map((s, i) => `${s.asset} ${values[i].toFixed(1)}${unit}`)
+              .map((s, i) => `${s.ticker} ${values[i].toFixed(1)}${unit}`)
               .join(", ")}`}
           >
             <p className="text-xs text-gray-400 mb-2" id={`comparison-${label}`}>
@@ -51,8 +60,6 @@ export function ComparisonChart({ signals }: ComparisonChartProps) {
                     </div>
                     <span className="text-xs font-mono text-gray-300 w-12 text-right shrink-0">
                       {val.toFixed(1)}{unit}
-                      {val.toFixed(1)}
-                      {label === "Confidence" ? "%" : ""}
                     </span>
                   </div>
                 );
