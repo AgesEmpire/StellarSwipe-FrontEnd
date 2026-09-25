@@ -4,9 +4,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
 
 export function PortfolioSummaryCards() {
-  const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL } = usePortfolioStore();
+  const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL, isLoading } =
+    usePortfolioStore();
+
+  // Empty state: no assets and not mid-load
+  if (!isLoading && assets.length === 0) {
+    return (
+      <Card className="w-full">
+        <CardContent className="p-0">
+          <PortfolioEmptyState variant="summary" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   const totalPnL = totalRealizedPnL + totalUnrealizedPnL;
   const pnlPercent = totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
@@ -16,7 +29,10 @@ export function PortfolioSummaryCards() {
   const stats = [
     {
       label: "Balance",
-      value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: `$${totalValue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
       icon: Wallet,
       className: "text-sky-400",
     },
@@ -39,7 +55,7 @@ export function PortfolioSummaryCards() {
   return (
     <Card className="w-full">
       <CardContent className="pt-4 pb-3 px-4">
-        <p className="text-xs uppercase tracking-widest text-foreground-muted mb-3">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
           Portfolio snapshot
         </p>
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
@@ -47,10 +63,10 @@ export function PortfolioSummaryCards() {
             <div key={label} className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
                 <Icon size={13} className={cn("shrink-0", className)} aria-hidden="true" />
-                <span className="text-[11px] text-foreground-muted">{label}</span>
+                <span className="text-[11px] text-muted-foreground">{label}</span>
               </div>
               <p className={cn("text-sm font-semibold leading-tight", className)}>{value}</p>
-              {sub && <p className="text-[11px] text-foreground-subtle">{sub}</p>}
+              {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
             </div>
           ))}
         </div>
