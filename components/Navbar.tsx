@@ -94,9 +94,9 @@ function OverflowMenu({ links, currentPath }: OverflowMenuProps) {
         aria-label="More navigation items"
         data-testid="nav-overflow-trigger"
         className={cn(
-          "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+          "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           hasActive
-            ? "text-foreground bg-surface-high/40"
+            ? "bg-surface-high/60 font-medium text-foreground"
             : "text-foreground-muted hover:text-foreground hover:bg-surface-high/40"
         )}
       >
@@ -131,9 +131,9 @@ function OverflowMenu({ links, currentPath }: OverflowMenuProps) {
                 data-testid={`overflow-link-${href.replace(/\//g, "-")}`}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center justify-between px-4 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:bg-surface-high/60",
+                  "flex min-h-11 items-center justify-between px-4 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:bg-surface-high/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary",
                   isActive
-                    ? "text-foreground bg-surface-high/40 font-medium"
+                    ? "bg-surface-high/60 font-medium text-foreground"
                     : "text-foreground-muted hover:text-foreground hover:bg-surface-high/40"
                 )}
                 aria-current={isActive ? "page" : undefined}
@@ -165,6 +165,7 @@ function OverflowMenu({ links, currentPath }: OverflowMenuProps) {
  *
  * Breakpoint logic (approximate link widths ~90px each):
  *  < 600 px  → show 0 links  (mobile — full list hidden, covered by a future mobile drawer)
+ *  < 600 px  → show 3 links + overflow menu
  *  600–800   → show 3 links
  *  800–1024  → show 5 links
  *  ≥ 1024    → show all links
@@ -177,7 +178,7 @@ function useVisibleLinkCount(navRef: React.RefObject<HTMLElement | null>): numbe
     if (!el || typeof ResizeObserver === "undefined") return;
 
     function update(width: number) {
-      if (width < 600) setCount(0);
+      if (width < 600) setCount(3);
       else if (width < 800) setCount(3);
       else if (width < 1024) setCount(5);
       else setCount(NAV_LINKS.length);
@@ -281,7 +282,7 @@ export function Navbar() {
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md"
+            className="flex min-h-11 shrink-0 items-center gap-2 rounded-md px-1 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             aria-label="StellarSwipe home"
           >
             <Zap className="h-5 w-5 text-blue-400" aria-hidden="true" />
@@ -290,12 +291,15 @@ export function Navbar() {
 
           {/* Nav links — visible items + overflow menu */}
           <ul
-            className="hidden sm:flex items-center gap-1"
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             role="list"
             aria-label="Main navigation links"
           >
             {visibleLinks.map(({ href, label, tourId }) => {
               const isActive = pathname === href;
+                            const isActive =
+                              pathname === href ||
+                              (href !== "/" && pathname?.startsWith(`${href}/`));
               return (
                 <li key={href}>
                   <Link
@@ -303,9 +307,9 @@ export function Navbar() {
                     data-tour={tourId}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                      "inline-flex min-h-11 shrink-0 items-center rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       isActive
-                        ? "text-foreground bg-surface-high/40 font-medium"
+                        ? "bg-surface-high/60 font-medium text-foreground"
                         : "text-foreground-muted hover:text-foreground hover:bg-surface-high/40"
                     )}
                   >
@@ -328,8 +332,9 @@ export function Navbar() {
           <div className="flex items-center gap-2">
             {/* Help/shortcuts button */}
             <button
+              type="button"
               onClick={() => setHelpModalOpen(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-foreground-muted hover:text-foreground hover:bg-surface-high/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 group"
+              className="hidden min-h-11 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-foreground-muted transition-colors hover:bg-surface-high/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background group sm:inline-flex"
               aria-label="Keyboard shortcuts (?)"
               title="Keyboard shortcuts (?)"
             >
