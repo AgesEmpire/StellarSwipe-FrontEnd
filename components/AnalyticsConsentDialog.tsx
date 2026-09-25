@@ -76,8 +76,17 @@ export function AnalyticsConsentDialog({
     onOpenChange(false);
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && open) {
+      setAnalyticsEnabled(false);
+      setPendingChoice(null);
+    }
+
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg gap-0 p-0 overflow-hidden">
         <div className="p-6 pb-0">
           <DialogHeader>
@@ -85,19 +94,18 @@ export function AnalyticsConsentDialog({
               <BarChart2 className="h-6 w-6 text-accent-primary" aria-hidden="true" />
             </div>
             <DialogTitle className="text-center text-xl">
-              Help us improve StellarSwipe
+              Help improve StellarSwipe
             </DialogTitle>
             <DialogDescription className="text-center">
-              We&apos;d like to collect anonymous usage data to understand how the app
-              is used and fix issues faster. No personal or wallet data is ever
-              collected.
+              Allow anonymous usage data so we can improve the app and fix
+              issues faster. We never collect personal or wallet data.
             </DialogDescription>
           </DialogHeader>
         </div>
 
         <div className="px-6 py-4">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-            What we collect
+            What analytics includes
           </h3>
           <ul className="space-y-2.5" role="list">
             {DATA_ITEMS.map((item) => (
@@ -125,7 +133,7 @@ export function AnalyticsConsentDialog({
             <span className="font-medium text-foreground">
               Settings → Privacy
             </span>
-            . Opting out stops all tracking immediately.
+            . Declining stops analytics immediately.
           </p>
         </div>
 
@@ -140,7 +148,7 @@ export function AnalyticsConsentDialog({
             )}
           >
             <XCircle className="h-4 w-4" aria-hidden="true" />
-            Decline
+            Decline analytics
           </button>
           <button
             onClick={handleAccept}
@@ -152,7 +160,7 @@ export function AnalyticsConsentDialog({
             )}
           >
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-            Accept analytics
+            Allow analytics
           </button>
         </DialogFooter>
       </DialogContent>
