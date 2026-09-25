@@ -192,8 +192,12 @@ describe("ApiKeyManager – newly generated key reveal", () => {
       fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
     });
 
-    // The one-time banner must show the full token.
+    // The one-time banner shows the full token after a confirmed reveal.
     const banner = await screen.findByRole("alert");
+    // The token is masked until the user confirms the reveal.
+    expect(banner.textContent).not.toContain(FIXED_PLAIN_TOKEN);
+    fireEvent.click(screen.getByRole("button", { name: /^reveal$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm reveal/i }));
     expect(banner.textContent).toContain(FIXED_PLAIN_TOKEN);
 
     // The masked token of the newly created key is also shown in the list.
@@ -213,6 +217,10 @@ describe("ApiKeyManager – newly generated key reveal", () => {
     });
 
     const banner = await screen.findByRole("alert");
+    // The token is masked until the user confirms the reveal.
+    expect(banner.textContent).not.toContain(FIXED_PLAIN_TOKEN);
+    fireEvent.click(screen.getByRole("button", { name: /^reveal$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm reveal/i }));
     expect(banner.textContent).toContain(FIXED_PLAIN_TOKEN);
 
     // Dismiss the one-time banner.
