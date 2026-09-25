@@ -25,16 +25,21 @@ Object.assign(globalThis, {
       : require("worker_threads").MessageChannel,
 });
 
-// Only polyfill if they don't exist natively.
-// Node 18+ has native fetch, Headers, Request, Response!
+// Only polyfill if they don't exist natively (pre-Node-18 environments).
+// Node 18+ has native fetch, Headers, Request, Response.
 if (typeof fetch === "undefined") {
-  const undici = require("undici");
-  Object.assign(globalThis, {
-    fetch: undici.fetch,
-    Headers: undici.Headers,
-    Request: undici.Request,
-    Response: undici.Response,
-  });
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const undici = require("undici");
+    Object.assign(globalThis, {
+      fetch: undici.fetch,
+      Headers: undici.Headers,
+      Request: undici.Request,
+      Response: undici.Response,
+    });
+  } catch {
+    // undici not available — running on Node 18+ which has native fetch
+  }
 }
 
 let server: {

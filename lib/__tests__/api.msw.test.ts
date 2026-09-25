@@ -6,6 +6,8 @@
  *   1. Import { server } from '@/src/mocks/server'
  *   2. server.use(...) inside a test to override the default handler
  *   3. Lifecycle (listen/reset/close) is handled by src/mocks/jest.setup.ts
+ *
+ * @jest-environment node
  */
 
 import { http, HttpResponse } from "msw";
