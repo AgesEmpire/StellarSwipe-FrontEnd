@@ -109,6 +109,7 @@ export const Leaderboard: React.FC = () => {
                   name={entry.anonymous ? "" : entry.username}
                   size={64}
                   quality={imageQuality}
+                  priority={idx < 3}
                   className="border-2 border-primary"
                 />
                 <div className="flex-1">

@@ -42,6 +42,7 @@ function CompactRow({
         name={entry.anonymous ? "" : entry.username}
         size={32}
         quality={imageQuality}
+        priority={rank <= 3}
         className="border border-primary"
       />
 

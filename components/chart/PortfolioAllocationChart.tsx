@@ -7,6 +7,7 @@ import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { PortfolioAllocationChartSkeleton } from "@/components/DashboardWidgetSkeletons";
+import { useChartColors } from "@/lib/chartPalette";
 
 interface PortfolioAllocationChartProps {
   className?: string;
@@ -31,9 +32,19 @@ export function PortfolioAllocationChart({
     }
   }, [assets, selectedSymbol]);
 
+  const chartColors = useChartColors();
+
+  const chartData = useMemo(() => {
+    return assets.map((asset, index) => ({
+      ...asset,
+      color: chartColors.series(index, asset.color),
+      percentage: asset.percentage,
+    }));
+  }, [assets, chartColors]);
+
   const selectedAsset = useMemo(
-    () => assets.find((a) => a.symbol === selectedSymbol) ?? null,
-    [assets, selectedSymbol]
+    () => chartData.find((a) => a.symbol === selectedSymbol) ?? null,
+    [chartData, selectedSymbol]
   );
 
   const toggleSelection = (symbol: string) => {
@@ -41,13 +52,6 @@ export function PortfolioAllocationChart({
   };
 
   const [activeSegment, setActiveSegment] = useState<string | null>(null);
-
-  const chartData = useMemo(() => {
-    return assets.map((asset) => ({
-      ...asset,
-      percentage: asset.percentage,
-    }));
-  }, [assets]);
 
   const arcs = useMemo(() => {
     if (chartData.length === 0) return [];
@@ -292,7 +296,7 @@ export function PortfolioAllocationChart({
         )}
 
         <ul className="mt-4 space-y-2" aria-label="Portfolio allocation breakdown">
-          {assets.map((asset) => (
+          {chartData.map((asset) => (
             <li key={asset.symbol}>
               <button
                 type="button"

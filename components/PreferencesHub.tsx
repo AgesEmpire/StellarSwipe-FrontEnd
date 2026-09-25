@@ -7,6 +7,7 @@ import { AccentColorPicker } from "@/components/AccentColorPicker";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { FeedDensityToggle } from "@/components/FeedDensityToggle";
 import { DataSaverToggle } from "@/components/DataSaverToggle";
+import { SwipeSettings } from "@/components/SwipeSettings";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NotificationManageMenu } from "@/components/NotificationManageMenu";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
@@ -96,6 +97,9 @@ export function PreferencesHub() {
         <div className="border-t border-border pt-4">
           <AccentColorPicker />
         </div>
+        <div className="border-t border-border pt-4">
+          <ChartPaletteRow />
+        </div>
       </PreferencesSection>
 
       <PreferencesSection
@@ -114,6 +118,9 @@ export function PreferencesHub() {
         </div>
         <div className="border-t border-border pt-4">
           <DataSaverToggle />
+        </div>
+        <div className="border-t border-border pt-4">
+          <SwipeSettings />
         </div>
       </PreferencesSection>
 
@@ -164,6 +171,43 @@ export function PreferencesHub() {
       >
         <ReplayOnboardingRow />
       </PreferencesSection>
+    </div>
+  );
+}
+
+function ChartPaletteRow() {
+  const chartPalette = useThemeStore((s) => s.chartPalette);
+  const setChartPalette = useThemeStore((s) => s.setChartPalette);
+  const enabled = chartPalette === "colorblind";
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p id="chart-palette-label" className="text-xs font-medium text-foreground">
+          Color-blind-safe charts
+        </p>
+        <p className="text-xs text-foreground-muted">
+          Uses a palette that stays distinguishable with common color-vision
+          deficiencies.
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-labelledby="chart-palette-label"
+        onClick={() => setChartPalette(enabled ? "default" : "colorblind")}
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+          enabled ? "bg-blue-600" : "bg-foreground/20"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+            enabled ? "translate-x-4" : "translate-x-0.5"
+          }`}
+        />
+      </button>
     </div>
   );
 }

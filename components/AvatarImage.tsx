@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,11 @@ interface AvatarImageProps {
   size?: number;
   /** Additional classes forwarded to the outer container. */
   className?: string;
+  /**
+   * Load eagerly with high fetch priority. Use for above-the-fold artwork;
+   * everything else is lazy-loaded.
+   */
+  priority?: boolean;
   /** next/image quality value (1–100). Defaults to 75. */
   quality?: number;
 }
@@ -37,10 +42,16 @@ export function AvatarImage({
   size = 40,
   className,
   quality = 75,
+  priority = false,
 }: AvatarImageProps) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(
     src ? "loading" : "error"
   );
+
+  // Reset when the artwork URL changes so a new image gets its own placeholder.
+  useEffect(() => {
+    setStatus(src ? "loading" : "error");
+  }, [src]);
 
   const isDecorative = name === "";
   const initials = deriveInitials(name);
@@ -77,6 +88,8 @@ export function AvatarImage({
             "rounded-full object-cover transition-opacity duration-200",
             status === "loaded" ? "opacity-100" : "opacity-0"
           )}
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
           onLoad={() => setStatus("loaded")}
           onError={() => setStatus("error")}
           sizes={`${sizePx}px`}

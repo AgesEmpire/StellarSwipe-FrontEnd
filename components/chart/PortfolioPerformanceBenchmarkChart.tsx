@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { PortfolioPerformanceBenchmarkChartSkeleton } from "@/components/DashboardWidgetSkeletons";
 import { useChartTooltip } from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
+import { useChartColors } from "@/lib/chartPalette";
 
 interface PortfolioPerformanceBenchmarkChartProps {
   className?: string;
@@ -50,6 +51,7 @@ export function PortfolioPerformanceBenchmarkChart({
   const { totalValue, assets, isLoading } = usePortfolioStore();
   const [showBenchmark, setShowBenchmark] = useState(true);
   const [activeSeriesIndex, setActiveSeriesIndex] = useState<0 | 1>(0); // 0=portfolio, 1=benchmark
+  const chartColors = useChartColors();
 
   const xlmHistory = useXLMPriceHistory({ points: 30, interval: "day" });
   const portfolioHistory = useMemo(() => {
@@ -299,7 +301,7 @@ export function PortfolioPerformanceBenchmarkChart({
               <path
                 d={chartData.benchmarkPath}
                 fill="none"
-                stroke="#60a5fa"
+                stroke={chartColors.secondary}
                 strokeWidth={2}
                 strokeDasharray="4 2"
                 strokeLinecap="round"
@@ -311,7 +313,7 @@ export function PortfolioPerformanceBenchmarkChart({
               <path
                 d={chartData.portfolioPath}
                 fill="none"
-                stroke="#22c55e"
+                stroke={chartColors.primary}
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -367,7 +369,7 @@ export function PortfolioPerformanceBenchmarkChart({
                   cx={chartData.portfolioPts[portfolioTooltip.activeIndex].x}
                   cy={chartData.portfolioPts[portfolioTooltip.activeIndex].y}
                   r={4}
-                  fill="#22c55e"
+                  fill={chartColors.primary}
                   stroke="white"
                   strokeWidth={1.5}
                   aria-hidden="true"
@@ -383,7 +385,7 @@ export function PortfolioPerformanceBenchmarkChart({
                   cx={chartData.benchmarkPts[benchmarkTooltip.activeIndex].x}
                   cy={chartData.benchmarkPts[benchmarkTooltip.activeIndex].y}
                   r={4}
-                  fill="#60a5fa"
+                  fill={chartColors.secondary}
                   stroke="white"
                   strokeWidth={1.5}
                   aria-hidden="true"
