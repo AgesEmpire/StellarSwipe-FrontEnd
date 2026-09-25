@@ -1,7 +1,7 @@
 "use client";
 
 import { X, AlertCircle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useComparisonStore, MAX_COMPARISON } from "@/store/useComparisonStore";
@@ -9,6 +9,7 @@ import { useComparisonStore, MAX_COMPARISON } from "@/store/useComparisonStore";
 export function ComparisonTray() {
   const { signals, limitReached, removeSignal, clearAll, dismissLimitMessage } =
     useComparisonStore();
+  const prefersReducedMotion = useReducedMotion();
 
   // Don't render the tray at all when there's nothing to show
   if (signals.length === 0 && !limitReached) {
@@ -35,7 +36,7 @@ export function ComparisonTray() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
             role="alert"
             aria-live="assertive"
             className={cn(
@@ -70,7 +71,7 @@ export function ComparisonTray() {
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
-              transition={{ duration: 0.15 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
               className={cn(
                 "flex items-center gap-1.5 rounded-full",
                 "bg-secondary text-secondary-foreground",
