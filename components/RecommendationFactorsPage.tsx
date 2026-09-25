@@ -2,10 +2,13 @@
 
 import { RECOMMENDATION_FACTORS } from "@/services/recommendationEngine";
 import { useRecommendationStore } from "@/store/useRecommendationStore";
-import { Info } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Info } from "lucide-react";
+import { RecommendationFactorDrawer } from "@/components/RecommendationFactorDrawer";
 
 export function RecommendationFactorsPage() {
   const { settings } = useRecommendationStore();
+  const [openFactorId, setOpenFactorId] = useState<string | null>(null);
 
   return (
     <section className="space-y-5 max-w-lg">
@@ -21,22 +24,39 @@ export function RecommendationFactorsPage() {
 
       <ul className="space-y-3" aria-label="Recommendation factors">
         {RECOMMENDATION_FACTORS.map((factor) => (
-          <li
-            key={factor.id}
-            className="rounded-lg border bg-card p-3 space-y-1"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium">{factor.label}</span>
-              <span className="shrink-0 text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                {factor.weight}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {factor.description}
-            </p>
+          <li key={factor.id}>
+            <button
+              type="button"
+              onClick={() => setOpenFactorId(factor.id)}
+              aria-haspopup="dialog"
+              className="w-full rounded-lg border bg-card p-3 space-y-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">{factor.label}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                    {factor.weight}
+                  </span>
+                  <ChevronRight
+                    size={14}
+                    className="text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {factor.description}
+              </p>
+            </button>
           </li>
         ))}
       </ul>
+
+      <RecommendationFactorDrawer
+        factorId={openFactorId}
+        riskProfile={settings.riskProfile}
+        onClose={() => setOpenFactorId(null)}
+      />
 
       <div className="flex gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-muted-foreground">
         <Info

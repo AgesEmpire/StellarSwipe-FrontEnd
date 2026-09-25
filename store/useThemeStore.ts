@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 type Theme = "dark" | "light";
+export type ChartPalette = "default" | "colorblind";
 
 /** Default accent color applied to --color-accent CSS custom property */
 export const DEFAULT_ACCENT_COLOR = "#3b82f6";
@@ -11,11 +12,13 @@ export const DEFAULT_ACCENT_COLOR = "#3b82f6";
 interface ThemeState {
   theme: Theme;
   accentColor: string;
+  chartPalette: ChartPalette;
   _hasHydrated: boolean;
   setHasHydrated: (hydrated: boolean) => void;
   setTheme: (theme: Theme) => void;
   toggle: () => void;
   setAccentColor: (color: string) => void;
+  setChartPalette: (palette: ChartPalette) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -25,11 +28,13 @@ export const useThemeStore = create<ThemeState>()(
       // this at paint time based on the persisted value or system preference.
       theme: "dark",
       accentColor: DEFAULT_ACCENT_COLOR,
+      chartPalette: "default",
       _hasHydrated: false,
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
       setTheme: (theme) => set({ theme }),
       toggle: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
       setAccentColor: (color) => set({ accentColor: color }),
+      setChartPalette: (chartPalette) => set({ chartPalette }),
     }),
     {
       name: "stellar-theme",

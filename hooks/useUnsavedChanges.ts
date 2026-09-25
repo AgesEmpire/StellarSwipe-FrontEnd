@@ -53,9 +53,9 @@ export interface UseUnsavedChangesReturn {
  * Behaviour:
  * - When `isDirty` is true and the user tries to close/refresh the tab,
  *   the browser's native `beforeunload` dialog fires.
- * - For in-app link clicks the caller decides how to intercept (typically
- *   using `confirmNavigation` or the `onNavigateAway` callback to show a
- *   custom dialog).
+ * - In-app link clicks are intercepted while dirty: `onNavigateAway` is
+ *   called if provided, otherwise a native confirm lets the user stay or
+ *   leave. Programmatic navigation should go through `confirmNavigation`.
  * - When `isDirty` is false no warnings are shown — clean forms and
  *   post-save navigations are never interrupted.
  *
@@ -95,6 +95,11 @@ export function useUnsavedChanges({
   // Used by markSaved() and forceNavigate() to bypass the guard.
   const bypassRef = useRef(false);
 
+  const messageRef = useRef(message);
+  messageRef.current = message;
+  const onNavigateAwayRef = useRef(onNavigateAway);
+  onNavigateAwayRef.current = onNavigateAway;
+
   // ── Browser/tab exit guard ──────────────────────────────────────────
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -108,6 +113,47 @@ export function useUnsavedChanges({
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [message]);
+
+  // ── In-app link guard ───────────────────────────────────────────────
+  // Intercepts same-origin <a> clicks (including Next.js <Link>) while dirty
+  // so client-side navigation is guarded just like a refresh or tab close.
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (!isDirtyRef.current || bypassRef.current) return;
+      if (e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+      const anchor = (e.target as Element | null)?.closest?.("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target && anchor.target !== "_self") return;
+      if (anchor.hasAttribute("download")) return;
+
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (
+        url.pathname === window.location.pathname &&
+        url.search === window.location.search
+      ) {
+        return; // hash-only / same-page link
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      const href = url.pathname + url.search + url.hash;
+
+      if (onNavigateAwayRef.current) {
+        onNavigateAwayRef.current(href);
+        return;
+      }
+      if (window.confirm(messageRef.current)) {
+        bypassRef.current = true;
+        router.push(href);
+      }
+    };
+
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [router]);
 
   // ── markSaved ──────────────────────────────────────────────────────
   const markSaved = useCallback(() => {
