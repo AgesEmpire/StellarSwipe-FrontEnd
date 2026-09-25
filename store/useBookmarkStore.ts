@@ -114,3 +114,35 @@ export const useBookmarkStore = create<BookmarkState>()(
 /** Returns `true` once localStorage has been read and state is stable. */
 export const useBookmarkHydrated = () =>
   useBookmarkStore((s) => s._hasHydrated);
+
+// ── Optimistic sync bookkeeping ─────────────────────────────────────
+// Rapid toggles fire overlapping requests; only the latest one per signal
+// may settle the UI, and a failure rolls back to the last server-confirmed
+// state rather than whatever the stale optimistic value was.
+const latestRequest = new Map<string, number>();
+const confirmedState = new Map<string, boolean>();
+
+/** Registers a new sync request for `id` and returns its sequence number. */
+export function beginBookmarkRequest(id: string): number {
+  const seq = (latestRequest.get(id) ?? 0) + 1;
+  latestRequest.set(id, seq);
+  return seq;
+}
+
+/**
+ * Records a request outcome. Returns `false` when a newer request for the
+ * same signal is in flight (`isLatest: false`, caller should do nothing).
+ * On failure, `restoreTo` is the bookmarked state to roll back to.
+ */
+export function settleBookmarkRequest(
+  id: string,
+  seq: number,
+  outcome: { ok: boolean; target: boolean; prior: boolean }
+): { isLatest: boolean; restoreTo: boolean } {
+  if (outcome.ok) confirmedState.set(id, outcome.target);
+  const isLatest = latestRequest.get(id) === seq;
+  return {
+    isLatest,
+    restoreTo: confirmedState.get(id) ?? outcome.prior,
+  };
+}

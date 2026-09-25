@@ -211,13 +211,9 @@ function LeaderboardPageInner() {
       className={`flex items-center gap-1 hover:text-foreground transition-colors ${
         sortField === field ? "text-foreground" : "text-muted-foreground"
       } ${className}`}
-      aria-label={`Sort by ${label}: ${
-        sortField === field
-          ? sortDirection === "asc"
-            ? "ascending"
-            : "descending"
-          : "not sorted"
-      }`}
+      type="button"
+      // Current sort state is exposed via aria-sort on the parent <th>.
+      aria-label={`Sort by ${label}`}
     >
       {label}
       {sortField === field &&
@@ -396,6 +392,10 @@ function LeaderboardPageInner() {
         )}
 
         <div className="w-full overflow-x-auto rounded-lg border bg-card">
+          <p id="leaderboard-row-hint" className="sr-only">
+            Press Enter to view the provider profile, C to copy the address, and
+            arrow keys to move between rows.
+          </p>
           <table className="w-full text-sm">
             <caption className="sr-only">
               Signal provider leaderboard for the {activeSortLabel.toLowerCase()} range,
@@ -409,12 +409,15 @@ function LeaderboardPageInner() {
                   <th
                     key={col.key}
                     scope="col"
+                    // Only sortable columns carry aria-sort.
                     aria-sort={
-                      col.sortField === sortField
-                        ? sortDirection === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : "none"
+                      !col.sortField
+                        ? undefined
+                        : col.sortField === sortField
+                          ? sortDirection === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
                     }
                     className={cn(
                       "px-4 py-3 font-semibold text-foreground bg-muted/50",
@@ -446,8 +449,10 @@ function LeaderboardPageInner() {
                   key={provider.id}
                   className="border-b hover:bg-muted/30 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   onClick={() => router.push(`/provider/${provider.id}`)}
-                  role="link"
+                  // Keep native row semantics so cells stay associated with
+                  // their column headers; the hint is announced as a description.
                   tabIndex={0}
+                  aria-describedby="leaderboard-row-hint"
                   onKeyDown={(e) => {
                     // Never hijack keystrokes meant for a focused form field.
                     const tag = (e.target as HTMLElement).tagName;
@@ -478,14 +483,17 @@ function LeaderboardPageInner() {
                       next?.focus();
                     }
                   }}
-                  aria-label={`View profile for ${provider.name || provider.address}. Press C to copy address, arrow keys to move between rows.`}
                 >
-
-                  {COLUMNS.map((col) => (
-                    <td
+                  {COLUMNS.map((col) => {
+                    // The provider cell names the row for assistive tech.
+                    const Cell = col.key === "provider" ? "th" : "td";
+                    return (
+                    <Cell
                       key={col.key}
+                      scope={col.key === "provider" ? "row" : undefined}
                       className={cn(
                         "px-4 py-3 bg-card",
+                        col.key === "provider" && "font-normal",
                         col.align === "right" ? "text-right" : "text-left",
                         col.key === "rank" && "font-semibold text-foreground",
                         col.key === "overallScore" &&
@@ -499,8 +507,9 @@ function LeaderboardPageInner() {
                       style={cellStyle(col.key)}
                     >
                       {renderCell(col.key, provider, truncateAddress)}
-                    </td>
-                  ))}
+                    </Cell>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

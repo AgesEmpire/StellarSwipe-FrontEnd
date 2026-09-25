@@ -19,7 +19,11 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "@/lib/toast";
-import { useBookmarkStore } from "@/store/useBookmarkStore";
+import {
+  beginBookmarkRequest,
+  settleBookmarkRequest,
+  useBookmarkStore,
+} from "@/store/useBookmarkStore";
 import { useSnoozeStore } from "@/store/useSnoozeStore";
 import { saveBookmark, removeBookmark as removeBookmarkApi } from "@/lib/bookmarkApi";
 
@@ -60,6 +64,7 @@ export function useQuickActions() {
   const toggleBookmark = useCallback(
     async (signalId: string, label: string) => {
       const isBookmarked = hasBookmark(signalId);
+      const seq = beginBookmarkRequest(signalId);
 
       // Optimistic: toggle immediately
       if (isBookmarked) {
@@ -80,6 +85,12 @@ export function useQuickActions() {
         } else {
           await saveBookmark(signalId);
         }
+        const { isLatest } = settleBookmarkRequest(signalId, seq, {
+          ok: true,
+          target: !isBookmarked,
+          prior: isBookmarked,
+        });
+        if (!isLatest) return;
         setState((prev) => ({ ...prev, pendingAction: null }));
         toast.success(isBookmarked ? "Bookmark removed" : "Bookmarked", {
           description: isBookmarked
@@ -88,8 +99,15 @@ export function useQuickActions() {
           duration: 2500,
         });
       } catch (err) {
-        // Rollback: revert the optimistic toggle
-        if (isBookmarked) {
+        const { isLatest, restoreTo } = settleBookmarkRequest(signalId, seq, {
+          ok: false,
+          target: !isBookmarked,
+          prior: isBookmarked,
+        });
+        // A newer toggle supersedes this one; let it settle the UI.
+        if (!isLatest) return;
+        // Rollback to the last server-confirmed state
+        if (restoreTo) {
           addBookmark(signalId);
         } else {
           removeBookmark(signalId);
