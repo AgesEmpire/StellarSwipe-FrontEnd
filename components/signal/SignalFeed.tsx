@@ -29,6 +29,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { fetchSignals } from "@/lib/api";
 import { queryOptions } from "@/lib/queryOptions";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useFilterUrlSync } from "@/hooks/useFilterUrlSync";
 import {
   readPersistedSplitRatio,
   persistSplitRatio,
@@ -59,6 +60,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   const feedRef = useRef<HTMLDivElement | null>(null);
   const parentRef = useRef<HTMLDivElement | null>(null);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // #727: keep filters in sync with shareable URL parameters
+  useFilterUrlSync();
 
   // #99: provider search state (persisted in filter store)
   const { direction, asset, provider, bookmarkedOnly, sortOrder, setProvider } =
@@ -128,6 +132,11 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     () => data?.pages.flatMap((page) => page.items) ?? [],
     [data]
   );
+
+  // Reflect external provider changes (URL restore, back/forward, reset).
+  useEffect(() => {
+    setProviderSearch((current) => (current === provider ? current : provider));
+  }, [provider]);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(providerSearch), 150);

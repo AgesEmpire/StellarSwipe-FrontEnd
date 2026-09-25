@@ -2,7 +2,11 @@
 
 import { useCallback } from "react";
 import { toast } from "@/lib/toast";
-import { useBookmarkStore } from "@/store/useBookmarkStore";
+import {
+  beginBookmarkRequest,
+  settleBookmarkRequest,
+  useBookmarkStore,
+} from "@/store/useBookmarkStore";
 import { saveBookmark, removeBookmark as removeBookmarkApi } from "@/lib/bookmarkApi";
 
 function showUndoToast({
@@ -47,20 +51,35 @@ export function useBookmarkActions() {
    */
   const bookmark = useCallback(
     async (id: string) => {
+      const prior = useBookmarkStore.getState().hasBookmark(id);
+      const seq = beginBookmarkRequest(id);
       storeAddBookmark(id);
 
       try {
         await saveBookmark(id);
+        const settled = settleBookmarkRequest(id, seq, {
+          ok: true,
+          target: true,
+          prior,
+        });
+        if (!settled.isLatest) return;
         toast.success("Bookmarked", {
           description: "Saved to your bookmark list.",
           duration: 2500,
         });
       } catch (err) {
-        // Rollback: remove the bookmark we just added
-        storeRemoveBookmark(id);
+        const { isLatest, restoreTo } = settleBookmarkRequest(id, seq, {
+          ok: false,
+          target: true,
+          prior,
+        });
+        // A newer toggle supersedes this one; let it settle the UI.
+        if (!isLatest) return;
+        // Rollback to the last server-confirmed state
+        if (!restoreTo) storeRemoveBookmark(id);
         const message =
           err instanceof Error ? err.message : "Failed to sync bookmark.";
-        toast.error("Sync delayed", {
+        toast.error("Couldn't save bookmark", {
           description: message,
           duration: 4000,
         });
@@ -75,6 +94,8 @@ export function useBookmarkActions() {
    */
   const unbookmark = useCallback(
     async (id: string, label: string) => {
+      const prior = useBookmarkStore.getState().hasBookmark(id);
+      const seq = beginBookmarkRequest(id);
       storeRemoveBookmark(id);
 
       const toastId = showUndoToast({
@@ -91,12 +112,19 @@ export function useBookmarkActions() {
 
       try {
         await removeBookmarkApi(id);
+        settleBookmarkRequest(id, seq, { ok: true, target: false, prior });
       } catch (err) {
-        // Rollback on sync failure
-        storeAddBookmark(id);
+        const { isLatest, restoreTo } = settleBookmarkRequest(id, seq, {
+          ok: false,
+          target: false,
+          prior,
+        });
+        if (!isLatest) return toastId;
+        // Rollback to the last server-confirmed state
+        if (restoreTo) storeAddBookmark(id);
         const message =
           err instanceof Error ? err.message : "Failed to sync bookmark removal.";
-        toast.error("Sync delayed", {
+        toast.error("Couldn't remove bookmark", {
           description: message,
           duration: 4000,
         });

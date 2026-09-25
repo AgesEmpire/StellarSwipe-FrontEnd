@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
 
@@ -31,6 +32,18 @@ export function RouteErrorFallback({
   parentLabel,
 }: RouteErrorFallbackProps) {
   const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, startRetry] = useTransition();
+  const router = useRouter();
+
+  const handleRetry = () => {
+    if (isRetrying) return;
+    setRetryCount((count) => count + 1);
+    // Re-fetch server data for this segment, then re-render it.
+    startRetry(() => {
+      router.refresh();
+      reset();
+    });
+  };
 
   useEffect(() => {
     Sentry.withScope((scope) => {
@@ -43,7 +56,11 @@ export function RouteErrorFallback({
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-accent-danger/30 bg-accent-danger/10 p-6 text-center shadow-lg">
+      <div
+        role="alert"
+        aria-live="assertive"
+        className="w-full max-w-md rounded-2xl border border-accent-danger/30 bg-accent-danger/10 p-6 text-center shadow-lg"
+      >
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent-danger/20">
           <AlertTriangle className="h-8 w-8 text-accent-danger" aria-hidden="true" />
         </div>
@@ -65,14 +82,17 @@ export function RouteErrorFallback({
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
-            onClick={() => {
-              setRetryCount((count) => count + 1);
-              reset();
-            }}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            type="button"
+            onClick={handleRetry}
+            disabled={isRetrying}
+            aria-busy={isRetrying}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            Try Again
+            <RefreshCw
+              className={`h-4 w-4${isRetrying ? " animate-spin" : ""}`}
+              aria-hidden="true"
+            />
+            {isRetrying ? "Retrying…" : "Try Again"}
           </button>
 
           <Link
