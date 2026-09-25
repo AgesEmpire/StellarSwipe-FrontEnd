@@ -36,6 +36,7 @@ import {
   clampSplitRatio,
   computeSplitRatioFromClientX,
 } from "@/lib/splitView";
+import { deriveSignalFeedLoading, buildShimmerDelays } from "@/lib/signalFeedLoading";
 
 interface SignalResponse {
   items: Signal[];
@@ -87,6 +88,19 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   const [isDesktop, setIsDesktop] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
+
+  // Calculate viewport count for skeleton rendering (based on container height / estimated row height)
+  const [viewportCount, setViewportCount] = useState(3);
+  const [feedHeight, setFeedHeight] = useState(0);
+
+  useEffect(() => {
+    const container = parentRef.current;
+    if (!container) return;
+    const height = container.clientHeight;
+    setFeedHeight(height);
+    const rowHeight = density === "compact" ? 180 : 280;
+    setViewportCount(Math.max(1, Math.ceil(height / rowHeight)));
+  }, [density]);
 
   const {
     data,
@@ -233,6 +247,23 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   const selectedSignal = useMemo(
     () => signals.find((signal) => signal.id === selectedSignalId) ?? null,
     [signals, selectedSignalId]
+  );
+
+  const feedLoadingState = useMemo(
+    () =>
+      deriveSignalFeedLoading({
+        itemCount: allSignals.length,
+        isInitialLoading: isLoading,
+        isFetchingNextPage,
+        hasNextPage: !!hasNextPage,
+        viewportCount,
+      }),
+    [allSignals.length, isLoading, isFetchingNextPage, hasNextPage, viewportCount]
+  );
+
+  const shimmerDelays = useMemo(
+    () => buildShimmerDelays(feedLoadingState.skeletonCount),
+    [feedLoadingState.skeletonCount]
   );
 
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
@@ -483,9 +514,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             aria-live="polite"
             aria-atomic="true"
           >
-            {isFetching && !allSignals.length
+            {feedLoadingState.ariaBusy && !allSignals.length
               ? "Loading signals..."
-              : isFetching
+              : feedLoadingState.ariaBusy
               ? "Refreshing..."
               : "Scroll down to load more."}
           </div>
@@ -602,7 +633,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             }}
             className="max-h-[70vh] overflow-auto"
             role="feed"
-            aria-busy={isLoading}
+            aria-busy={feedLoadingState.ariaBusy}
             aria-label="Signal list"
             onKeyDown={(e) => {
               if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -621,7 +652,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
               next?.focus();
             }}
           >
-            {isLoading ? (
+            {feedLoadingState.showInitialSkeletons ? (
               <div
                 className="space-y-4"
                 role="status"
@@ -629,8 +660,12 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                 aria-live="polite"
               >
                 <span className="sr-only">Loading signal feed…</span>
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <SignalCardSkeleton key={index} />
+                {shimmerDelays.map((delay, index) => (
+                  <SignalCardSkeleton
+                    key={index}
+                    density={density}
+                    animationDelay={delay}
+                  />
                 ))}
               </div>
             ) : isError && signals.length === 0 ? (
@@ -783,9 +818,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
               />
             )}
 
-            {!isLoading && isFetchingNextPage && (
-              <div aria-hidden="true">
-                <SignalCardSkeleton />
+            {feedLoadingState.showPaginationSkeleton && (
+              <div aria-hidden="true" className="mt-4">
+                <SignalCardSkeleton density={density} />
               </div>
             )}
           </div>
