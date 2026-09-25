@@ -7,11 +7,13 @@ interface OnboardingState {
   completed: boolean;
   dismissed: boolean;
   currentStep: number;
+  checklistDismissed: boolean;
   _hasHydrated: boolean;
   setHasHydrated: (hydrated: boolean) => void;
   setCompleted: () => void;
   setDismissed: () => void;
   setCurrentStep: (step: number) => void;
+  setChecklistDismissed: (dismissed: boolean) => void;
   reset: () => void;
 }
 
@@ -21,6 +23,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       completed: false,
       dismissed: false,
       currentStep: 0,
+      checklistDismissed: false,
       _hasHydrated: false,
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
       setCompleted: () =>
@@ -31,6 +34,8 @@ export const useOnboardingStore = create<OnboardingState>()(
         }),
       setDismissed: () => set({ dismissed: true }),
       setCurrentStep: (step: number) => set({ currentStep: step }),
+      setChecklistDismissed: (dismissed) =>
+        set({ checklistDismissed: dismissed }),
       reset: () => set({ completed: false, dismissed: false, currentStep: 0 }),
     }),
     {

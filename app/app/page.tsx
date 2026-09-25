@@ -26,6 +26,7 @@ import { PnLWidget } from "@/components/chart/PnLWidget";
 import { ResizableSplit } from "@/components/ResizableSplit";
 import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatus";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { DashboardWidgets } from "@/components/DashboardWidgets";
 
 export default function AppPage() {
@@ -100,6 +101,10 @@ export default function AppPage() {
             <WalletDropdown />
           </div>
         </header>
+
+        <div className="mx-auto mb-4 w-full max-w-7xl">
+          <OnboardingChecklist />
+        </div>
 
         <div className="mx-auto mb-4 w-full max-w-7xl">
           <OnChainConfirmationStatus

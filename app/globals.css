@@ -1045,3 +1045,57 @@
 [dir="rtl"] ::-webkit-scrollbar {
   left: auto;
 }
+
+/* Print styles for report and performance views (#731). */
+[data-print-only] {
+  display: none;
+}
+
+@media print {
+  /* Keep headings attached to the content that follows them */
+  h1, h2, h3, h4, h5, h6,
+  caption,
+  thead {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  /* Repeat table headers on each page and avoid splitting rows or cards */
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  figure,
+  section > header,
+  [data-print-keep-together] {
+    break-inside: avoid;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    border: 1px solid #999999 !important;
+    padding: 4px 6px !important;
+  }
+
+  /* Interactive charts are replaced by their text/table alternatives */
+  canvas,
+  [data-print-chart] {
+    display: none !important;
+  }
+
+  [data-print-only] {
+    display: block !important;
+  }
+
+  /* Let wide report containers flow instead of clipping */
+  [class*="overflow-x-auto"],
+  [class*="overflow-auto"] {
+    overflow: visible !important;
+  }
+}
