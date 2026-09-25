@@ -10,6 +10,8 @@ export interface BookmarkFolder {
 interface BookmarkState {
   bookmarks: string[];
   folders: BookmarkFolder[];
+  /** Tags keyed by signal id. */
+  tags: Record<string, string[]>;
   _hasHydrated: boolean;
   setHasHydrated: (hydrated: boolean) => void;
   hasBookmark: (id: string) => boolean;
@@ -25,6 +27,8 @@ interface BookmarkState {
   removeSignalFromFolder: (signalId: string, folderId: string) => void;
   getSignalsByFolder: (folderId: string) => string[];
   getFoldersForSignal: (signalId: string) => BookmarkFolder[];
+  addTagToSignals: (tag: string, signalIds: string[]) => void;
+  removeTagFromSignals: (tag: string, signalIds: string[]) => void;
 }
 
 let folderCounter = 0;
@@ -34,6 +38,7 @@ export const useBookmarkStore = create<BookmarkState>()(
     (set, get) => ({
       bookmarks: [],
       folders: [],
+      tags: {},
       _hasHydrated: false,
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
       hasBookmark: (id: string) => get().bookmarks.includes(id),
@@ -50,6 +55,9 @@ export const useBookmarkStore = create<BookmarkState>()(
             ...f,
             signalIds: f.signalIds.filter((sid) => sid !== id),
           })),
+          tags: Object.fromEntries(
+            Object.entries(state.tags).filter(([sid]) => sid !== id)
+          ),
         })),
       toggleBookmark: (id: string) =>
         set((state) => ({
@@ -58,7 +66,7 @@ export const useBookmarkStore = create<BookmarkState>()(
             : [...state.bookmarks, id],
         })),
       setBookmarks: (ids: string[]) => set({ bookmarks: [...new Set(ids)] }),
-      clearBookmarks: () => set({ bookmarks: [], folders: [] }),
+      clearBookmarks: () => set({ bookmarks: [], folders: [], tags: {} }),
       createFolder: (name: string) => {
         const id = `folder-${++folderCounter}-${Date.now()}`;
         set((state) => ({
@@ -101,6 +109,25 @@ export const useBookmarkStore = create<BookmarkState>()(
       },
       getFoldersForSignal: (signalId: string) =>
         get().folders.filter((f) => f.signalIds.includes(signalId)),
+      addTagToSignals: (tag: string, signalIds: string[]) =>
+        set((state) => {
+          const tags = { ...state.tags };
+          signalIds.forEach((id) => {
+            const current = tags[id] ?? [];
+            if (!current.includes(tag)) tags[id] = [...current, tag];
+          });
+          return { tags };
+        }),
+      removeTagFromSignals: (tag: string, signalIds: string[]) =>
+        set((state) => {
+          const tags = { ...state.tags };
+          signalIds.forEach((id) => {
+            const next = (tags[id] ?? []).filter((t) => t !== tag);
+            if (next.length) tags[id] = next;
+            else delete tags[id];
+          });
+          return { tags };
+        }),
     }),
     {
       name: "signal-bookmarks",

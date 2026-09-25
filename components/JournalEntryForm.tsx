@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
 import { journalEntrySchema, type JournalEntry } from "@/lib/journalSchema";
 import { createJournalEntry, updateJournalEntry } from "@/lib/journalApi";
@@ -10,6 +10,44 @@ import { Plus, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useSubmitGuard } from "@/hooks/useSubmitGuard";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+
+type AutosaveStatus = "idle" | "saving" | "saved" | "offline" | "failed";
+
+interface JournalDraft {
+  data: Partial<JournalEntry>;
+  savedAt: number;
+}
+
+const DRAFT_PREFIX = "journal-draft:";
+const AUTOSAVE_DELAY_MS = 800;
+
+function readDraft(key: string): JournalDraft | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as JournalDraft;
+    return draft && typeof draft === "object" && draft.data ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Storage unavailable — nothing to clear.
+  }
+}
+
+const AUTOSAVE_MESSAGES: Record<AutosaveStatus, string> = {
+  idle: "",
+  saving: "Saving draft…",
+  saved: "Draft saved on this device",
+  offline: "Offline — edits are kept on this device",
+  failed: "Save failed — your edits are still here",
+};
 
 interface JournalEntryFormProps {
   /** If provided, the form opens in edit mode for this entry. */
@@ -58,6 +96,14 @@ export function JournalEntryForm({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // ── Autosave & recovery ────────────────────────────────────────────
+  const draftKey = `${DRAFT_PREFIX}${editEntry?.id ?? "new"}`;
+  const { isOffline } = useNetworkStatus();
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
+  const [recoverableDraft, setRecoverableDraft] = useState<JournalDraft | null>(null);
+  const [draftChecked, setDraftChecked] = useState(false);
+  const initialDataRef = useRef<string | null>(null);
   // True once the user has attempted to submit, so the validation summary
   // only appears after a failed submit — never on first render.
   const [submitted, setSubmitted] = useState(false);
@@ -86,6 +132,61 @@ export function JournalEntryForm({
     message: "Your journal entry has unsaved changes. Leave anyway?",
   });
 
+  // Offer recovery of an interrupted draft whenever the editor opens.
+  const editorOpen = isOpen || isEditing;
+  useEffect(() => {
+    if (!editorOpen) {
+      setDraftChecked(false);
+      return;
+    }
+    initialDataRef.current = JSON.stringify(formDataRef.current);
+    const draft = readDraft(draftKey);
+    setRecoverableDraft(
+      draft && JSON.stringify(draft.data) !== initialDataRef.current ? draft : null
+    );
+    setDraftChecked(true);
+  }, [editorOpen, draftKey]);
+
+  const persistDraft = useCallback(() => {
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({ data: formDataRef.current, savedAt: Date.now() })
+      );
+      setAutosaveStatus(navigator.onLine ? "saved" : "offline");
+    } catch {
+      setAutosaveStatus("failed");
+    }
+  }, [draftKey]);
+
+  // Debounced autosave of local edits. Paused until the user has answered
+  // the recovery prompt so an old draft is never silently overwritten.
+  useEffect(() => {
+    if (!editorOpen || !draftChecked || recoverableDraft) return;
+    if (JSON.stringify(formData) === initialDataRef.current) return;
+    setAutosaveStatus("saving");
+    const timer = setTimeout(persistDraft, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [formData, editorOpen, draftChecked, recoverableDraft, persistDraft]);
+
+  useEffect(() => {
+    if (isOffline && autosaveStatus === "saved") setAutosaveStatus("offline");
+    if (!isOffline && autosaveStatus === "offline") setAutosaveStatus("saved");
+  }, [isOffline, autosaveStatus]);
+
+  const restoreDraft = useCallback(() => {
+    if (!recoverableDraft) return;
+    setFormData(recoverableDraft.data);
+    setIsDirty(true);
+    setRecoverableDraft(null);
+    setAutosaveStatus("saved");
+  }, [recoverableDraft]);
+
+  const discardDraft = useCallback(() => {
+    clearDraft(draftKey);
+    setRecoverableDraft(null);
+  }, [draftKey]);
+
   const resetForm = useCallback(() => {
     setFormData({
       date: new Date().toISOString().split("T")[0],
@@ -97,7 +198,10 @@ export function JournalEntryForm({
     setSubmitted(false);
     setSubmitError(null);
     setIsDirty(false);
-  }, []);
+    setAutosaveStatus("idle");
+    setRecoverableDraft(null);
+    clearDraft(draftKey);
+  }, [draftKey]);
 
   // ------------------------------------------------------------------
   // Core submission logic (extracted so retry does not reuse events)
@@ -201,6 +305,7 @@ export function JournalEntryForm({
         store.getState().removeTransaction(tempId);
         store.getState().addTransaction(serverEntry);
         store.getState().clearPending(tempId);
+        clearDraft(draftKey);
         toast.success("Transaction added to journal", {
           description: `${data.assetPair} — ${data.amount} ${data.token}`,
           duration: 2500,
@@ -211,6 +316,7 @@ export function JournalEntryForm({
         const message =
           err instanceof Error ? err.message : "Failed to save entry.";
         setSubmitError(message);
+        setAutosaveStatus("failed");
         toast.error("Save failed", {
           description: message,
           duration: 4000,
@@ -225,7 +331,7 @@ export function JournalEntryForm({
         throw err; // re-throw so guard can record the failure
       }
     },
-    [store]
+    [store, draftKey]
   );
 
   /** Optimistic edit: update locally → call API → rollback on failure. */
@@ -250,6 +356,8 @@ export function JournalEntryForm({
       try {
         await updateJournalEntry(entry.id, patch);
         store.getState().clearPending(entry.id);
+        clearDraft(draftKey);
+        setAutosaveStatus("idle");
         toast.success("Journal entry updated", {
           description: `${data.assetPair} — changes saved.`,
           duration: 2500,
@@ -261,6 +369,7 @@ export function JournalEntryForm({
         const message =
           err instanceof Error ? err.message : "Failed to save changes.";
         setSubmitError(message);
+        setAutosaveStatus("failed");
         toast.error("Update failed", {
           description: message,
           duration: 4000,
@@ -275,7 +384,7 @@ export function JournalEntryForm({
         throw err; // re-throw so guard can record the failure
       }
     },
-    [store, onEditComplete]
+    [store, onEditComplete, draftKey]
   );
 
   // ── Event handler — guarded so Enter-key and button-click share the same lock
@@ -283,6 +392,7 @@ export function JournalEntryForm({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setSubmitError(null);
+      if (autosaveStatus === "failed") setAutosaveStatus("saving");
       setSubmitted(true);
 
       const data = validateCurrentForm();
@@ -298,7 +408,7 @@ export function JournalEntryForm({
         }
       });
     },
-    [validateCurrentForm, isEditing, editEntry, submitEditEntry, submitCreateEntry, resetForm, guard]
+    [validateCurrentForm, isEditing, editEntry, submitEditEntry, submitCreateEntry, resetForm, guard, autosaveStatus]
   );
 
   // ── Render ──────────────────────────────────────────────────────────
@@ -314,7 +424,19 @@ export function JournalEntryForm({
   const showForm = isOpen || isEditing;
   if (!showForm) return null;
 
-  const handleCancel = isEditing ? onEditCancel : () => { setIsOpen(false); resetForm(); };
+  const handleCancel = isEditing
+    ? () => { clearDraft(draftKey); onEditCancel?.(); }
+    : () => { setIsOpen(false); resetForm(); };
+
+  // Retry re-submits the current (unchanged) form state, so local edits
+  // are never discarded by a failed save.
+  const retrySave = () => {
+    if (submitError) {
+      (document.getElementById("journal-entry-form") as HTMLFormElement | null)?.requestSubmit();
+    } else {
+      persistDraft();
+    }
+  };
 
   return (
     <div className="rounded-3xl border border-white/10 bg-slate-900/50 p-6 pb-24 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300 sm:pb-6">
@@ -324,7 +446,7 @@ export function JournalEntryForm({
         </h3>
         <div className="flex items-center gap-2">
           {isEditing && (
-            <Button variant="ghost" size="sm" onClick={onEditCancel} disabled={isSubmitting}>
+            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
           )}
@@ -335,6 +457,44 @@ export function JournalEntryForm({
           )}
         </div>
       </div>
+
+      <div className="mb-4 flex min-h-6 items-center gap-2 text-xs text-slate-400">
+        <span role="status" aria-live="polite" data-testid="journal-autosave-status">
+          {AUTOSAVE_MESSAGES[autosaveStatus]}
+        </span>
+        {autosaveStatus === "failed" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={retrySave}
+            disabled={isSubmitting}
+            data-testid="journal-autosave-retry"
+          >
+            Retry save
+          </Button>
+        )}
+      </div>
+
+      {recoverableDraft && (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300"
+          role="region"
+          aria-label="Unsaved draft recovery"
+          data-testid="journal-draft-recovery"
+        >
+          <span className="flex-1">
+            You have unsaved edits from{" "}
+            {new Date(recoverableDraft.savedAt).toLocaleString()}. Restore them?
+          </span>
+          <Button type="button" size="sm" onClick={restoreDraft}>
+            Restore draft
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={discardDraft}>
+            Discard
+          </Button>
+        </div>
+      )}
 
       {submitError && (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">
