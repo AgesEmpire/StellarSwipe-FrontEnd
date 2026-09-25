@@ -36,13 +36,25 @@ export const usePortfolioStore = create<PortfolioState>()(
       lastUpdated: null,
       setAssets: (assets) => {
         const totalValue = assets.reduce((sum, asset) => sum + asset.value, 0);
-        const totalRealizedPnL = assets.reduce((sum, asset) => sum + (asset.realizedPnL ?? 0), 0);
-        const totalUnrealizedPnL = assets.reduce((sum, asset) => sum + (asset.unrealizedPnL ?? 0), 0);
+        const totalRealizedPnL = assets.reduce(
+          (sum, asset) => sum + (asset.realizedPnL ?? 0),
+          0
+        );
+        const totalUnrealizedPnL = assets.reduce(
+          (sum, asset) => sum + (asset.unrealizedPnL ?? 0),
+          0
+        );
         const normalizedAssets = assets.map((asset) => ({
           ...asset,
           percentage: totalValue > 0 ? (asset.value / totalValue) * 100 : 0,
         }));
-        set({ assets: normalizedAssets, totalValue, totalRealizedPnL, totalUnrealizedPnL, lastUpdated: new Date() });
+        set({
+          assets: normalizedAssets,
+          totalValue,
+          totalRealizedPnL,
+          totalUnrealizedPnL,
+          lastUpdated: new Date(),
+        });
       },
       setLoading: (loading) => set({ isLoading: loading }),
       updateAsset: (symbol, value) => {
@@ -50,20 +62,39 @@ export const usePortfolioStore = create<PortfolioState>()(
           asset.symbol === symbol ? { ...asset, value } : asset
         );
         const totalValue = assets.reduce((sum, asset) => sum + asset.value, 0);
-        const totalRealizedPnL = assets.reduce((sum, asset) => sum + (asset.realizedPnL ?? 0), 0);
-        const totalUnrealizedPnL = assets.reduce((sum, asset) => sum + (asset.unrealizedPnL ?? 0), 0);
+        const totalRealizedPnL = assets.reduce(
+          (sum, asset) => sum + (asset.realizedPnL ?? 0),
+          0
+        );
+        const totalUnrealizedPnL = assets.reduce(
+          (sum, asset) => sum + (asset.unrealizedPnL ?? 0),
+          0
+        );
         const normalizedAssets = assets.map((asset) => ({
           ...asset,
           percentage: totalValue > 0 ? (asset.value / totalValue) * 100 : 0,
         }));
-        set({ assets: normalizedAssets, totalValue, totalRealizedPnL, totalUnrealizedPnL, lastUpdated: new Date() });
+        set({
+          assets: normalizedAssets,
+          totalValue,
+          totalRealizedPnL,
+          totalUnrealizedPnL,
+          lastUpdated: new Date(),
+        });
       },
       removeAsset: (symbol) => {
         const assets = get().assets.filter((asset) => asset.symbol !== symbol);
         const totalValue = assets.reduce((sum, asset) => sum + asset.value, 0);
         set({ assets, totalValue });
       },
-      clear: () => set({ assets: [], totalValue: 0, totalRealizedPnL: 0, totalUnrealizedPnL: 0, lastUpdated: null }),
+      clear: () =>
+        set({
+          assets: [],
+          totalValue: 0,
+          totalRealizedPnL: 0,
+          totalUnrealizedPnL: 0,
+          lastUpdated: null,
+        }),
     }),
     { name: "portfolio-store" }
   )

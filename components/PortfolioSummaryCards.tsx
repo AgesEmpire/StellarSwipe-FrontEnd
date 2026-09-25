@@ -22,7 +22,8 @@ export function PortfolioSummaryCards() {
   }
 
   const totalPnL = totalRealizedPnL + totalUnrealizedPnL;
-  const pnlPercent = totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
+  const pnlPercent =
+    totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
   const activePositions = assets.filter((a) => a.value > 0).length;
   const isPositive = totalPnL >= 0;
 
@@ -46,7 +47,7 @@ export function PortfolioSummaryCards() {
     {
       label: "Positions",
       value: String(activePositions),
-      sub: `${assets.length} asset${assets.length !== 1 ? "s" : ""}`,
+      sub: t("portfolio.assets_count", { count: assets.length }),
       icon: BarChart2,
       className: "text-violet-400",
     },

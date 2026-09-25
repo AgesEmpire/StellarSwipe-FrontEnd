@@ -10,10 +10,15 @@ export function PnLWidget() {
   const { totalRealizedPnL, totalUnrealizedPnL, totalValue, isLoading, assets } = usePortfolio();
 
   const totalPnL = totalRealizedPnL + totalUnrealizedPnL;
-  const portfolioReturn = totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
+  const portfolioReturn =
+    totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
   const isPositive = totalPnL >= 0;
   const isPositiveRealized = totalRealizedPnL >= 0;
   const isPositiveUnrealized = totalUnrealizedPnL >= 0;
+
+  const fmtCurrency = (n: number) =>
+    n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sign = (n: number) => (n >= 0 ? "+" : "");
 
   if (isLoading) {
     return (
@@ -50,6 +55,31 @@ export function PnLWidget() {
         <h2 className="text-base font-semibold text-foreground">P&amp;L Overview</h2>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/*
+          Visually hidden summary table so screen-reader users can access
+          all values without having to navigate the visual card layout.
+        */}
+        <table className="sr-only" aria-label="P&L summary">
+          <tbody>
+            <tr>
+              <th scope="row">Total P&L</th>
+              <td>{sign(totalPnL)}{fmtCurrency(totalPnL)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Portfolio return</th>
+              <td>{sign(portfolioReturn)}{portfolioReturn.toFixed(2)}%</td>
+            </tr>
+            <tr>
+              <th scope="row">Realized P&L</th>
+              <td>{sign(totalRealizedPnL)}{totalRealizedPnL.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <th scope="row">Unrealized P&L</th>
+              <td>{sign(totalUnrealizedPnL)}{totalUnrealizedPnL.toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>
+
         {/* Total P&L with indicator */}
         <div
           className={cn(
@@ -59,9 +89,9 @@ export function PnLWidget() {
         >
           <div className="flex items-center gap-2 mb-2">
             {isPositive ? (
-              <TrendingUp size={18} className="text-green-600" />
+              <TrendingUp size={18} className="text-green-600" aria-hidden="true" />
             ) : (
-              <TrendingDown size={18} className="text-red-600" />
+              <TrendingDown size={18} className="text-red-600" aria-hidden="true" />
             )}
             <p className="text-sm text-muted-foreground">Total P&amp;L</p>
           </div>
