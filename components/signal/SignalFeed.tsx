@@ -237,6 +237,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     estimateSize: () => estimatedRowHeight,
     overscan: 3,
     scrollMargin: 100,
+    getItemKey: useCallback(
+      (index: number) => signals[index]?.id ?? index,
+      [signals]
+    ),
   });
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -396,17 +400,23 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   useEffect(() => {
     const element = sentinelRef.current;
     // If auto-load previously failed, don't re-trigger via IntersectionObserver
-    if (!element || !hasNextPage || isFetchingNextPage || autoLoadFailed)
+    if (
+      !element ||
+      !scrollEl ||
+      !hasNextPage ||
+      isFetchingNextPage ||
+      autoLoadFailed
+    )
       return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) loadMore();
       },
-      { rootMargin: "240px" }
+      { root: scrollEl, rootMargin: "240px" }
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, loadMore, autoLoadFailed]);
+  }, [hasNextPage, isFetchingNextPage, loadMore, autoLoadFailed, scrollEl]);
 
   // #99: sync provider search to filter store
   const handleProviderSearch = useCallback(
@@ -754,6 +764,14 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                   );
                 })}
               </div>
+            )}
+
+            {hasNextPage && (
+              <div
+                ref={sentinelRef}
+                aria-hidden="true"
+                className="h-px w-full"
+              />
             )}
 
             {!isLoading && isFetchingNextPage && (
