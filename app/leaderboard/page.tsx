@@ -114,6 +114,44 @@ const DEFAULT_DIRECTION: Record<SortField, SortDirection> = {
   recentPerformance: "desc",
 };
 
+// #776: skeleton rows mirror the real table's column widths so the loading
+// state reserves the same major regions as the loaded content and avoids
+// layout shift. Hidden from assistive tech since it is purely decorative.
+function LeaderboardTableSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="overflow-hidden rounded-xl border border-white/10 bg-white/5"
+    >
+      <div className="flex items-center gap-4 border-b border-white/10 px-4 py-3">
+        {COLUMNS.map((col) => (
+          <div
+            key={col.key}
+            className="h-4 animate-pulse rounded bg-white/10"
+            style={{ width: col.width, maxWidth: "100%" }}
+          />
+        ))}
+      </div>
+      <div className="divide-y divide-white/5">
+        {Array.from({ length: PAGE_SIZE }).map((_, rowIndex) => (
+          <div
+            key={rowIndex}
+            className="flex items-center gap-4 px-4 py-4"
+          >
+            {COLUMNS.map((col) => (
+              <div
+                key={col.key}
+                className="h-4 animate-pulse rounded bg-white/10"
+                style={{ width: col.width, maxWidth: "100%" }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function LeaderboardPage() {
   return (
     <LeaderboardErrorBoundary>
@@ -261,114 +299,28 @@ function LeaderboardPageInner() {
     return {
       position: "sticky",
       left: pinnedOffsets[key],
-      width: COLUMNS.find((c) => c.key === key)!.width,
-      zIndex: 1,
-      boxShadow: isLastPinned ? "2px 0 4px -2px rgba(0,0,0,0.3)" : undefined,
+      width: COLUMNS.find((c) => c.key === key)?.width,
+      zIndex: isLastPinned ? 2 : 1,
     };
   };
-
-  const activeSortLabel =
-    SORT_OPTIONS.find((o) => o.value === sortField)?.label ?? "rank";
-
-  const SortHeader = ({
-    field,
-    label,
-    className = "",
-  }: {
-    field: SortField;
-    label: string;
-    className?: string;
-  }) => (
-    <button
-      onClick={() => handleSort(field)}
-      className={`flex items-center gap-1 hover:text-foreground transition-colors ${
-        sortField === field ? "text-foreground" : "text-muted-foreground"
-      } ${className}`}
-      type="button"
-      // Current sort state is exposed via aria-sort on the parent <th>.
-      aria-label={`Sort by ${label}`}
-    >
-      {label}
-      {sortField === field &&
-        (sortDirection === "asc" ? (
-          <ChevronUp size={14} aria-hidden="true" />
-        ) : (
-          <ChevronDown size={14} aria-hidden="true" />
-        ))}
-    </button>
-  );
-
-  const PinToggle = ({ column }: { column: ColumnConfig }) => {
-    const isPinned = pinned.includes(column.key);
-    return (
-      <button
-        type="button"
-        onClick={() => togglePin(column.key)}
-        aria-pressed={isPinned}
-        aria-label={`${isPinned ? "Unpin" : "Pin"} ${column.label} column`}
-        className="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-      >
-        {isPinned ? <Pin size={12} className="fill-current" /> : <PinOff size={12} />}
-      </button>
-    );
-  };
-
-  // #773: stale-data badge + refresh action. The badge labels the data as
-  // possibly out of date (never invalid) and the button exposes pending,
-  // success, and failure states. Refreshing only refetches data, so filters,
-  // scroll position, and the selected tab are preserved.
-  const StaleDataControls = () => (
-    <div className="flex flex-wrap items-center gap-2">
-      {isStale && (
-        <span
-          role="status"
-          aria-live="polite"
-          className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400"
-        >
-          <span aria-hidden="true">●</span>
-          Data may be out of date
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={handleRefresh}
-        disabled={refreshStatus === "pending"}
-        aria-busy={refreshStatus === "pending"}
-        aria-label="Refresh leaderboard data"
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium transition-colors",
-          "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-          "disabled:cursor-not-allowed disabled:opacity-60"
-        )}
-      >
-        <RefreshCw
-          size={14}
-          aria-hidden="true"
-          className={cn(refreshStatus === "pending" && "animate-spin")}
-        />
-        {refreshStatus === "pending"
-          ? "Refreshing…"
-          : refreshStatus === "success"
-            ? "Refreshed"
-            : refreshStatus === "error"
-              ? "Retry refresh"
-              : "Refresh"}
-      </button>
-      <span className="sr-only" role="status" aria-live="polite">
-        {refreshStatus === "success"
-          ? "Leaderboard data refreshed"
-          : refreshStatus === "error"
-            ? "Leaderboard refresh failed"
-            : ""}
-      </span>
-    </div>
-  );
 
   if (isLoading) {
     return (
       <PageTransition>
-        <div className="container mx-auto px-4 py-8">
-          <LoadingState label="Loading leaderboard…" />
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="h-8 w-48 animate-pulse rounded bg-white/10" />
+            <div className="h-10 w-full animate-pulse rounded-lg bg-white/10 sm:w-40" />
+          </div>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {TIME_RANGE_TABS.map((tab) => (
+              <div
+                key={tab.value}
+                className="h-9 w-20 animate-pulse rounded-full bg-white/10"
+              />
+            ))}
+          </div>
+          <LeaderboardTableSkeleton />
         </div>
       </PageTransition>
     );
@@ -377,10 +329,10 @@ function LeaderboardPageInner() {
   if (error) {
     return (
       <PageTransition>
-        <div className="container mx-auto px-4 py-8">
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <ErrorState
             title="Could not load the leaderboard"
-            description="Please try again in a moment."
+            description="Something went wrong while fetching provider rankings."
             onRetry={() => refetch()}
           />
         </div>
@@ -391,10 +343,10 @@ function LeaderboardPageInner() {
   if (!providers || providers.length === 0) {
     return (
       <PageTransition>
-        <div className="container mx-auto px-4 py-8">
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <EmptyState
             title="No providers yet"
-            description="Leaderboard data will appear here once providers are ranked."
+            description="Provider rankings will appear here once signals are recorded."
           />
         </div>
       </PageTransition>
@@ -403,27 +355,71 @@ function LeaderboardPageInner() {
 
   return (
     <PageTransition>
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Trophy size={20} aria-hidden="true" />
-            <h1 className="text-xl font-semibold">Leaderboard</h1>
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Trophy className="h-7 w-7 text-amber-400" aria-hidden="true" />
+            <h1 className="text-2xl font-semibold text-white">Leaderboard</h1>
           </div>
-          <StaleDataControls />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshStatus === "pending"}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4",
+                  refreshStatus === "pending" && "animate-spin"
+                )}
+                aria-hidden="true"
+              />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen((open) => !open)}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+            >
+              <Keyboard className="h-4 w-4" aria-hidden="true" />
+              Shortcuts
+            </button>
+          </div>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        {isStale && (
+          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+            This view may be out of date. Refresh to see the latest rankings.
+          </div>
+        )}
+
+        {shortcutsOpen && (
+          <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-4">
+            <ul className="space-y-2 text-sm text-white/70">
+              {ROW_SHORTCUTS.map((shortcut) => (
+                <li key={shortcut.keys} className="flex items-center gap-3">
+                  <kbd className="rounded border border-white/20 bg-white/10 px-2 py-0.5 font-mono text-xs text-white">
+                    {shortcut.keys}
+                  </kbd>
+                  <span>{shortcut.action}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mb-4 flex flex-wrap gap-2">
           {TIME_RANGE_TABS.map((tab) => (
             <button
               key={tab.value}
               type="button"
               onClick={() => setTimeRange(tab.value)}
-              aria-pressed={timeRange === tab.value}
               className={cn(
-                "rounded-md px-3 py-1 text-sm transition-colors",
+                "rounded-full px-4 py-1.5 text-sm transition",
                 timeRange === tab.value
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white text-black"
+                  : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
               )}
             >
               {tab.label}
@@ -437,160 +433,171 @@ function LeaderboardPageInner() {
               key={option.value}
               type="button"
               onClick={() => handleSort(option.value)}
-              aria-pressed={sortField === option.value}
               className={cn(
-                "rounded-md px-3 py-1 text-sm transition-colors",
-                sortField === option.value
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                "inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/70 transition hover:bg-white/10",
+                sortField === option.value && "text-white"
               )}
             >
               {option.label}
+              {sortField === option.value &&
+                (sortDirection === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                ))}
             </button>
           ))}
           {pinned.length > 0 && (
             <button
               type="button"
               onClick={resetPins}
-              className="rounded-md px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/70 transition hover:bg-white/10"
             >
-              Reset pins
+              <PinOff className="h-3.5 w-3.5" aria-hidden="true" />
+              Unpin all
             </button>
           )}
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full border-collapse text-sm">
+        <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-border text-left">
+              <tr className="border-b border-white/10">
                 {COLUMNS.map((col) => (
                   <th
                     key={col.key}
                     scope="col"
                     style={cellStyle(col.key)}
-                    aria-sort={
-                      sortField === col.sortField
-                        ? sortDirection === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : undefined
-                    }
                     className={cn(
-                      "bg-background px-3 py-2 font-medium",
-                      col.align === "right" ? "text-right" : "text-left"
+                      "px-4 py-3 font-medium text-white/60",
+                      col.align === "right" && "text-right",
+                      pinned.includes(col.key) && "bg-[#0b0b0f]"
                     )}
                   >
-                    <span className="inline-flex items-center gap-1">
-                      {col.sortField ? (
-                        <SortHeader field={col.sortField} label={col.label} />
-                      ) : (
-                        col.label
+                    <div
+                      className={cn(
+                        "flex items-center gap-2",
+                        col.align === "right" && "justify-end"
                       )}
-                      <PinToggle column={col} />
-                    </span>
+                    >
+                      {col.sortField ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col.sortField as SortField)}
+                          className="inline-flex items-center gap-1 transition hover:text-white"
+                        >
+                          {col.label}
+                          {sortField === col.sortField &&
+                            (sortDirection === "asc" ? (
+                              <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                            ))}
+                        </button>
+                      ) : (
+                        <span>{col.label}</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => togglePin(col.key)}
+                        aria-label={
+                          pinned.includes(col.key)
+                            ? `Unpin ${col.label} column`
+                            : `Pin ${col.label} column`
+                        }
+                        className="text-white/30 transition hover:text-white"
+                      >
+                        {pinned.includes(col.key) ? (
+                          <Pin className="h-3.5 w-3.5" aria-hidden="true" />
+                        ) : (
+                          <PinOff className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                      </button>
+                    </div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody ref={tbodyRef}>
-              {pagedProviders.map((provider, index) => (
+              {pagedProviders.map((provider: SignalProvider) => (
                 <tr
                   key={provider.address}
-                  className="border-b border-border last:border-0 hover:bg-accent/50"
+                  onClick={() => router.push(`/provider/${provider.address}`)}
+                  className="cursor-pointer border-b border-white/5 transition hover:bg-white/5"
                 >
-                  {COLUMNS.map((col) => (
-                    <td
-                      key={col.key}
-                      style={cellStyle(col.key)}
-                      className={cn(
-                        "bg-background px-3 py-2",
-                        col.align === "right" ? "text-right" : "text-left"
-                      )}
-                    >
-                      {col.key === "rank" && pageStart + index + 1}
-                      {col.key === "provider" && (
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/provider/${provider.address}`)}
-                          className="hover:underline"
-                        >
-                          {truncateAddress(provider.address)}
-                        </button>
-                      )}
-                      {col.key === "overallScore" && provider.overallScore}
-                      {col.key === "winRate" && `${provider.winRate}%`}
-                      {col.key === "recentPerformance" &&
-                        provider.recentPerformance}
-                    </td>
-                  ))}
+                  <td className="px-4 py-3 text-white/70" style={cellStyle("rank")}>
+                    {provider.rank}
+                  </td>
+                  <td
+                    className="px-4 py-3 text-white"
+                    style={cellStyle("provider")}
+                  >
+                    {truncateAddress(provider.address)}
+                  </td>
+                  <td
+                    className="px-4 py-3 text-right text-white/70"
+                    style={cellStyle("overallScore")}
+                  >
+                    {provider.overallScore}
+                  </td>
+                  <td
+                    className="px-4 py-3 text-right text-white/70"
+                    style={cellStyle("winRate")}
+                  >
+                    {provider.winRate}%
+                  </td>
+                  <td
+                    className="px-4 py-3 text-right text-white/70"
+                    style={cellStyle("recentPerformance")}
+                  >
+                    {provider.recentPerformance}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>
-            Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, totalResults)} of{" "}
-            {totalResults} · sorted by {activeSortLabel}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage <= 1}
-              className="rounded-md border border-border px-2 py-1 disabled:opacity-50"
-            >
-              Previous
-            </button>
+        {currentUser && currentUserPage && currentUserPage !== currentPage && (
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
             <span>
-              Page {currentPage} of {totalPages}
+              You are ranked #{currentUser.rank} (page {currentUserPage}).
             </span>
             <button
               type="button"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
-              className="rounded-md border border-border px-2 py-1 disabled:opacity-50"
+              onClick={() => setPage(currentUserPage)}
+              className="text-white underline-offset-2 hover:underline"
             >
-              Next
+              Go to my rank
             </button>
-          </div>
-        </div>
-
-        {currentUser && currentUserPage && (
-          <div className="mt-4 rounded-md border border-border p-3 text-sm">
-            Your rank: #{currentUserIndex + 1} (page {currentUserPage})
           </div>
         )}
 
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => setShortcutsOpen((open) => !open)}
-            aria-expanded={shortcutsOpen}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <Keyboard size={14} aria-hidden="true" />
-            Keyboard shortcuts
-            {shortcutsOpen ? (
-              <ChevronUp size={14} aria-hidden="true" />
-            ) : (
-              <ChevronDown size={14} aria-hidden="true" />
-            )}
-          </button>
-          {shortcutsOpen && (
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-              {ROW_SHORTCUTS.map((shortcut) => (
-                <li key={shortcut.keys}>
-                  <kbd className="rounded border border-border px-1">
-                    {shortcut.keys}
-                  </kbd>{" "}
-                  {shortcut.action}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between text-sm text-white/70">
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 transition hover:bg-white/10 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 transition hover:bg-white/10 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
 
         <ScrollToTop />
       </div>

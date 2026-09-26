@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { PerformanceDashboard } from "@/components/performance/PerformanceDashboard";
 import { NetworkErrorState } from "@/components/NetworkErrorState";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -8,6 +8,46 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 const FRESHNESS_THRESHOLD_MS = 5 * 60 * 1000;
 
 type RefreshStatus = "idle" | "pending" | "success" | "error";
+
+function PerformanceDashboardSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex flex-col gap-6"
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-lg border border-border bg-surface p-4"
+          >
+            <div className="h-3 w-24 animate-pulse rounded bg-border" />
+            <div className="mt-3 h-7 w-20 animate-pulse rounded bg-border" />
+            <div className="mt-3 h-3 w-16 animate-pulse rounded bg-border" />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="h-4 w-40 animate-pulse rounded bg-border" />
+        <div className="mt-4 h-56 w-full animate-pulse rounded bg-border sm:h-64 lg:h-72" />
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="h-4 w-32 animate-pulse rounded bg-border" />
+        <div className="mt-4 flex flex-col gap-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="flex items-center gap-3">
+              <div className="h-4 w-4 shrink-0 animate-pulse rounded bg-border" />
+              <div className="h-4 flex-1 animate-pulse rounded bg-border" />
+              <div className="h-4 w-16 shrink-0 animate-pulse rounded bg-border" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PerformancePage() {
   const { isOnline } = useNetworkStatus();
@@ -119,7 +159,9 @@ export default function PerformancePage() {
         </div>
       )}
 
-      <PerformanceDashboard />
+      <Suspense fallback={<PerformanceDashboardSkeleton />}>
+        <PerformanceDashboard />
+      </Suspense>
     </main>
   );
 }
