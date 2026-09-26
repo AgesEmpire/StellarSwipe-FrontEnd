@@ -11,6 +11,7 @@ import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
 import { ComparisonTray } from "@/components/ComparisonTray";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 
@@ -118,6 +119,7 @@ export default function RootLayout({
           <AnalyticsDebugConsole />
           <ComparisonTray />
           <NotificationPermissionPrompt />
+          <PWAInstallPrompt />
           <GuidedTourSpotlight />
         </Providers>
       </body>
