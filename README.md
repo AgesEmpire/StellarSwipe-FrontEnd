@@ -198,3 +198,11 @@ Two test runners are configured:
   ```
 
 Both runners execute automatically in CI on every push/PR. The **Test (Jest)** step runs the main test suites, and the **Test (Vitest)** step runs the comparison-tray suites, ensuring that no regressions in the comparison-tray feature can merge undetected.
+
+## Handsoff notes
+
+<!-- handsoff-issue-707 -->
+- #707: Persist dashboard widget visibility and layout
+
+<!-- handsoff-issue-708 -->
+- #708: Improve comparison view on narrow screens
