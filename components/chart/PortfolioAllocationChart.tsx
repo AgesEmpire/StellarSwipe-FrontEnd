@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
+import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { PortfolioAllocationChartSkeleton } from "@/components/DashboardWidgetSkeletons";
@@ -134,12 +135,8 @@ export function PortfolioAllocationChart({
             Portfolio Allocation
           </h2>
         </CardHeader>
-        <CardContent>
-          <EmptyState
-            title="No portfolio data available"
-            description="Connect assets or complete a trade to populate allocation data."
-            className="h-48 rounded-xl bg-transparent py-6"
-          />
+        <CardContent className="p-0">
+          <PortfolioEmptyState variant="allocation" />
         </CardContent>
       </Card>
     );
