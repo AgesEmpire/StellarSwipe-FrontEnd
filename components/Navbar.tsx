@@ -12,7 +12,8 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CommandPalette } from "@/components/CommandPalette";
 import { KeyboardShortcutsHelpModal } from "@/components/KeyboardShortcutsHelpModal";
-import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useKeyboardShortcuts, type ShortcutConfig } from "@/hooks/useKeyboardShortcuts";
+import { useFocusReturn } from "@/hooks/useFocusReturn";
 import { useThemeStore } from "@/store/useThemeStore";
 import { cn } from "@/lib/utils";
 
@@ -226,39 +227,17 @@ export function Navbar() {
 
   const toggleTheme = useThemeStore((state) => state.toggle);
 
-  // Global keyboard shortcuts
-  const shortcuts = useMemo(
+  // Global keyboard shortcuts — keep in sync with KeyboardShortcutsHelpModal.
+  const shortcuts = useMemo<ShortcutConfig[]>(
     () => [
-      {
-        key: "?",
-        description: "Open or close the keyboard shortcuts overlay",
-        category: "Modals" as const,
-        handler: () => setHelpModalOpen((open) => !open),
-      },
-      {
-        key: "n",
-        description: "New journal entry",
-        category: "Actions" as const,
-        handler: () => router.push("/journal"),
-      },
-      {
-        key: "t",
-        description: "Toggle theme",
-        category: "Actions" as const,
-        handler: () => toggleTheme(),
-      },
-      {
-        key: "r",
-        description: "Refresh page",
-        category: "Actions" as const,
-        handler: () => router.refresh(),
-      },
+      { key: "?", callback: () => setHelpModalOpen((open) => !open) },
+      { key: "n", callback: () => router.push("/journal") },
+      { key: "t", callback: () => toggleTheme() },
+      { key: "r", callback: () => router.refresh() },
       // Sequential navigation shortcuts: G then [key]
       ...Object.entries(routeShortcuts).map(([key, href]) => ({
         key: `g then ${key}`,
-        description: `Go to ${NAV_LINKS.find((l) => l.href === href)?.label ?? href}`,
-        category: "Navigation" as const,
-        handler: () => router.push(href),
+        callback: () => router.push(href),
       })),
     ],
     [router, toggleTheme]

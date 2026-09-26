@@ -11,7 +11,12 @@ import {
 } from "@/lib/benchmark";
 import { cn } from "@/lib/utils";
 import { PortfolioPerformanceBenchmarkChartSkeleton } from "@/components/DashboardWidgetSkeletons";
-import { useChartTooltip } from "@/hooks/useChartTooltip";
+import {
+  CHART_FOCUS_OVERLAY_CLASS,
+  CHART_KEYBOARD_INSTRUCTIONS,
+  formatPercentChange,
+  useChartTooltip,
+} from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 import { useChartColors } from "@/lib/chartPalette";
 
@@ -50,7 +55,6 @@ export function PortfolioPerformanceBenchmarkChart({
 }: PortfolioPerformanceBenchmarkChartProps) {
   const { totalValue, assets, isLoading } = usePortfolioStore();
   const [showBenchmark, setShowBenchmark] = useState(true);
-  const [activeSeriesIndex, setActiveSeriesIndex] = useState<0 | 1>(0); // 0=portfolio, 1=benchmark
   const chartColors = useChartColors();
 
   const xlmHistory = useXLMPriceHistory({ points: 30, interval: "day" });
@@ -149,41 +153,54 @@ export function PortfolioPerformanceBenchmarkChart({
     };
   }, [portfolioPoints, benchmarkPoints]);
 
-  // Active series: 0=portfolio, 1=benchmark. Tooltip navigates the portfolio
-  // series by default; pressing Tab again lands on the benchmark series.
-  const portfolioTooltip = useChartTooltip({
-    ariaLabel: "Portfolio performance line",
+  // Pairs each portfolio point with the benchmark point closest in time, so
+  // the active point can be compared against the benchmark.
+  const benchmarkIndexFor = (i: number): number | null => {
+    const pt = chartData.portfolioPts[i];
+    if (!pt || chartData.benchmarkPts.length === 0) return null;
+    let best = 0;
+    for (let j = 1; j < chartData.benchmarkPts.length; j++) {
+      if (
+        Math.abs(chartData.benchmarkPts[j].timestamp - pt.timestamp) <
+        Math.abs(chartData.benchmarkPts[best].timestamp - pt.timestamp)
+      ) {
+        best = j;
+      }
+    }
+    return best;
+  };
+
+  const formatPointDate = (timestamp: number) =>
+    new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  // A single keyboard navigator covers both series: each point reports the
+  // portfolio value plus, when shown, the benchmark comparison.
+  const tooltip = useChartTooltip({
+    ariaLabel: "Portfolio performance versus XLM benchmark",
     describePoint: (i) => {
       const pt = chartData.portfolioPts[i];
       if (!pt) return "";
-      const date = new Date(pt.timestamp).toLocaleDateString(undefined, {
-        month: "short", day: "numeric",
-      });
-      return `Portfolio point ${i + 1} of ${chartData.portfolioPts.length}: $${pt.value.toFixed(2)} on ${date}`;
+      const start = chartData.portfolioPts[0].value;
+      const parts = [
+        `Point ${i + 1} of ${chartData.portfolioPts.length}, ${formatPointDate(pt.timestamp)}`,
+        `Portfolio $${pt.value.toFixed(2)}, ${formatPercentChange(pt.value, start)} since start`,
+      ];
+      const j = showBenchmark ? benchmarkIndexFor(i) : null;
+      if (j !== null) {
+        const bench = chartData.benchmarkPts[j];
+        const benchStart = chartData.benchmarkPts[0].value;
+        const gap = pt.value - bench.value;
+        parts.push(
+          `XLM benchmark $${bench.value.toFixed(2)}, ${formatPercentChange(bench.value, benchStart)} since start`,
+          `Portfolio ${gap >= 0 ? "ahead of" : "behind"} benchmark by $${Math.abs(gap).toFixed(2)}`
+        );
+      }
+      return parts.join(". ");
     },
     dataLength: chartData.portfolioPts?.length ?? 0,
   });
-
-  const benchmarkTooltip = useChartTooltip({
-    ariaLabel: "XLM benchmark line",
-    describePoint: (i) => {
-      const pt = chartData.benchmarkPts[i];
-      if (!pt) return "";
-      const date = new Date(pt.timestamp).toLocaleDateString(undefined, {
-        month: "short", day: "numeric",
-      });
-      return `XLM benchmark point ${i + 1} of ${chartData.benchmarkPts.length}: $${pt.value.toFixed(4)} on ${date}`;
-    },
-    dataLength: chartData.benchmarkPts?.length ?? 0,
-  });
-  const { ref: portfolioTooltipRef, offset: portfolioTooltipOffset } =
-    useTooltipCollision<HTMLDivElement>(portfolioTooltip.isVisible, [
-      portfolioTooltip.activeIndex,
-    ]);
-  const { ref: benchmarkTooltipRef, offset: benchmarkTooltipOffset } =
-    useTooltipCollision<HTMLDivElement>(benchmarkTooltip.isVisible, [
-      benchmarkTooltip.activeIndex,
-    ]);
+  const { ref: tooltipRef, offset: tooltipOffset } =
+    useTooltipCollision<HTMLDivElement>(tooltip.isVisible, [tooltip.activeIndex]);
 
   if (isLoading) {
     return <PortfolioPerformanceBenchmarkChartSkeleton className={className} />;
@@ -268,26 +285,17 @@ export function PortfolioPerformanceBenchmarkChart({
       </CardHeader>
       <CardContent>
         <div className="relative h-48 sm:h-56">
-          {/* Accessible live regions for screen readers */}
+          {/* Accessible live region and instructions for screen readers */}
           <span
-            id={portfolioTooltip.tooltipId}
+            id={tooltip.tooltipId}
             role="status"
             aria-live="polite"
             className="sr-only"
           >
-            {portfolioTooltip.isVisible
-              ? portfolioTooltip.activeDescription
-              : "Portfolio performance line"}
+            {tooltip.isVisible ? tooltip.activeDescription : ""}
           </span>
-          <span
-            id={benchmarkTooltip.tooltipId}
-            role="status"
-            aria-live="polite"
-            className="sr-only"
-          >
-            {benchmarkTooltip.isVisible
-              ? benchmarkTooltip.activeDescription
-              : "XLM benchmark line"}
+          <span id={tooltip.instructionsId} className="sr-only">
+            {CHART_KEYBOARD_INSTRUCTIONS}
           </span>
 
           <svg
@@ -339,7 +347,7 @@ export function PortfolioPerformanceBenchmarkChart({
               Portfolio
             </text>
 
-            {/* Invisible hit areas for portfolio series */}
+            {/* Invisible pointer/touch hit areas, one per point */}
             {chartData.portfolioPts.map((pt, i) => {
               const hitW = chartData.portfolioPts.length > 1
                 ? (chartData.width ?? 320) / chartData.portfolioPts.length
@@ -352,107 +360,79 @@ export function PortfolioPerformanceBenchmarkChart({
                   width={hitW}
                   height={chartData.height ?? 160}
                   fill="transparent"
-                  onPointerEnter={() => portfolioTooltip.showAt(i)}
-                  onPointerLeave={portfolioTooltip.hide}
-                  onTouchStart={(e) => { e.preventDefault(); portfolioTooltip.showAt(i); }}
-                  onTouchEnd={portfolioTooltip.hide}
+                  onPointerEnter={() => tooltip.showAt(i)}
+                  onPointerLeave={tooltip.hide}
+                  onTouchStart={(e) => { e.preventDefault(); tooltip.showAt(i); }}
+                  onTouchEnd={tooltip.hide}
                   style={{ cursor: "crosshair" }}
                 />
               );
             })}
 
-            {/* Active dot on portfolio series */}
-            {portfolioTooltip.isVisible &&
-              portfolioTooltip.activeIndex !== null &&
-              chartData.portfolioPts[portfolioTooltip.activeIndex] && (
-                <circle
-                  cx={chartData.portfolioPts[portfolioTooltip.activeIndex].x}
-                  cy={chartData.portfolioPts[portfolioTooltip.activeIndex].y}
-                  r={4}
-                  fill={chartColors.primary}
-                  stroke="white"
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                />
-              )}
-
-            {/* Active dot on benchmark series */}
-            {showBenchmark &&
-              benchmarkTooltip.isVisible &&
-              benchmarkTooltip.activeIndex !== null &&
-              chartData.benchmarkPts[benchmarkTooltip.activeIndex] && (
-                <circle
-                  cx={chartData.benchmarkPts[benchmarkTooltip.activeIndex].x}
-                  cy={chartData.benchmarkPts[benchmarkTooltip.activeIndex].y}
-                  r={4}
-                  fill={chartColors.secondary}
-                  stroke="white"
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                />
-              )}
-          </svg>
-
-          {/* Keyboard-navigable overlays — one per series */}
-          <div
-            {...portfolioTooltip.containerProps}
-            className="absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-green-500"
-            style={{ outline: "none" }}
-          />
-          {showBenchmark && (
-            <div
-              {...benchmarkTooltip.containerProps}
-              className="absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
-              style={{ outline: "none", opacity: 0 }}
-              tabIndex={1}
-            />
-          )}
-
-          {/* Floating tooltip — portfolio */}
-          {portfolioTooltip.isVisible &&
-            portfolioTooltip.activeIndex !== null &&
-            chartData.portfolioPts[portfolioTooltip.activeIndex] && (() => {
-              const pt = chartData.portfolioPts[portfolioTooltip.activeIndex!];
+            {/* Active dots */}
+            {tooltip.activeIndex !== null && chartData.portfolioPts[tooltip.activeIndex] && (() => {
+              const pt = chartData.portfolioPts[tooltip.activeIndex];
+              const j = showBenchmark ? benchmarkIndexFor(tooltip.activeIndex) : null;
+              const bench = j !== null ? chartData.benchmarkPts[j] : null;
               return (
-                <div
-                  ref={portfolioTooltipRef}
-                  role="tooltip"
-                  className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 text-[10px] text-white shadow-md"
-                  style={{
-                    left: Math.min(Math.max(0, pt.x - 24), (chartData.width ?? 320) - 70),
-                    top: Math.max(0, pt.y - 36),
-                    whiteSpace: "nowrap",
-                    transform: `translate(${portfolioTooltipOffset.x}px, ${portfolioTooltipOffset.y}px)`,
-                  }}
-                  aria-hidden="true"
-                >
-                  <div className="text-green-400 font-semibold">Portfolio</div>
-                  <div>${pt.value.toFixed(2)}</div>
-                </div>
+                <g aria-hidden="true">
+                  <line
+                    x1={pt.x}
+                    x2={pt.x}
+                    y1={0}
+                    y2={chartData.height ?? 160}
+                    stroke="currentColor"
+                    strokeOpacity={0.2}
+                    strokeDasharray="2 2"
+                    className="text-foreground"
+                  />
+                  {bench && (
+                    <circle cx={bench.x} cy={bench.y} r={4} fill={chartColors.secondary} stroke="white" strokeWidth={1.5} />
+                  )}
+                  <circle cx={pt.x} cy={pt.y} r={4} fill={chartColors.primary} stroke="white" strokeWidth={1.5} />
+                </g>
               );
             })()}
+          </svg>
 
-          {/* Floating tooltip — benchmark */}
-          {showBenchmark &&
-            benchmarkTooltip.isVisible &&
-            benchmarkTooltip.activeIndex !== null &&
-            chartData.benchmarkPts[benchmarkTooltip.activeIndex] && (() => {
-              const pt = chartData.benchmarkPts[benchmarkTooltip.activeIndex!];
+          {/* Keyboard focus target (pointer events pass through to the hit areas) */}
+          <div {...tooltip.containerProps} className={CHART_FOCUS_OVERLAY_CLASS} />
+
+          {/* Floating tooltip */}
+          {tooltip.activeIndex !== null &&
+            chartData.portfolioPts[tooltip.activeIndex] && (() => {
+              const i = tooltip.activeIndex;
+              const pt = chartData.portfolioPts[i];
+              const j = showBenchmark ? benchmarkIndexFor(i) : null;
+              const bench = j !== null ? chartData.benchmarkPts[j] : null;
+              const gap = bench ? pt.value - bench.value : null;
               return (
                 <div
-                  ref={benchmarkTooltipRef}
+                  ref={tooltipRef}
                   role="tooltip"
                   className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 text-[10px] text-white shadow-md"
                   style={{
-                    left: Math.min(Math.max(0, pt.x - 24), (chartData.width ?? 320) - 70),
-                    top: Math.max(0, pt.y - 36),
+                    left: Math.min(Math.max(0, pt.x - 24), (chartData.width ?? 320) - 110),
+                    top: Math.max(0, pt.y - (bench ? 64 : 40)),
                     whiteSpace: "nowrap",
-                    transform: `translate(${benchmarkTooltipOffset.x}px, ${benchmarkTooltipOffset.y}px)`,
+                    transform: `translate(${tooltipOffset.x}px, ${tooltipOffset.y}px)`,
                   }}
                   aria-hidden="true"
                 >
-                  <div className="text-blue-400 font-semibold">XLM</div>
-                  <div>${pt.value.toFixed(4)}</div>
+                  <div className="text-slate-300">{formatPointDate(pt.timestamp)}</div>
+                  <div>
+                    <span className="font-semibold text-green-400">Portfolio</span> ${pt.value.toFixed(2)}
+                  </div>
+                  {bench && gap !== null && (
+                    <>
+                      <div>
+                        <span className="font-semibold text-blue-400">XLM</span> ${bench.value.toFixed(2)}
+                      </div>
+                      <div className="text-slate-300">
+                        {gap >= 0 ? "+" : "−"}${Math.abs(gap).toFixed(2)} vs benchmark
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })()}
