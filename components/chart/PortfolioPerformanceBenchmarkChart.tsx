@@ -19,6 +19,12 @@ import {
 } from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 import { useChartColors } from "@/lib/chartPalette";
+import {
+  ChartIntervalSelector,
+  UnsupportedIntervalCallout,
+  useChartInterval,
+} from "@/components/chart/ChartIntervalSelector";
+import { CHART_INTERVALS } from "@/store/useChartIntervalStore";
 
 interface PortfolioPerformanceBenchmarkChartProps {
   className?: string;
@@ -57,7 +63,19 @@ export function PortfolioPerformanceBenchmarkChart({
   const [showBenchmark, setShowBenchmark] = useState(true);
   const chartColors = useChartColors();
 
-  const xlmHistory = useXLMPriceHistory({ points: 30, interval: "day" });
+  // Supported intervals — benchmark chart has enough mock data for these.
+  const SUPPORTED_INTERVALS = ["1W", "1M", "3M", "1Y"] as const;
+  const { interval, setInterval, isSupported } = useChartInterval({
+    supportedIntervals: [...SUPPORTED_INTERVALS],
+    syncToUrl: true,
+    urlParamKey: "portfolioInterval",
+  });
+
+  const intervalMeta = CHART_INTERVALS[interval];
+  const xlmHistory = useXLMPriceHistory({
+    points: intervalMeta.points,
+    interval: intervalMeta.historyInterval,
+  });
   const portfolioHistory = useMemo(() => {
     const initial = assets.reduce(
       (sum, a) => sum + (a.value - (a.unrealizedPnL ?? 0)),
@@ -254,33 +272,74 @@ export function PortfolioPerformanceBenchmarkChart({
   return (
     <Card className={cn("w-full", className)}>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-foreground">
             Portfolio Performance vs XLM Benchmark
           </h2>
-          <label className="flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={showBenchmark}
-              onChange={(e) => setShowBenchmark(e.target.checked)}
-              className="h-3 w-3"
-              aria-label="Toggle benchmark overlay"
-            />
-            <span className="text-foreground-muted">Show XLM benchmark</span>
-          </label>
+          {/* Interval selector — stable layout, loading state preserved */}
+          <ChartIntervalSelector
+            supportedIntervals={[...SUPPORTED_INTERVALS]}
+            value={interval}
+            onChange={setInterval}
+            isLoading={isLoading}
+            syncToUrl={false}
+            size="sm"
+          />
         </div>
-        {performanceDelta && (
-          <p className="text-xs text-foreground-muted">
-            Outperformance:{" "}
-            <span
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          {/* Benchmark toggle — stable layout; toggling does not affect interval or zoom */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              role="switch"
+              id="benchmark-toggle"
+              aria-checked={showBenchmark}
+              aria-label="Show XLM benchmark series"
+              onClick={() => setShowBenchmark((v) => !v)}
               className={cn(
-                isOutperforming ? "text-green-400" : "text-red-400"
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                showBenchmark ? "bg-blue-500" : "bg-surface-high"
               )}
             >
-              {isOutperforming ? "+" : ""}
-              {outperformance}%
-            </span>
-          </p>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                  showBenchmark ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+            <label
+              htmlFor="benchmark-toggle"
+              className="cursor-pointer select-none text-xs text-foreground-muted"
+              onClick={() => setShowBenchmark((v) => !v)}
+            >
+              XLM benchmark
+            </label>
+          </div>
+          {performanceDelta && (
+            <p className="text-xs text-foreground-muted">
+              Outperformance:{" "}
+              <span
+                className={cn(
+                  isOutperforming ? "text-green-400" : "text-red-400"
+                )}
+              >
+                {isOutperforming ? "+" : ""}
+                {outperformance}%
+              </span>
+            </p>
+          )}
+        </div>
+        {/* Unsupported interval callout */}
+        {!isSupported && (
+          <UnsupportedIntervalCallout
+            interval={interval}
+            supportedIntervals={[...SUPPORTED_INTERVALS]}
+            onSelectSupported={setInterval}
+            className="mt-2"
+          />
         )}
       </CardHeader>
       <CardContent>
@@ -296,6 +355,12 @@ export function PortfolioPerformanceBenchmarkChart({
           </span>
           <span id={tooltip.instructionsId} className="sr-only">
             {CHART_KEYBOARD_INSTRUCTIONS}
+          </span>
+          {/* Accessible chart summary — updates when benchmark is toggled */}
+          <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {showBenchmark
+              ? "Portfolio performance chart showing portfolio and XLM benchmark series."
+              : "Portfolio performance chart showing portfolio series only. XLM benchmark is hidden."}
           </span>
 
           <svg
@@ -330,21 +395,23 @@ export function PortfolioPerformanceBenchmarkChart({
 
             {showBenchmark && (
               <text
-                x={(chartData?.width ?? 0) - 40}
-                y={15}
-                className="fill-blue-400 text-[10px]"
+                x={(chartData?.width ?? 0) - 4}
+                y={14}
+                fontSize={9}
+                fill={chartColors.secondary}
                 textAnchor="end"
               >
-                XLM (benchmark)
+                ╌ XLM benchmark
               </text>
             )}
             <text
-              x={(chartData?.width ?? 0) - 40}
-              y={showBenchmark ? 28 : 15}
-              className="fill-green-400 text-[10px]"
+              x={(chartData?.width ?? 0) - 4}
+              y={showBenchmark ? 26 : 14}
+              fontSize={9}
+              fill={chartColors.primary}
               textAnchor="end"
             >
-              Portfolio
+              ─ Portfolio
             </text>
 
             {/* Invisible pointer/touch hit areas, one per point */}
@@ -438,28 +505,60 @@ export function PortfolioPerformanceBenchmarkChart({
             })()}
         </div>
         {performanceDelta && (
-          <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
-            <div>
-              <span className="text-foreground-muted">Portfolio return</span>
-              <p
-                className={cn(
-                  "font-mono",
-                  performanceDelta.portfolioReturn >= 0
-                    ? "text-green-400"
-                    : "text-red-400"
-                )}
-              >
-                {performanceDelta.portfolioReturn >= 0 ? "+" : ""}
-                {performanceDelta.portfolioReturn}%
-              </p>
+          <>
+            {/* Legend — stable layout regardless of whether benchmark is shown */}
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-label="Chart legend">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-0.5 w-5 rounded bg-green-400" aria-hidden="true" />
+                <span className="text-foreground-muted">Portfolio</span>
+              </div>
+              {showBenchmark ? (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-0.5 w-5 rounded bg-blue-400"
+                    style={{ borderStyle: "dashed", height: 0, borderTopWidth: 2, borderTopColor: "rgb(96,165,250)", borderTopStyle: "dashed" }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-foreground-muted">XLM benchmark</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 opacity-40">
+                  <span className="inline-block h-0.5 w-5 rounded bg-blue-400 line-through" aria-hidden="true" />
+                  <span className="text-foreground-muted line-through">XLM benchmark (hidden)</span>
+                </div>
+              )}
             </div>
-            <div>
-              <span className="text-foreground-muted">XLM return</span>
-              <p className="font-mono text-blue-400">
-                +{performanceDelta.benchmarkReturn}%
-              </p>
+            <div className="mt-3 grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-foreground-muted">Portfolio return</span>
+                <p
+                  className={cn(
+                    "font-mono",
+                    performanceDelta.portfolioReturn >= 0
+                      ? "text-green-400"
+                      : "text-red-400"
+                  )}
+                >
+                  {performanceDelta.portfolioReturn >= 0 ? "+" : ""}
+                  {performanceDelta.portfolioReturn}%
+                </p>
+              </div>
+              {showBenchmark ? (
+                <div>
+                  <span className="text-foreground-muted">XLM return</span>
+                  <p className="font-mono text-blue-400">
+                    +{performanceDelta.benchmarkReturn}%
+                  </p>
+                </div>
+              ) : (
+                <div aria-hidden="true" className="opacity-0 select-none">
+                  {/* Placeholder to preserve grid layout when benchmark is hidden */}
+                  <span className="text-foreground-muted">XLM return</span>
+                  <p className="font-mono">—</p>
+                </div>
+              )}
             </div>
-          </div>
+          </>
         )}
       </CardContent>
     </Card>

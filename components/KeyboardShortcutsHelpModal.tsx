@@ -36,6 +36,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Actions",
     icon: Zap,
     shortcuts: [
+      { keys: "F", description: "Focus the signal feed filters" },
       { keys: "N", description: "New journal entry" },
       { keys: "T", description: "Toggle theme (light/dark)" },
       { keys: "R", description: "Refresh data on the current page" },
