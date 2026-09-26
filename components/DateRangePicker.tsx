@@ -10,7 +10,7 @@ export interface DateRange {
   end: Date;
 }
 
-interface Preset {
+export interface Preset {
   label: string;
   getRange: () => DateRange;
 }
@@ -28,7 +28,7 @@ function daysAgo(n: number): DateRange {
   return { start, end };
 }
 
-const DEFAULT_PRESETS: Preset[] = [
+export const DEFAULT_PRESETS: Preset[] = [
   { label: "Today", getRange: () => daysAgo(0) },
   { label: "Last 7 days", getRange: () => daysAgo(7) },
   { label: "Last 30 days", getRange: () => daysAgo(30) },

@@ -291,13 +291,12 @@ export function Navbar() {
 
           {/* Nav links — visible items + overflow menu */}
           <ul
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex"
             role="list"
             aria-label="Main navigation links"
           >
             {visibleLinks.map(({ href, label, tourId }) => {
-              const isActive = pathname === href;
-                            const isActive =
+              const isActive =
                               pathname === href ||
                               (href !== "/" && pathname?.startsWith(`${href}/`));
               return (
