@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator";
@@ -48,6 +48,122 @@ const PerformanceDashboard = dynamic(
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 
 type RefreshStatus = "idle" | "pending" | "success" | "error";
+
+// ---------------------------------------------------------------------------
+// Data freshness (#772)
+// ---------------------------------------------------------------------------
+
+/** How long before a metric's data is considered stale. */
+const STALE_AFTER_MS = 5 * 60 * 1000;
+
+/**
+ * Freshness states for a metric card:
+ * - "loading": data has not arrived yet
+ * - "fresh": data arrived recently
+ * - "stale": data arrived but is older than STALE_AFTER_MS
+ * - "unavailable": no timestamp could be determined
+ */
+type FreshnessState = "loading" | "fresh" | "stale" | "unavailable";
+
+function formatRelativeTime(from: Date, now: Date): string {
+  const diffMs = Math.max(0, now.getTime() - from.getTime());
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 45) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function formatExactTime(date: Date): string {
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+/**
+ * Human-readable freshness timestamp for a metric card.
+ *
+ * - Exposes the exact time via `title` and `aria-label` for assistive tech.
+ * - Distinguishes loading / fresh / stale / unavailable states.
+ * - Reserves a fixed-height line so timestamp updates never shift layout.
+ */
+function MetricFreshness({
+  updatedAt,
+  isLoading,
+  label,
+}: {
+  updatedAt: Date | null;
+  isLoading: boolean;
+  label: string;
+}) {
+  const [now, setNow] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const state: FreshnessState = isLoading
+    ? "loading"
+    : updatedAt === null
+      ? "unavailable"
+      : now.getTime() - updatedAt.getTime() > STALE_AFTER_MS
+        ? "stale"
+        : "fresh";
+
+  const relative =
+    state === "loading"
+      ? "Updating…"
+      : state === "unavailable"
+        ? "Unavailable"
+        : updatedAt
+          ? formatRelativeTime(updatedAt, now)
+          : "Unavailable";
+
+  const exact = updatedAt ? formatExactTime(updatedAt) : null;
+
+  const accessibleLabel =
+    state === "loading"
+      ? `${label} data is loading`
+      : state === "unavailable"
+        ? `${label} data freshness is unavailable`
+        : `${label} data last updated ${exact}${state === "stale" ? " (stale)" : ""}`;
+
+  const dotClass =
+    state === "loading"
+      ? "bg-sky-400 animate-pulse"
+      : state === "stale"
+        ? "bg-amber-400"
+        : state === "unavailable"
+          ? "bg-slate-500"
+          : "bg-emerald-400";
+
+  const textClass =
+    state === "stale"
+      ? "text-amber-400"
+      : state === "unavailable"
+        ? "text-foreground-muted"
+        : "text-foreground-muted";
+
+  return (
+    <p
+      className={`mt-1 flex h-4 items-center gap-1.5 text-xs ${textClass}`}
+      title={exact ? `Last updated ${exact}` : undefined}
+      aria-label={accessibleLabel}
+      role="status"
+      aria-live="polite"
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} aria-hidden="true" />
+      <span className="truncate">
+        {state === "stale" ? `Stale · ${relative}` : relative}
+      </span>
+    </p>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Inner page — has access to hooks
@@ -124,6 +240,16 @@ function AnalyticsPageInner() {
     priorTotalTrades,
     isDemo,
   } = usePeriodComparison();
+
+  // Freshness timestamps for the metric cards (#772).
+  // Metrics are considered loaded once the comparison hook returns values;
+  // demo data is simulated so it is reported as unavailable rather than fresh.
+  const metricsLoaded =
+    pnl !== undefined && winRate !== undefined && totalTrades !== undefined;
+  const metricsUpdatedAt = useMemo<Date | null>(() => {
+    if (!metricsLoaded || isDemo) return null;
+    return new Date();
+  }, [metricsLoaded, isDemo]);
 
   const refreshLabel =
     refreshStatus === "pending"
@@ -224,6 +350,13 @@ function AnalyticsPageInner() {
             isDemo={isDemo}
           />
 
+          {/* Data freshness for the comparison metrics (#772) */}
+          <MetricFreshness
+            updatedAt={metricsUpdatedAt}
+            isLoading={!metricsLoaded}
+            label="Period comparison"
+          />
+
           {/* Demo mode footnote */}
           {isDemo && (
             <p className="mt-2 text-xs text-foreground-muted text-center">
@@ -247,10 +380,29 @@ function AnalyticsPageInner() {
 
       {/* Existing charts — unaffected by period comparison */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <PortfolioAllocationChart />
-        <PnLWidget />
+        <div>
+          <PortfolioAllocationChart />
+          <MetricFreshness
+            updatedAt={metricsUpdatedAt}
+            isLoading={!metricsLoaded}
+            label="Portfolio allocation"
+          />
+        </div>
+        <div>
+          <PnLWidget />
+          <MetricFreshness
+            updatedAt={metricsUpdatedAt}
+            isLoading={!metricsLoaded}
+            label="P&L"
+          />
+        </div>
         <div className="md:col-span-2">
           <PerformanceDashboard />
+          <MetricFreshness
+            updatedAt={metricsUpdatedAt}
+            isLoading={!metricsLoaded}
+            label="Performance"
+          />
         </div>
         <div className="md:col-span-2">
           <PnLShareCardGenerator />

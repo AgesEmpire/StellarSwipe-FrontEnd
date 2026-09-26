@@ -36,8 +36,11 @@ import { useWalletStore } from "@/store/useWalletStore";
 
 const PAGE_SIZE = 10;
 
-// #773: a view is considered stale once it is older than this threshold.
-const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+// #772: how long a metric's underlying data is considered fresh before it is
+// surfaced as stale to the user.
+const STALE_AFTER_MS = 5 * 60 * 1000;
+
+type FreshnessState = "loading" | "fresh" | "stale" | "unavailable";
 
 type SortField = "rank" | "overallScore" | "winRate" | "recentPerformance";
 type SortDirection = "asc" | "desc";
@@ -152,6 +155,90 @@ function LeaderboardTableSkeleton() {
   );
 }
 
+// #772: human-readable relative freshness, e.g. "Updated 2m ago".
+function formatRelativeTime(timestamp: number, now: number): string {
+  const diff = Math.max(0, now - timestamp);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// #772: exact, human-readable timestamp for assistive tech / on interaction.
+function formatExactTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+// #772: a compact, fixed-height freshness indicator for metric cards. The
+// reserved line height keeps card dimensions stable as the label changes.
+function FreshnessTimestamp({
+  state,
+  timestamp,
+  now,
+}: {
+  state: FreshnessState;
+  timestamp: number | null;
+  now: number;
+}) {
+  const hasTimestamp = state !== "loading" && state !== "unavailable" && timestamp != null;
+  const relative = hasTimestamp ? formatRelativeTime(timestamp, now) : null;
+  const exact = hasTimestamp ? formatExactTime(timestamp) : null;
+
+  const label =
+    state === "loading"
+      ? "Loading freshness…"
+      : state === "unavailable"
+        ? "Freshness unavailable"
+        : state === "stale"
+          ? `Stale · updated ${relative}`
+          : `Updated ${relative}`;
+
+  const tone =
+    state === "stale"
+      ? "text-amber-500"
+      : state === "unavailable"
+        ? "text-muted-foreground"
+        : state === "loading"
+          ? "text-muted-foreground"
+          : "text-emerald-500";
+
+  return (
+    <span
+      className={cn(
+        "flex h-4 items-center gap-1 text-[11px] leading-4 tabular-nums",
+        tone
+      )}
+      title={exact ?? undefined}
+      aria-label={exact ? `${label}. Exact time: ${exact}` : label}
+      data-freshness={state}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full",
+          state === "stale"
+            ? "bg-amber-500"
+            : state === "unavailable"
+              ? "bg-muted-foreground/50"
+              : state === "loading"
+                ? "bg-muted-foreground/50 animate-pulse"
+                : "bg-emerald-500"
+        )}
+      />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+  );
+}
+
 export default function LeaderboardPage() {
   return (
     <LeaderboardErrorBoundary>
@@ -180,7 +267,8 @@ function LeaderboardPageInner() {
 
   // #773: track when the current view was last refreshed so we can surface a
   // stale-data badge and offer a manual refresh action.
-  const [lastUpdated, setLastUpdated] = useState<number>(() => Date.now());
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [isStale, setIsStale] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState<
     "idle" | "pending" | "success" | "error"
@@ -189,7 +277,8 @@ function LeaderboardPageInner() {
   // Re-evaluate staleness on an interval and whenever the dataset changes.
   useEffect(() => {
     const evaluate = () => {
-      setIsStale(Date.now() - lastUpdated > STALE_THRESHOLD_MS);
+      setNow(Date.now());
+      setIsStale(lastUpdated != null && Date.now() - lastUpdated > STALE_THRESHOLD_MS);
     };
     evaluate();
     const timer = window.setInterval(evaluate, 30 * 1000);
@@ -198,11 +287,19 @@ function LeaderboardPageInner() {
 
   // A successful fetch (new data or a completed refetch) resets the clock.
   useEffect(() => {
-    if (!isLoading && !error) {
+    if (!isLoading && !error && providers) {
       setLastUpdated(Date.now());
       setIsStale(false);
     }
   }, [providers, isLoading, error]);
+
+  const freshnessState: FreshnessState = isLoading
+    ? "loading"
+    : error || !providers
+      ? "unavailable"
+      : lastUpdated != null && now - lastUpdated > STALE_AFTER_MS
+        ? "stale"
+        : "fresh";
 
   const handleRefresh = async () => {
     if (refreshStatus === "pending") return;
@@ -329,11 +426,21 @@ function LeaderboardPageInner() {
   if (error) {
     return (
       <PageTransition>
-        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-6 flex flex-col gap-2">
+            <h1 className="text-2xl font-bold">Leaderboard</h1>
+            <FreshnessTimestamp
+              state={freshnessState}
+              timestamp={lastUpdated}
+              now={now}
+            />
+          </div>
           <ErrorState
-            title="Could not load the leaderboard"
-            description="Something went wrong while fetching provider rankings."
-            onRetry={() => refetch()}
+            title="Failed to load leaderboard"
+            description={error.message}
+            onRetry={refetch}
+          />
+        </div>
           />
         </div>
       </PageTransition>
@@ -600,6 +707,10 @@ function LeaderboardPageInner() {
         )}
 
         <ScrollToTop />
+      </div>
+    </PageTransition>
+  );
+}
       </div>
     </PageTransition>
   );
