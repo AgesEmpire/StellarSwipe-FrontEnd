@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { forwardRef, useMemo, useRef, useState } from "react";
 import { Bookmark, ListFilter, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/api";
@@ -10,6 +10,7 @@ import {
   useSignalFilterHydrated,
 } from "@/store/useSignalFilterStore";
 import { SavedFiltersPanel } from "@/components/SavedFiltersPanel";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const DIRECTIONS: { label: string; value: FilterDirection }[] = [
   { label: "All", value: "ALL" },
@@ -26,6 +27,12 @@ interface SignalFeedFiltersProps {
   signals?: Signal[];
   /** Whether the signal dataset is still loading — shows a loading state for counts */
   isLoadingCounts?: boolean;
+  /**
+   * Ref forwarded to the first focusable filter control.
+   * Allows parent code (e.g. a keyboard shortcut) to programmatically focus the
+   * filter section without triggering a search or submit action.
+   */
+  filterFocusRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 /** Small badge that renders a per-option result count with distinct loading/empty/unavailable states */
@@ -59,6 +66,7 @@ export function SignalFeedFilters({
   availableProviders = [],
   signals,
   isLoadingCounts = false,
+  filterFocusRef,
 }: SignalFeedFiltersProps) {
   const {
     direction,
@@ -77,9 +85,26 @@ export function SignalFeedFilters({
   } = useSignalFilterStore();
   const isHydrated = useSignalFilterHydrated();
   const assetInputRef = useRef<HTMLInputElement>(null);
+  // Ref for the first focusable filter control — used by the keyboard shortcut.
+  const firstFilterButtonRef = useRef<HTMLButtonElement>(null);
   const [presetName, setPresetName] = useState("");
   const [showPresetInput, setShowPresetInput] = useState(false);
   const [savedFiltersOpen, setSavedFiltersOpen] = useState(false);
+
+  // F — focus the filter section without triggering any search or submit.
+  // Does not fire while the user is typing in a text field (handled by
+  // useKeyboardShortcuts). Scrolls the control into view for keyboard users.
+  useKeyboardShortcuts([
+    {
+      key: "f",
+      callback: () => {
+        const el = firstFilterButtonRef.current ?? filterFocusRef?.current;
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        el.focus();
+      },
+    },
+  ]);
 
   const counts = useMemo(() => {
     if (!signals) return null;
@@ -124,6 +149,7 @@ export function SignalFeedFilters({
   return (
     <section
       aria-label="Signal feed filters"
+      aria-description="Press F to focus filters"
       className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4"
     >
       {/* Title row */}
@@ -225,11 +251,17 @@ export function SignalFeedFilters({
       <div className="flex flex-wrap items-center gap-3">
         {/* Direction pills */}
         <fieldset className="flex items-center gap-1" aria-label="Filter by direction">
-          {DIRECTIONS.map(({ label, value }) => {
+          {DIRECTIONS.map(({ label, value }, idx) => {
             const count = counts ? counts.direction(value) : null;
             return (
               <button
                 key={value}
+                ref={idx === 0 ? (el) => {
+                  (firstFilterButtonRef as React.MutableRefObject<HTMLButtonElement | null>).current = el;
+                  if (filterFocusRef && idx === 0) {
+                    (filterFocusRef as React.MutableRefObject<HTMLButtonElement | null>).current = el;
+                  }
+                } : undefined}
                 onClick={() => setDirection(value)}
                 aria-pressed={direction === value}
                 aria-label={`Filter by direction ${label}${count !== null ? `, ${count} results` : ""}`}
