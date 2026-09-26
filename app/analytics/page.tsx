@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator";
@@ -44,6 +44,11 @@ const PerformanceDashboard = dynamic(
   }
 );
 
+// Freshness threshold (ms) after which data is considered stale (#773)
+const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+
+type RefreshStatus = "idle" | "pending" | "success" | "error";
+
 // ---------------------------------------------------------------------------
 // Inner page — has access to hooks
 // ---------------------------------------------------------------------------
@@ -61,15 +66,53 @@ function AnalyticsPageInner() {
     return { start, end };
   });
 
+  // Stale-data tracking + refresh state (#773)
+  const [lastUpdated, setLastUpdated] = useState<number>(() => Date.now());
+  const [isStale, setIsStale] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus>("idle");
+  const statusResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     const range = parseAnalyticsRange(searchParams.toString());
     if (range) setCustomRange(range);
   }, [searchParams]);
 
+  // Mark data stale once it ages past the freshness threshold.
+  useEffect(() => {
+    const check = () => setIsStale(Date.now() - lastUpdated > STALE_THRESHOLD_MS);
+    check();
+    const interval = setInterval(check, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+
+  useEffect(() => {
+    return () => {
+      if (statusResetRef.current) clearTimeout(statusResetRef.current);
+    };
+  }, []);
+
   const updateCustomRange = (range: DateRange) => {
     setCustomRange(range);
     router.replace(`${pathname}${serializeAnalyticsRange(range)}`, { scroll: false });
   };
+
+  // Refresh preserves filters, scroll position, and selected tabs by only
+  // re-fetching data (router.refresh) without navigating or resetting state.
+  const handleRefresh = useCallback(async () => {
+    if (refreshStatus === "pending") return;
+    setRefreshStatus("pending");
+    if (statusResetRef.current) clearTimeout(statusResetRef.current);
+    try {
+      router.refresh();
+      setLastUpdated(Date.now());
+      setIsStale(false);
+      setRefreshStatus("success");
+    } catch {
+      setRefreshStatus("error");
+    } finally {
+      statusResetRef.current = setTimeout(() => setRefreshStatus("idle"), 4000);
+    }
+  }, [refreshStatus, router]);
 
   // Pull current & prior period metrics from the portfolio store / demo data
   const {
@@ -82,29 +125,88 @@ function AnalyticsPageInner() {
     isDemo,
   } = usePeriodComparison();
 
+  const refreshLabel =
+    refreshStatus === "pending"
+      ? "Refreshing…"
+      : refreshStatus === "success"
+        ? "Updated"
+        : refreshStatus === "error"
+          ? "Refresh failed"
+          : "Refresh";
+
   return (
     <div className="p-6">
       {/* Header row with toggle */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <h1 className="text-2xl font-bold">Portfolio Analytics</h1>
 
-        <button
-          onClick={() => setShowPeriodComparison((v) => !v)}
-          aria-pressed={showPeriodComparison}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900"
-          aria-label={
-            showPeriodComparison
-              ? "Hide period comparison"
-              : "Show period comparison"
-          }
-        >
-          <span>
-            {showPeriodComparison ? "Hide" : "Show"} Period Comparison
-          </span>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400">
-            {showPeriodComparison ? "−" : "+"}
-          </span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Stale-data badge — informational, not an error (#773) */}
+          {isStale && (
+            <span
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400"
+            >
+              <span
+                className="w-2 h-2 rounded-full bg-amber-400"
+                aria-hidden="true"
+              />
+              Data may be out of date
+            </span>
+          )}
+
+          {/* Refresh action with pending / success / failure states (#773) */}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshStatus === "pending"}
+            aria-busy={refreshStatus === "pending"}
+            aria-live="polite"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+            aria-label={
+              refreshStatus === "pending"
+                ? "Refreshing analytics data"
+                : refreshStatus === "success"
+                  ? "Analytics data updated"
+                  : refreshStatus === "error"
+                    ? "Refresh failed, try again"
+                    : "Refresh analytics data"
+            }
+          >
+            <span
+              aria-hidden="true"
+              className={
+                refreshStatus === "pending" ? "animate-spin" : undefined
+              }
+            >
+              {refreshStatus === "success"
+                ? "✓"
+                : refreshStatus === "error"
+                  ? "!"
+                  : "↻"}
+            </span>
+            <span>{refreshLabel}</span>
+          </button>
+
+          <button
+            onClick={() => setShowPeriodComparison((v) => !v)}
+            aria-pressed={showPeriodComparison}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+            aria-label={
+              showPeriodComparison
+                ? "Hide period comparison"
+                : "Show period comparison"
+            }
+          >
+            <span>
+              {showPeriodComparison ? "Hide" : "Show"} Period Comparison
+            </span>
+            <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400">
+              {showPeriodComparison ? "−" : "+"}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Period Comparison Widget — additive, not replacing benchmark chart */}
