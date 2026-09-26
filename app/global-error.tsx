@@ -2,7 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect, useState } from "react";
-import { AlertTriangle, RefreshCw, Home, Flag } from "lucide-react";
+import { AlertTriangle, RefreshCw, Home, Flag, Check } from "lucide-react";
 import Link from "next/link";
 
 const SUPPORT_EMAIL = "support@stellarswipe.io";
@@ -15,6 +15,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const [sentryEventId, setSentryEventId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     Sentry.captureException(error);
@@ -22,6 +23,18 @@ export default function GlobalError({
   }, [error]);
 
   const reportHref = buildReportHref(error.digest, sentryEventId);
+
+  const handleCopyDetails = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        buildSupportDetails(error.digest, sentryEventId)
+      );
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
     <html>
@@ -61,13 +74,30 @@ export default function GlobalError({
 
             <a
               href={reportHref}
+              aria-label="Contact support about this error"
               data-error-digest={error.digest ?? ""}
               data-sentry-event-id={sentryEventId ?? ""}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-transparent px-4 py-2.5 text-sm font-medium text-foreground-muted transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Flag className="h-4 w-4" />
-              Report this error
+              Contact support
             </a>
+
+            <button
+              type="button"
+              onClick={handleCopyDetails}
+              aria-label="Copy support details to clipboard"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-transparent bg-transparent px-4 py-2 text-xs font-medium text-foreground-muted transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Support details copied
+                </>
+              ) : (
+                "Copy support details"
+              )}
+            </button>
           </div>
         </div>
       </body>
@@ -75,19 +105,25 @@ export default function GlobalError({
   );
 }
 
+function buildSupportDetails(
+  digest: string | undefined,
+  eventId: string | null
+): string {
+  return [
+    "StellarSwipe error report",
+    `Error ID: ${digest ?? "n/a"}`,
+    `Sentry Event ID: ${eventId ?? "n/a"}`,
+    "",
+    "Please describe what you were doing when the error occurred:",
+    "",
+  ].join("\n");
+}
+
 function buildReportHref(
   digest: string | undefined,
   eventId: string | null
 ): string {
   const subject = encodeURIComponent("Error Report – StellarSwipe");
-  const body = encodeURIComponent(
-    [
-      `Error ID: ${digest ?? "n/a"}`,
-      `Sentry Event ID: ${eventId ?? "n/a"}`,
-      "",
-      "Please describe what you were doing when the error occurred:",
-      "",
-    ].join("\n")
-  );
+  const body = encodeURIComponent(buildSupportDetails(digest, eventId));
   return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
 }
