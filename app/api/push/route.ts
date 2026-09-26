@@ -7,7 +7,10 @@ const pushSubscriptions = new Map<string, PushSubscriptionJSON>();
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body?.endpoint) {
-    return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid subscription" },
+      { status: 400 }
+    );
   }
   pushSubscriptions.set(body.endpoint, body);
   return NextResponse.json({ ok: true }, { status: 201 });

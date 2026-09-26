@@ -2,34 +2,40 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  read: boolean;
-}
-
-const SAMPLE_NOTIFICATIONS: Notification[] = [
-  { id: "1", title: "XLM/USDC", message: "New BUY signal — high confidence", read: false },
-  { id: "2", title: "BTC/XLM", message: "New SELL signal — momentum reversal", read: false },
-];
+import { useNotificationStore } from "@/store/useNotificationStore";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useFocusReturn } from "@/hooks/useFocusReturn";
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>(SAMPLE_NOTIFICATIONS);
+  const { t } = useI18n();
+  const notifications = useNotificationStore((s) => s.notifications);
+  const isMarkingAllRead = useNotificationStore((s) => s.isMarkingAllRead);
+  const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
+  const clearAll = useNotificationStore((s) => s.clearAll);
+  const unreadCount = useNotificationStore((s) => s.unreadCount());
+
   const [open, setOpen] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Restore focus to the bell button when the panel closes.
+  useFocusReturn(open);
 
-  const clearAll = () => setNotifications([]);
+  const hasUnread = unreadCount > 0;
+
+  const handleMarkAllAsRead = () => {
+    if (!hasUnread || isMarkingAllRead) return;
+    // No backend yet — purely local optimistic update.
+    markAllAsRead().catch(() => {
+      // rollback already handled inside the store; future error UI can hook here
+    });
+  };
 
   return (
     <div className="relative">
       <button
         aria-label={
-          unreadCount > 0
-            ? `${unreadCount} unread notifications`
-            : "Notifications, none unread"
+          hasUnread
+            ? t("notifications.unread_count", { count: unreadCount })
+            : t("notifications.none_unread")
         }
         onClick={() => setOpen((v) => !v)}
         className="relative p-2 rounded-full hover:bg-accent transition-colors"
@@ -50,7 +56,7 @@ export function NotificationBell() {
         </svg>
 
         <AnimatePresence>
-          {unreadCount > 0 && (
+          {hasUnread && (
             <motion.span
               key="badge"
               initial={{ scale: 0 }}
@@ -85,30 +91,55 @@ export function NotificationBell() {
             >
               <div className="flex items-center justify-between px-4 py-2 border-b">
                 <span className="text-sm font-semibold">Notifications</span>
-                {notifications.length > 0 && (
-                  <button
-                    onClick={clearAll}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Clear all
-                  </button>
-                )}
+
+                <div className="flex items-center gap-2">
+                  {/* Mark all as read — visible only when at least one unread exists */}
+                  {hasUnread && (
+                    <button
+                      onClick={handleMarkAllAsRead}
+                      disabled={isMarkingAllRead}
+                      aria-label="Mark all notifications as read"
+                      className="text-xs text-blue-500 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isMarkingAllRead ? "Marking…" : "Mark all as read"}
+                    </button>
+                  )}
+
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={clearAll}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <ul className="max-h-64 overflow-y-auto divide-y">
+              <ul className="max-h-64 overflow-y-auto divide-y" role="list">
                 {notifications.length === 0 ? (
-                  <li className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    No notifications
+                  <li className="p-3">
+                    <EmptyState
+                      title="No notifications"
+                      description="You are all caught up. New alerts will appear here."
+                      className="rounded-xl bg-transparent py-8"
+                      contentClassName="max-w-xs"
+                    />
                   </li>
                 ) : (
                   notifications.map((n) => (
                     <li key={n.id} className="flex gap-3 px-4 py-3">
                       {!n.read && (
-                        <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+                        <span
+                          className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-red-500"
+                          aria-hidden="true"
+                        />
                       )}
                       <div className={n.read ? "pl-5" : ""}>
                         <p className="text-sm font-medium">{n.title}</p>
-                        <p className="text-xs text-muted-foreground">{n.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {n.message}
+                        </p>
                       </div>
                     </li>
                   ))

@@ -7,9 +7,17 @@ export async function GET(request: Request) {
   const page = Number(url.searchParams.get("page") ?? "1");
   const pageSize = Number(url.searchParams.get("pageSize") ?? "10");
 
-  if (Number.isNaN(page) || page < 1 || Number.isNaN(pageSize) || pageSize < 1) {
+  if (
+    Number.isNaN(page) ||
+    page < 1 ||
+    Number.isNaN(pageSize) ||
+    pageSize < 1
+  ) {
     return NextResponse.json(
-      { error: "Invalid pagination parameters. page and pageSize must be positive integers." },
+      {
+        error:
+          "Invalid pagination parameters. page and pageSize must be positive integers.",
+      },
       { status: 400 }
     );
   }
