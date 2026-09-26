@@ -8,6 +8,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { initI18n, getCurrentLocale, isRTL } from "@/lib/i18n";
 import { PerformanceMonitoringProvider } from "@/components/performance/PerformanceMonitoringProvider";
 import { useCrossTabSync } from "@/hooks/useCrossTabSync";
+import { useServiceWorker } from "@/hooks/useServiceWorker";
 import { IdleSessionGuard } from "@/components/IdleSessionGuard";
 import { NetworkMismatchBanner } from "@/components/NetworkMismatchBanner";
 
@@ -28,6 +29,7 @@ const ReactQueryDevtools: React.ComponentType<{ initialIsOpen?: boolean }> =
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useCrossTabSync();
+  useServiceWorker();
 
   useEffect(() => {
     initI18n().then(() => {
