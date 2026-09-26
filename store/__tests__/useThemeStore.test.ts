@@ -5,8 +5,10 @@ describe("useThemeStore – accent color", () => {
     useThemeStore.setState({
       accentColor: DEFAULT_ACCENT_COLOR,
       theme: "dark",
+      hasExplicitChoice: false,
       _hasHydrated: false,
     });
+    localStorage.clear();
   });
 
   it("default accent color is DEFAULT_ACCENT_COLOR", () => {
@@ -53,5 +55,41 @@ describe("useThemeStore – accent color", () => {
       useThemeStore.getState().setAccentColor(color);
       expect(useThemeStore.getState().accentColor).toBe(color);
     }
+  });
+});
+
+describe("useThemeStore – theme persistence and explicit choice", () => {
+  beforeEach(() => {
+    useThemeStore.setState({
+      theme: "dark",
+      hasExplicitChoice: false,
+      _hasHydrated: true,
+    });
+    localStorage.clear();
+  });
+
+  it("toggling theme sets hasExplicitChoice to true", () => {
+    expect(useThemeStore.getState().hasExplicitChoice).toBe(false);
+    useThemeStore.getState().toggle();
+    expect(useThemeStore.getState().theme).toBe("light");
+    expect(useThemeStore.getState().hasExplicitChoice).toBe(true);
+  });
+
+  it("setting theme explicitly sets hasExplicitChoice to true", () => {
+    useThemeStore.getState().setTheme("light");
+    expect(useThemeStore.getState().theme).toBe("light");
+    expect(useThemeStore.getState().hasExplicitChoice).toBe(true);
+  });
+
+  it("setSystemTheme updates theme when hasExplicitChoice is false", () => {
+    useThemeStore.setState({ hasExplicitChoice: false, theme: "dark" });
+    useThemeStore.getState().setSystemTheme("light");
+    expect(useThemeStore.getState().theme).toBe("light");
+  });
+
+  it("setSystemTheme ignores update when hasExplicitChoice is true", () => {
+    useThemeStore.setState({ hasExplicitChoice: true, theme: "dark" });
+    useThemeStore.getState().setSystemTheme("light");
+    expect(useThemeStore.getState().theme).toBe("dark");
   });
 });

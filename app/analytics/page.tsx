@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator";
 import { PeriodComparisonWidget } from "@/components/comparison/PeriodComparisonWidget";
@@ -8,6 +9,7 @@ import { usePeriodComparison } from "@/hooks/usePeriodComparison";
 import { type ComparisonGranularity } from "@/lib/comparison";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { DateRangePicker, type DateRange } from "@/components/DateRangePicker";
+import { parseAnalyticsRange, serializeAnalyticsRange } from "@/lib/analyticsDateRange";
 
 const PortfolioAllocationChart = dynamic(
   () =>
@@ -46,6 +48,9 @@ const PerformanceDashboard = dynamic(
 // Inner page — has access to hooks
 // ---------------------------------------------------------------------------
 function AnalyticsPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   // Period-over-period comparison state (#405)
   const [showPeriodComparison, setShowPeriodComparison] = useState(false);
   const [granularity, setGranularity] = useState<ComparisonGranularity>("month");
@@ -55,6 +60,16 @@ function AnalyticsPageInner() {
     start.setDate(start.getDate() - 30);
     return { start, end };
   });
+
+  useEffect(() => {
+    const range = parseAnalyticsRange(searchParams.toString());
+    if (range) setCustomRange(range);
+  }, [searchParams]);
+
+  const updateCustomRange = (range: DateRange) => {
+    setCustomRange(range);
+    router.replace(`${pathname}${serializeAnalyticsRange(range)}`, { scroll: false });
+  };
 
   // Pull current & prior period metrics from the portfolio store / demo data
   const {
@@ -125,7 +140,7 @@ function AnalyticsPageInner() {
         <h2 className="mb-2 text-sm font-semibold text-foreground-muted">
           Custom range
         </h2>
-        <DateRangePicker value={customRange} onChange={setCustomRange} />
+        <DateRangePicker value={customRange} onChange={updateCustomRange} />
       </div>
 
       {/* Existing charts — unaffected by period comparison */}
