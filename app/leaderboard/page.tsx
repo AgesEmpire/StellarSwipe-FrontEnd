@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -30,6 +31,9 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useWalletStore } from "@/store/useWalletStore";
+
+const PAGE_SIZE = 10;
 
 type SortField = "rank" | "overallScore" | "winRate" | "recentPerformance";
 type SortDirection = "asc" | "desc";
@@ -129,6 +133,8 @@ function LeaderboardPageInner() {
   const [pinned, setPinned] = useState<ColumnKey[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const [page, setPage] = useState(1);
+  const publicKey = useWalletStore((s) => s.publicKey);
 
   const sortedProviders = useMemo(() => {
     if (!providers) return [];
@@ -141,6 +147,25 @@ function LeaderboardPageInner() {
     });
     return sorted;
   }, [providers, sortField, sortDirection]);
+
+  // Return to the first page whenever the ordering or dataset changes.
+  useEffect(() => {
+    setPage(1);
+  }, [sortField, sortDirection, timeRange]);
+
+  const totalResults = sortedProviders.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedProviders = sortedProviders.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const currentUserIndex = publicKey
+    ? sortedProviders.findIndex((p) => p.address === publicKey)
+    : -1;
+  const currentUser =
+    currentUserIndex >= 0 ? sortedProviders[currentUserIndex] : null;
+  const currentUserPage =
+    currentUserIndex >= 0 ? Math.floor(currentUserIndex / PAGE_SIZE) + 1 : null;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -444,10 +469,11 @@ function LeaderboardPageInner() {
               </tr>
             </thead>
             <tbody ref={tbodyRef}>
-              {sortedProviders.map((provider) => (
+              {pagedProviders.map((provider) => (
                 <tr
                   key={provider.id}
-                  className="border-b hover:bg-muted/30 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  aria-current={provider.id === currentUser?.id ? "true" : undefined}
+                  className="border-b hover:bg-muted/30 aria-[current=true]:bg-blue-500/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   onClick={() => router.push(`/provider/${provider.id}`)}
                   // Keep native row semantics so cells stay associated with
                   // their column headers; the hint is announced as a description.
@@ -523,6 +549,74 @@ function LeaderboardPageInner() {
             icon={<Trophy size={28} className="text-slate-400" />}
           />
         )}
+
+        {currentUser && currentUserPage !== currentPage && (
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-100"
+            role="region"
+            aria-label="Your leaderboard position"
+            data-testid="leaderboard-your-position"
+          >
+            <span>
+              Your position: <strong>#{currentUser.rank}</strong>{" "}
+              {currentUser.name} — {currentUserIndex + 1} of {totalResults}
+            </span>
+            <button
+              type="button"
+              onClick={() => currentUserPage && setPage(currentUserPage)}
+              className="rounded-md border border-blue-400/40 px-3 py-1 text-xs font-medium hover:bg-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              Go to page {currentUserPage}
+            </button>
+          </div>
+        )}
+
+        {/* Always rendered (even when empty) so the controls never jump. */}
+        <nav
+          aria-label="Leaderboard pagination"
+          className="flex min-h-10 flex-wrap items-center justify-between gap-3 text-sm text-gray-400"
+        >
+          <p role="status" aria-live="polite" data-testid="leaderboard-page-status">
+            {totalResults === 0
+              ? "No results"
+              : `Showing ${pageStart + 1}–${pageStart + pagedProviders.length} of ${totalResults} providers. Page ${currentPage} of ${totalPages}.`}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              Previous<span className="sr-only"> page</span>
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setPage(n)}
+                aria-label={`Page ${n}`}
+                aria-current={n === currentPage ? "page" : undefined}
+                className={cn(
+                  "min-w-8 rounded-md border px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  n === currentPage
+                    ? "border-blue-500/50 bg-blue-500/15 text-blue-300"
+                    : "border-white/10 text-white hover:bg-white/5"
+                )}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              Next<span className="sr-only"> page</span>
+            </button>
+          </div>
+        </nav>
 
         <ScrollToTop />
       </main>

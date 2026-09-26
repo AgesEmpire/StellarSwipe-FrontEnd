@@ -7,10 +7,11 @@ import {
   type BacktestResult,
 } from "@/lib/backtest";
 import Link from "next/link";
-import { Download, History, Save, Trash2 } from "lucide-react";
+import { Check, Download, History, Pencil, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBacktestPresetsStore } from "@/store/useBacktestPresetsStore";
 import { useBacktestHistoryStore } from "@/store/useBacktestHistoryStore";
+import { toast } from "@/lib/toast";
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -59,7 +60,14 @@ export default function BacktestTool() {
   const [presetName, setPresetName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
 
-  const { presets, savePreset, deletePreset } = useBacktestPresetsStore();
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmRename, setConfirmRename] = useState(false);
+  const [presetStatus, setPresetStatus] = useState("");
+
+  const { presets, savePreset, overwritePreset, renamePreset, deletePreset } =
+    useBacktestPresetsStore();
   const addRun = useBacktestHistoryStore((s) => s.addRun);
 
   const params: BacktestParams = {
@@ -84,9 +92,26 @@ export default function BacktestTool() {
     }
   }
 
+  const paramsValid = Boolean(from && to && from <= to);
+  const trimmedPresetName = presetName.trim();
+  const existingPreset = presets.find(
+    (p) => p.name.toLowerCase() === trimmedPresetName.toLowerCase()
+  );
+
+  function announce(message: string) {
+    setPresetStatus(message);
+    toast.success(message);
+  }
+
   function handleSavePreset() {
-    if (!presetName.trim()) return;
-    savePreset(presetName.trim(), params);
+    if (!trimmedPresetName || !paramsValid) return;
+    if (existingPreset) {
+      overwritePreset(existingPreset.id, params);
+      announce(`Preset "${existingPreset.name}" overwritten`);
+    } else {
+      savePreset(trimmedPresetName, params);
+      announce(`Preset "${trimmedPresetName}" saved`);
+    }
     setPresetName("");
     setShowSaveInput(false);
   }
@@ -99,37 +124,155 @@ export default function BacktestTool() {
     setSelected(preset.params.signals);
     setSlippageBps(preset.params.slippageBps ?? 10);
     setFeeBps(preset.params.feeBps ?? 10);
+    setPresetStatus(`Preset "${preset.name}" applied`);
+  }
+
+  function startRename(id: string, name: string) {
+    setConfirmDeleteId(null);
+    setRenamingId(id);
+    setRenameValue(name);
+    setConfirmRename(false);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setConfirmRename(false);
+  }
+
+  function handleRename(id: string) {
+    const name = renameValue.trim();
+    if (!name) return;
+    if (presets.some((p) => p.id !== id && p.name.toLowerCase() === name.toLowerCase())) {
+      setPresetStatus(`A preset named "${name}" already exists`);
+      toast.error(`A preset named "${name}" already exists`);
+      return;
+    }
+    if (!confirmRename) {
+      setConfirmRename(true);
+      return;
+    }
+    renamePreset(id, name);
+    cancelRename();
+    announce(`Preset renamed to "${name}"`);
+  }
+
+  function handleDelete(id: string, name: string) {
+    deletePreset(id);
+    setConfirmDeleteId(null);
+    announce(`Preset "${name}" deleted`);
   }
 
   return (
     <div className="bg-surface border border-border rounded-lg p-4">
+      <p role="status" aria-live="polite" className="sr-only" data-testid="preset-status">
+        {presetStatus}
+      </p>
+
       {/* Presets */}
       {presets.length > 0 && (
         <div className="mb-4">
-          <label className="text-xs text-foreground-muted block mb-1">
+          <span className="text-xs text-foreground-muted block mb-1">
             Load Preset
-          </label>
-          <div className="flex flex-wrap gap-2">
+          </span>
+          <ul className="flex flex-wrap gap-2" aria-label="Saved presets">
             {presets.map((p) => (
-              <div key={p.id} className="flex items-center gap-1">
-                <button
-                  onClick={() => handleLoadPreset(p.id)}
-                  className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition-colors"
-                  data-testid={`preset-load-${p.id}`}
-                >
-                  {p.name}
-                </button>
-                <button
-                  onClick={() => deletePreset(p.id)}
-                  aria-label={`Delete preset ${p.name}`}
-                  className="text-red-400 hover:text-red-300"
-                  data-testid={`preset-delete-${p.id}`}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
+              <li key={p.id} className="flex items-center gap-1">
+                {renamingId === p.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => {
+                        setRenameValue(e.target.value);
+                        setConfirmRename(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRename(p.id);
+                        if (e.key === "Escape") cancelRename();
+                      }}
+                      aria-label={`New name for preset ${p.name}`}
+                      className="text-xs px-2 py-1 bg-white/10 rounded border border-white/20"
+                      data-testid={`preset-rename-input-${p.id}`}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRename(p.id)}
+                      disabled={!renameValue.trim()}
+                      aria-label={
+                        confirmRename
+                          ? `Confirm rename to ${renameValue.trim()}`
+                          : `Rename preset ${p.name}`
+                      }
+                      className="text-xs text-green-400 hover:text-green-300"
+                      data-testid={`preset-rename-confirm-${p.id}`}
+                    >
+                      {confirmRename ? "Confirm rename?" : <Check size={12} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelRename}
+                      aria-label="Cancel rename"
+                      className="text-foreground-muted"
+                    >
+                      <X size={12} />
+                    </button>
+                  </>
+                ) : confirmDeleteId === p.id ? (
+                  <>
+                    <span className="text-xs">Delete &ldquo;{p.name}&rdquo;?</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(p.id, p.name)}
+                      className="text-xs text-red-400 hover:text-red-300"
+                      data-testid={`preset-delete-confirm-${p.id}`}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="text-xs text-foreground-muted"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleLoadPreset(p.id)}
+                      className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition-colors"
+                      data-testid={`preset-load-${p.id}`}
+                    >
+                      {p.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startRename(p.id, p.name)}
+                      aria-label={`Rename preset ${p.name}`}
+                      className="text-foreground-muted hover:text-foreground"
+                      data-testid={`preset-rename-${p.id}`}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        cancelRename();
+                        setConfirmDeleteId(p.id);
+                      }}
+                      aria-label={`Delete preset ${p.name}`}
+                      className="text-red-400 hover:text-red-300"
+                      data-testid={`preset-delete-${p.id}`}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </>
+                )}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
@@ -210,6 +353,7 @@ export default function BacktestTool() {
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
               placeholder="Preset name"
+              aria-label="Preset name"
               className="text-sm px-2 py-1 bg-white/10 rounded border border-white/20 focus:outline-none"
               data-testid="preset-name-input"
               onKeyDown={(e) => e.key === "Enter" && handleSavePreset()}
@@ -218,11 +362,16 @@ export default function BacktestTool() {
             <Button
               size="sm"
               onClick={handleSavePreset}
-              disabled={!presetName.trim()}
+              disabled={!trimmedPresetName || !paramsValid}
               data-testid="preset-save-confirm"
             >
-              Save
+              {existingPreset ? "Overwrite" : "Save"}
             </Button>
+            {!paramsValid && (
+              <span className="text-xs text-red-400">
+                Fix the date range before saving
+              </span>
+            )}
             <Button
               size="sm"
               variant="ghost"

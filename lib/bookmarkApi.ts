@@ -72,6 +72,24 @@ export async function removeBookmark(signalId: string): Promise<string> {
 }
 
 /**
+ * Persist the tag list for a single bookmark.
+ * Returns the signal id whose tags were updated.
+ */
+export async function saveBookmarkTags(
+  signalId: string,
+  tags: string[]
+): Promise<string> {
+  await delay(250);
+
+  if (Math.random() < 0.04) {
+    throw new BookmarkApiError("Failed to update bookmark tags.", "SYNC_FAILED");
+  }
+
+  void tags;
+  return signalId;
+}
+
+/**
  * Fetch all bookmarked signal ids from the server.
  */
 export async function fetchBookmarks(): Promise<string[]> {
