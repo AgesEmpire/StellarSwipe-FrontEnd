@@ -15,6 +15,7 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { MobileNav } from "@/components/MobileNav";
+import { ToastViewport } from "@/components/ToastViewport";
 
 // Dev-only overlays (~950 lines combined) render null in production but were
 // previously statically imported into every page's root layout bundle. They
@@ -123,6 +124,10 @@ export default function RootLayout({
           <NotificationPermissionPrompt />
           <PWAInstallPrompt />
           <GuidedTourSpotlight />
+          {/* Bounded, non-overlapping toast region. Positioned below the fixed
+              navbar and above the mobile nav / primary form actions so queued
+              messages never cover navigation or submit buttons. */}
+          <ToastViewport />
         </Providers>
       </body>
     </html>

@@ -60,7 +60,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <IdleSessionGuard />
         {children}
       </PerformanceMonitoringProvider>
-      <ToastProvider />
+      <ToastProvider
+        // Issue #774: bound the toast viewport so bursts of messages stack
+        // predictably instead of overlapping. The region is anchored below the
+        // fixed navigation and above primary form actions, and is scrollable
+        // when the queue exceeds the visible area.
+        position="bottom-right"
+        maxVisible={3}
+        gap={8}
+        offset={{ top: 72, bottom: 96, right: 16 }}
+        // Coalesce duplicate/equivalent messages so repeated feedback does not
+        // flood the queue.
+        dedupe
+        // Allow keyboard users to dismiss individual toasts and reach actions.
+        dismissible
+        keyboardDismiss
+        aria-live="polite"
+      />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
