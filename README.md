@@ -224,3 +224,9 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-819 -->
 - #819: Duplicate a journal entry as a starting point for a new trade note
+
+<!-- handsoff-issue-821 -->
+- #821: Link journal entries to transaction receipts
+
+<!-- handsoff-issue-835 -->
+- #835: Add a participant detail panel to the leaderboard
