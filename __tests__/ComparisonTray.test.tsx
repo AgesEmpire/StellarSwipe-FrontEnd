@@ -187,3 +187,64 @@ describe("ComparisonTray – clear all", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ComparisonTray – metric definitions", () => {
+  it("exposes a keyboard-accessible help button for each metric", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    const helpButtons = screen.getAllByRole("button", {
+      name: /what does .* mean/i,
+    });
+    expect(helpButtons.length).toBeGreaterThan(0);
+    helpButtons.forEach((btn) => {
+      expect(btn).toHaveAttribute("aria-expanded", "false");
+    });
+  });
+
+  it("opens a metric definition via keyboard and announces it", async () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    const helpButton = screen.getAllByRole("button", {
+      name: /what does .* mean/i,
+    })[0];
+
+    helpButton.focus();
+    expect(helpButton).toHaveFocus();
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(helpButton).toHaveAttribute("aria-expanded", "true");
+    const definition = screen.getByRole("tooltip");
+    expect(definition).toBeInTheDocument();
+    expect(definition).toHaveTextContent(/./);
+  });
+
+  it("dismisses the metric definition with Escape", async () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    const helpButton = screen.getAllByRole("button", {
+      name: /what does .* mean/i,
+    })[0];
+
+    await userEvent.click(helpButton);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(helpButton).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does not render a generic explanation for unknown metrics", () => {
+    seedSignals(1);
+    render(<ComparisonTray />);
+
+    // Unknown metrics must not surface a help affordance at all.
+    expect(
+      screen.queryByRole("button", { name: /what does unknown mean/i })
+    ).not.toBeInTheDocument();
+  });
+});
