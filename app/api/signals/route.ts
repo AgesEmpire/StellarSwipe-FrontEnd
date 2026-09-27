@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { buildSignalPage, buildActivitySummary } from "@/lib/signals";
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
 
+const DISMISSAL_REASONS = ["irrelevant", "too_risky", "already_acted_on"] as const;
+
+type DismissalReason = (typeof DISMISSAL_REASONS)[number];
+
+function isDismissalReason(value: unknown): value is DismissalReason {
+  return (
+    typeof value === "string" &&
+    (DISMISSAL_REASONS as readonly string[]).includes(value)
+  );
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const page = Number(url.searchParams.get("page") ?? "1");
@@ -40,4 +51,47 @@ export async function GET(request: Request) {
   );
 
   return NextResponse.json(feed, { status: 200 });
+}
+
+export async function POST(request: Request) {
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body." },
+      { status: 400 }
+    );
+  }
+
+  const payload = (body ?? {}) as {
+    signalId?: unknown;
+    reason?: unknown;
+  };
+
+  const signalId =
+    typeof payload.signalId === "string" ? payload.signalId.trim() : "";
+
+  if (!signalId) {
+    return NextResponse.json(
+      { error: "signalId is required to dismiss a recommendation." },
+      { status: 400 }
+    );
+  }
+
+  // Feedback is optional: skipping the reason must not block dismissal.
+  const reason = isDismissalReason(payload.reason) ? payload.reason : null;
+
+  const dismissal = await traceWorker(
+    "worker:signals:dismiss",
+    async () => ({
+      signalId,
+      dismissed: true,
+      reason,
+    }),
+    { signalId, reason }
+  );
+
+  return NextResponse.json(dismissal, { status: 200 });
 }
