@@ -7,9 +7,11 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { GripVertical, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, RotateCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { PnLWidget } from "@/components/chart/PnLWidget";
 import { PortfolioAllocationChart } from "@/components/chart/PortfolioAllocationChart";
@@ -138,6 +140,16 @@ const WIDGET_META: Record<string, { title: string; component: ReactNode }> = {
 export function DashboardWidgets() {
   const [order, setOrder] = useState<string[]>(DEFAULT_ORDER);
   const [mounted, setMounted] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const orderRef = useRef(order);
+  orderRef.current = order;
+
+  const announcePosition = useCallback((widgetId: string, list: string[]) => {
+    const title = WIDGET_META[widgetId]?.title ?? widgetId;
+    setAnnouncement(
+      `${title} moved to position ${list.indexOf(widgetId) + 1} of ${list.length}.`
+    );
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -160,13 +172,37 @@ export function DashboardWidgets() {
 
   const handleReorder = useCallback((newOrder: string[]) => {
     setOrder(newOrder);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
+    } catch {
+      // Storage unavailable — order still applies for this session.
+    }
   }, []);
 
   const handleReset = useCallback(() => {
     setOrder(DEFAULT_ORDER);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ORDER));
+    setAnnouncement("Dashboard layout reset to default order.");
   }, []);
+
+  const handleDragStart = useCallback((widgetTitle: string) => {
+    setAnnouncement(`Picked up ${widgetTitle}. Drag to a new position and release to drop.`);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (widgetId: string) => {
+      // Reorder.Group updates order continuously during the drag; persist and
+      // announce the final settled position once the drag completes.
+      const finalOrder = orderRef.current;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(finalOrder));
+      } catch {
+        // Storage unavailable — order still applies for this session.
+      }
+      announcePosition(widgetId, finalOrder);
+    },
+    [announcePosition]
+  );
 
   const moveItem = useCallback(
     (index: number, direction: "up" | "down") => {
@@ -176,8 +212,9 @@ export function DashboardWidgets() {
       const [moved] = newOrder.splice(index, 1);
       newOrder.splice(newIndex, 0, moved);
       handleReorder(newOrder);
+      announcePosition(moved, newOrder);
     },
-    [order, handleReorder]
+    [order, handleReorder, announcePosition]
   );
 
   if (!mounted) {
@@ -232,17 +269,32 @@ export function DashboardWidgets() {
               index={index}
               totalItems={order.length}
               onMove={moveItem}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
             >
               {meta.component}
             </WidgetWrapper>
           );
         })}
       </Reorder.Group>
+
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
     </div>
   );
 }
 
 // ─── WidgetWrapper ────────────────────────────────────────────────────────────
+
+/**
+ * Touch users must press and hold the handle this long before a drag starts,
+ * so a quick swipe across the handle still scrolls the page instead of
+ * accidentally picking up the widget.
+ */
+const TOUCH_DRAG_DELAY_MS = 250;
+/** Movement (px) during the hold that cancels the pending touch drag. */
+const TOUCH_MOVE_TOLERANCE_PX = 8;
 
 interface WidgetWrapperProps {
   widgetId: string;
@@ -250,6 +302,8 @@ interface WidgetWrapperProps {
   index: number;
   totalItems: number;
   onMove: (index: number, direction: "up" | "down") => void;
+  onDragStart: (widgetTitle: string) => void;
+  onDragEnd: (widgetId: string, widgetTitle: string) => void;
   children: ReactNode;
 }
 
@@ -259,11 +313,55 @@ function WidgetWrapper({
   index,
   totalItems,
   onMove,
+  onDragStart,
+  onDragEnd,
   children,
 }: WidgetWrapperProps) {
   const dragControls = useDragControls();
+  const [isDragging, setIsDragging] = useState(false);
+  const holdTimerRef = useRef<number | null>(null);
+  const holdOriginRef = useRef<{ x: number; y: number } | null>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const clearHold = useCallback(() => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    holdOriginRef.current = null;
+  }, []);
+
+  useEffect(() => clearHold, [clearHold]);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === "mouse" || e.pointerType === "pen") {
+      // Pointer users drag immediately from the handle.
+      dragControls.start(e);
+      return;
+    }
+    // Touch: require an intentional press-and-hold before dragging.
+    const nativeEvent = e.nativeEvent;
+    holdOriginRef.current = { x: e.clientX, y: e.clientY };
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = null;
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate?.(10);
+      }
+      dragControls.start(nativeEvent);
+    }, TOUCH_DRAG_DELAY_MS);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const origin = holdOriginRef.current;
+    if (!origin || holdTimerRef.current === null) return;
+    if (
+      Math.abs(e.clientX - origin.x) > TOUCH_MOVE_TOLERANCE_PX ||
+      Math.abs(e.clientY - origin.y) > TOUCH_MOVE_TOLERANCE_PX
+    ) {
+      clearHold();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
       onMove(index, "up");
@@ -273,35 +371,76 @@ function WidgetWrapper({
     }
   };
 
+  const isFirst = index === 0;
+  const isLast = index === totalItems - 1;
+  const moveButtonClass =
+    "flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-slate-100 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500";
+
   return (
     <Reorder.Item
       value={widgetId}
       dragListener={false}
       dragControls={dragControls}
-      className="relative focus-within:ring-2 focus-within:ring-sky-500 rounded-xl outline-none"
+      onDragStart={() => {
+        setIsDragging(true);
+        onDragStart(widgetTitle);
+      }}
+      onDragEnd={() => {
+        setIsDragging(false);
+        onDragEnd(widgetId, widgetTitle);
+      }}
+      data-dragging={isDragging || undefined}
+      className={cn(
+        "relative rounded-xl outline-none focus-within:ring-2 focus-within:ring-sky-500",
+        isDragging && "z-20 shadow-2xl shadow-black/50 ring-2 ring-sky-500/70"
+      )}
     >
       {/* Each widget is wrapped in its own isolated error boundary.
           Crashing one widget does NOT affect any other widget. */}
       <WidgetErrorBoundary widgetId={widgetId} widgetTitle={widgetTitle}>
-        <div
-          tabIndex={0}
-          onKeyDown={handleKeyDown}
-          aria-label={`${widgetTitle} widget. Press Arrow Up or Down to reorder.`}
-          className="group relative"
-        >
-          {/* Drag handle */}
-          <div className="absolute left-2 top-2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity bg-slate-900/90 rounded-md px-1.5 py-1 border border-white/10 shadow-md">
-            <div
-              onPointerDown={(e) => dragControls.start(e)}
-              className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-200"
-              title="Drag to reorder"
+        <div className="group relative">
+          {/* Reorder toolbar — always visible on touch (no hover there),
+              revealed on hover/focus for fine pointers. */}
+          <div
+            role="group"
+            aria-label={`Reorder ${widgetTitle}`}
+            className="absolute right-2 top-2 z-10 flex items-center gap-0.5 rounded-md border border-white/10 bg-slate-900/90 p-0.5 shadow-md transition-opacity opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100"
+          >
+            <button
+              type="button"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={clearHold}
+              onPointerCancel={clearHold}
+              onKeyDown={handleKeyDown}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-label={`Drag handle for ${widgetTitle}, position ${index + 1} of ${totalItems}. Press and hold to drag, or use Arrow Up and Arrow Down to reorder.`}
+              title="Drag to reorder (press and hold on touch)"
+              // touch-action: none only on the handle — the rest of the widget
+              // keeps native scrolling and its own controls stay usable.
+              style={{ touchAction: "none", WebkitTouchCallout: "none" }}
+              className="flex h-11 w-11 cursor-grab select-none items-center justify-center rounded text-slate-400 hover:text-slate-100 active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 sm:h-8 sm:w-8"
             >
-              <GripVertical size={13} />
-            </div>
-            <div className="flex flex-col text-[8px] text-slate-500 leading-none pr-0.5 select-none">
-              <span>▲/▼ keys</span>
-              <span>to reorder</span>
-            </div>
+              <GripVertical size={16} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMove(index, "up")}
+              disabled={isFirst}
+              aria-label={`Move ${widgetTitle} up`}
+              className={moveButtonClass}
+            >
+              <ChevronUp size={14} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMove(index, "down")}
+              disabled={isLast}
+              aria-label={`Move ${widgetTitle} down`}
+              className={moveButtonClass}
+            >
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
           </div>
           {children}
         </div>

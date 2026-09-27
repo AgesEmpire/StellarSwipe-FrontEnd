@@ -4,6 +4,8 @@ import { ReactNode } from "react";
 import { Bell, Globe2, LayoutGrid, Moon, Palette, Wallet2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AccentColorPicker } from "@/components/AccentColorPicker";
+import { HighContrastPreview } from "@/components/HighContrastPreview";
+import { useContrastStore } from "@/store/useContrastStore";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { FeedDensityToggle } from "@/components/FeedDensityToggle";
 import { DataSaverToggle } from "@/components/DataSaverToggle";
@@ -58,6 +60,7 @@ export function PreferencesHub() {
   const { theme, accentColor } = useThemeStore();
   const { currency } = useCurrencyStore();
   const { density } = useFeedDensityStore();
+  const highContrast = useContrastStore((s) => s.highContrast);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
@@ -71,7 +74,10 @@ export function PreferencesHub() {
 
       <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-foreground/[0.03] p-3 text-xs text-foreground-muted">
         <span className="font-medium text-foreground">Currently:</span>
-        <span>{theme === "dark" ? "Dark" : "Light"} theme</span>
+        <span>
+          {theme === "dark" ? "Dark" : "Light"} theme
+          {highContrast ? " (high contrast)" : ""}
+        </span>
         <span aria-hidden="true">·</span>
         <span>{accentColor ? "Custom accent" : "Default accent"}</span>
         <span aria-hidden="true">·</span>
@@ -93,6 +99,9 @@ export function PreferencesHub() {
             </p>
           </div>
           <ThemeToggle />
+        </div>
+        <div className="border-t border-border pt-4">
+          <HighContrastPreview />
         </div>
         <div className="border-t border-border pt-4">
           <AccentColorPicker />

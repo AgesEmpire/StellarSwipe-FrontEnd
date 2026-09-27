@@ -20,6 +20,12 @@ import {
 } from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 import { useChartColors } from "@/lib/chartPalette";
+import {
+  ChartIntervalSelector,
+  UnsupportedIntervalCallout,
+  useChartInterval,
+} from "@/components/chart/ChartIntervalSelector";
+import { CHART_INTERVALS } from "@/store/useChartIntervalStore";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import {
@@ -100,6 +106,16 @@ export function PortfolioPerformanceBenchmarkChart({
   const { annotations, addAnnotation, updateAnnotation, removeAnnotation } =
     useChartAnnotations(CHART_ID);
 
+  // Supported intervals — benchmark chart has enough mock data for these.
+  const SUPPORTED_INTERVALS = ["1W", "1M", "3M", "1Y"] as const;
+  const { interval, setInterval, isSupported } = useChartInterval({
+    supportedIntervals: [...SUPPORTED_INTERVALS],
+    syncToUrl: true,
+    urlParamKey: "portfolioInterval",
+  });
+
+  const intervalMeta = CHART_INTERVALS[interval];
+
   // Restore the last chosen benchmark; fall back to the default if the saved
   // id is no longer offered.
   useEffect(() => {
@@ -124,7 +140,10 @@ export function PortfolioPerformanceBenchmarkChart({
   const benchmarkUsable = isBenchmarkUsable(benchmark);
   const benchmarkLabel = benchmark.label;
 
-  const baseHistory = useXLMPriceHistory({ points: rangePoints, interval: "day" });
+  const baseHistory = useXLMPriceHistory({
+    points: intervalMeta.points,
+    interval: intervalMeta.historyInterval,
+  });
   const xlmHistory = useMemo(
     () => (benchmarkUsable ? deriveBenchmarkPrices(benchmark, baseHistory) : []),
     // benchmarkRetryKey lets "Retry" re-request the benchmark feed
@@ -452,109 +471,79 @@ export function PortfolioPerformanceBenchmarkChart({
           <h2 className="text-base font-semibold text-foreground">
             Portfolio Performance vs {benchmark.label} Benchmark
           </h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <BenchmarkSelector value={benchmark.id} onChange={changeBenchmark} />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={exportCsv}
-              className="h-7 gap-1 px-2 text-[11px]"
-              aria-label={`Export performance and ${benchmark.name} benchmark as CSV`}
-            >
-              <Download size={12} aria-hidden="true" />
-              CSV
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setSnapshotOpen(true)}
-              className="h-7 gap-1 px-2 text-[11px]"
-              aria-label="Share chart snapshot"
-            >
-              <Share2 size={12} aria-hidden="true" />
-              Share
-            </Button>
-          </div>
+          {/* Interval selector — stable layout, loading state preserved */}
+          <ChartIntervalSelector
+            supportedIntervals={[...SUPPORTED_INTERVALS]}
+            value={interval}
+            onChange={setInterval}
+            isLoading={isLoading}
+            syncToUrl={false}
+            size="sm"
+          />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div role="group" aria-label="Chart range" className="flex gap-1">
-            {RANGE_OPTIONS.map((r) => (
-              <button
-                key={r.points}
-                type="button"
-                aria-pressed={rangePoints === r.points}
-                onClick={() => setRangePoints(r.points)}
-                className={cn(
-                  "rounded px-2 py-0.5 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  rangePoints === r.points
-                    ? "bg-accent text-foreground"
-                    : "text-foreground-muted hover:text-foreground"
-                )}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          <label className="flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={showBenchmark}
-              disabled={!benchmarkUsable}
-              onChange={(e) => setShowBenchmark(e.target.checked)}
-              className="h-3 w-3"
-              aria-label="Toggle benchmark overlay"
-            />
-            <span className="text-foreground-muted">Show {benchmark.label} benchmark</span>
-          </label>
-        </div>
-        {!benchmarkUsable && (
-          <div
-            role="alert"
-            className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300"
-          >
-            <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
-            <span className="flex-1">
-              {benchmark.name} is unavailable
-              {benchmark.statusReason ? `: ${benchmark.statusReason}` : "."} Showing your portfolio only.
-            </span>
-            <Button
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          {/* Benchmark toggle — stable layout; toggling does not affect interval or zoom */}
+          <div className="flex items-center gap-2">
+            <button
               type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-[11px]"
-              onClick={() => setBenchmarkRetryKey((k) => k + 1)}
-            >
-              Retry
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
-              onClick={() => changeBenchmark(DEFAULT_BENCHMARK_ID)}
-            >
-              Use {getBenchmark(DEFAULT_BENCHMARK_ID)!.label} instead
-            </Button>
-          </div>
-        )}
-        {benchmarkUsable && benchmark.status === "stale" && (
-          <p className="text-[11px] text-amber-400">
-            {benchmark.label} data may be out of date ({formatBenchmarkFreshness(benchmark).toLowerCase()}).
-          </p>
-        )}
-        {performanceDelta && (
-          <p className="text-xs text-foreground-muted">
-            Outperformance:{" "}
-            <span
+              role="switch"
+              id="benchmark-toggle"
+              aria-checked={showBenchmark}
+              aria-label="Show XLM benchmark series"
+              onClick={() => setShowBenchmark((v) => !v)}
               className={cn(
-                isOutperforming ? "text-green-400" : "text-red-400"
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                showBenchmark ? "bg-blue-500" : "bg-surface-high"
               )}
             >
-              {isOutperforming ? "+" : ""}
-              {outperformance}%
-            </span>
-          </p>
+              <span
+                aria-hidden="true"
+
+              className={cn(
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                showBenchmark ? "bg-blue-500" : "bg-surface-high"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                  showBenchmark ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+            <label
+              htmlFor="benchmark-toggle"
+              className="cursor-pointer select-none text-xs text-foreground-muted"
+              onClick={() => setShowBenchmark((v) => !v)}
+            >
+              XLM benchmark
+            </label>
+          </div>
+          {performanceDelta && (
+            <p className="text-xs text-foreground-muted">
+              Outperformance:{" "}
+              <span
+                className={cn(
+                  isOutperforming ? "text-green-400" : "text-red-400"
+                )}
+              >
+                {isOutperforming ? "+" : ""}
+                {outperformance}%
+              </span>
+            </p>
+          )}
+        </div>
+        {/* Unsupported interval callout */}
+        {!isSupported && (
+          <UnsupportedIntervalCallout
+            interval={interval}
+            supportedIntervals={[...SUPPORTED_INTERVALS]}
+            onSelectSupported={setInterval}
+            className="mt-2"
+          />
         )}
       </CardHeader>
       <CardContent>
@@ -570,6 +559,12 @@ export function PortfolioPerformanceBenchmarkChart({
           </span>
           <span id={tooltip.instructionsId} className="sr-only">
             {CHART_KEYBOARD_INSTRUCTIONS}
+          </span>
+          {/* Accessible chart summary — updates when benchmark is toggled */}
+          <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {showBenchmark
+              ? "Portfolio performance chart showing portfolio and XLM benchmark series."
+              : "Portfolio performance chart showing portfolio series only. XLM benchmark is hidden."}
           </span>
 
           <svg
@@ -606,21 +601,27 @@ export function PortfolioPerformanceBenchmarkChart({
 
             {showBenchmark && chartData.benchmarkPath && (
               <text
-                x={(chartData?.width ?? 0) - 40}
-                y={15}
-                className="fill-blue-400 text-[10px]"
+                x={(chartData?.width ?? 0) - 4}
+                y={14}
+                fontSize={9}
+                fill={chartColors.secondary}
                 textAnchor="end"
               >
                 {benchmark.label} (benchmark)
               </text>
             )}
             <text
-              x={(chartData?.width ?? 0) - 40}
-              y={showBenchmark && chartData.benchmarkPath ? 28 : 15}
-              className="fill-green-400 text-[10px]"
+              x={(chartData?.width ?? 0) - 4}
+              y={showBenchmark ? 26 : 14}
+              fontSize={9}
+              fill={chartColors.primary}
               textAnchor="end"
             >
-              Portfolio
+              ─ Portfolio
+            </text>
+              textAnchor="end"
+            >
+              ─ Portfolio
             </text>
             </g>
 
@@ -735,29 +736,61 @@ export function PortfolioPerformanceBenchmarkChart({
             })()}
         </div>
         {performanceDelta && (
-          <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
-            <div>
-              <span className="text-foreground-muted">Portfolio return</span>
-              <p
-                className={cn(
-                  "font-mono",
-                  performanceDelta.portfolioReturn >= 0
-                    ? "text-green-400"
-                    : "text-red-400"
-                )}
-              >
-                {performanceDelta.portfolioReturn >= 0 ? "+" : ""}
-                {performanceDelta.portfolioReturn}%
-              </p>
+          <>
+            {/* Legend — stable layout regardless of whether benchmark is shown */}
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-label="Chart legend">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-0.5 w-5 rounded bg-green-400" aria-hidden="true" />
+                <span className="text-foreground-muted">Portfolio</span>
+              </div>
+              {showBenchmark ? (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-0.5 w-5 rounded bg-blue-400"
+                    style={{ borderStyle: "dashed", height: 0, borderTopWidth: 2, borderTopColor: "rgb(96,165,250)", borderTopStyle: "dashed" }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-foreground-muted">XLM benchmark</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 opacity-40">
+                  <span className="inline-block h-0.5 w-5 rounded bg-blue-400 line-through" aria-hidden="true" />
+                  <span className="text-foreground-muted line-through">XLM benchmark (hidden)</span>
+                </div>
+              )}
             </div>
-            <div>
-              <span className="text-foreground-muted">{benchmark.label} return</span>
-              <p className="font-mono text-blue-400">
-                {performanceDelta.benchmarkReturn >= 0 ? "+" : ""}
-                {performanceDelta.benchmarkReturn}%
-              </p>
+            <div className="mt-3 grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-foreground-muted">Portfolio return</span>
+                <p
+                  className={cn(
+                    "font-mono",
+                    performanceDelta.portfolioReturn >= 0
+                      ? "text-green-400"
+                      : "text-red-400"
+                  )}
+                >
+                  {performanceDelta.portfolioReturn >= 0 ? "+" : ""}
+                  {performanceDelta.portfolioReturn}%
+                </p>
+              </div>
+              {showBenchmark ? (
+                <div>
+                  <span className="text-foreground-muted">XLM return</span>
+                  <p className="font-mono text-blue-400">
+                    {performanceDelta.benchmarkReturn >= 0 ? "+" : ""}
+                    {performanceDelta.benchmarkReturn}%
+                  </p>
+                </div>
+              ) : (
+                <div aria-hidden="true" className="opacity-0 select-none">
+                  {/* Placeholder to preserve grid layout when benchmark is hidden */}
+                  <span className="text-foreground-muted">XLM return</span>
+                  <p className="font-mono">—</p>
+                </div>
+              )}
             </div>
-          </div>
+          </>
         )}
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-foreground-muted">
