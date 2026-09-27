@@ -30,26 +30,23 @@ export function PortfolioSummaryCards() {
   const stats = [
     {
       label: "Balance",
-      value: `$${totalValue.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
+      value: formatCurrency(totalValue),
       icon: Wallet,
-      className: "text-sky-400",
+      className: "text-accent-sky",
     },
     {
       label: "Total P/L",
       value: `${isPositive ? "+" : ""}$${Math.abs(totalPnL).toFixed(2)}`,
       sub: `${isPositive ? "+" : ""}${pnlPercent.toFixed(2)}%`,
       icon: isPositive ? TrendingUp : TrendingDown,
-      className: isPositive ? "text-green-400" : "text-red-400",
+      className: isPositive ? "text-accent-success" : "text-accent-danger",
     },
     {
       label: "Positions",
       value: String(activePositions),
       sub: t("portfolio.assets_count", { count: assets.length }),
       icon: BarChart2,
-      className: "text-violet-400",
+      className: "text-accent-market",
     },
   ];
 

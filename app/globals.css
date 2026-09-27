@@ -117,6 +117,15 @@
 
   /* ── Reduced-motion: disable all non-essential CSS animations ─────── */
   @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+
     /* Dialog / modal animations — show content immediately */
     .dialog-overlay[data-state="open"],
     .dialog-overlay[data-state="closed"],
@@ -680,6 +689,7 @@
     );
     background-size: 200% 100%;
     animation: shimmer-sweep 1.8s ease-in-out infinite;
+    animation-delay: var(--shimmer-delay, 0ms);
   }
   @media (prefers-reduced-motion: reduce) {
     .skeleton-shimmer::after { animation: none; }
@@ -1098,4 +1108,100 @@
   [class*="overflow-auto"] {
     overflow: visible !important;
   }
+}
+
+/* ── High-contrast theme (#788) ──────────────────────────────────────────── */
+/*
+ * Applied via <html class="high-contrast"> (persisted, set before paint by the
+ * layout's inline script) or scoped to `.high-contrast-preview` for the
+ * in-settings preview. Targets WCAG AAA: ≥7:1 for text, ≥3:1 for borders,
+ * controls and focus indicators against their adjacent colors.
+ *
+ * Dark:  #000 background · #fff text (21:1) · muted #d9d9d9 (15:1)
+ *        borders #bfbfbf (11:1) · focus ring #ffd400 (15:1)
+ * Light: #fff background · #000 text (21:1) · muted #333 (12.6:1)
+ *        borders #404040 (10:1) · focus ring #0030b3 (10:1)
+ */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
+.dark.high-contrast,
+.dark .high-contrast-preview,
+.high-contrast-preview.dark {
+  color-scheme: dark;
+  --background: 0 0% 0%;
+  --surface: 0 0% 0%;
+  --surface-high: 0 0% 8%;
+  --foreground: 0 0% 100%;
+  --foreground-muted: 0 0% 85%;
+  --foreground-subtle: 0 0% 78%;
+  --border: 0 0% 75%;
+  --border-strong: 0 0% 100%;
+  --input: 0 0% 0%;
+  --ring: 50 100% 50%;
+  --accent-primary: 210 100% 72%;
+  --accent-sky: 195 100% 65%;
+  --accent-success: 140 75% 60%;
+  --accent-danger: 0 100% 75%;
+  --accent-warning: 40 100% 60%;
+  --accent-market: 245 100% 80%;
+}
+
+.light.high-contrast,
+.light .high-contrast-preview,
+.high-contrast-preview.light {
+  color-scheme: light;
+  --background: 0 0% 100%;
+  --surface: 0 0% 100%;
+  --surface-high: 0 0% 94%;
+  --foreground: 0 0% 0%;
+  --foreground-muted: 0 0% 20%;
+  --foreground-subtle: 0 0% 25%;
+  --border: 0 0% 25%;
+  --border-strong: 0 0% 0%;
+  --input: 0 0% 100%;
+  --ring: 224 100% 35%;
+  --accent-primary: 224 100% 35%;
+  --accent-sky: 200 100% 25%;
+  --accent-success: 145 100% 20%;
+  --accent-danger: 0 90% 35%;
+  --accent-warning: 25 100% 26%;
+  --accent-market: 245 80% 40%;
+}
+
+/* Thicker, unmistakable focus indicator in high contrast. */
+.high-contrast :focus-visible,
+.high-contrast-preview :focus-visible {
+  outline: 3px solid hsl(var(--ring)) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+
+/*
+ * Many components still use raw slate/gray utilities instead of tokens.
+ * Lift the low-contrast ones so text stays ≥7:1 on the black canvas.
+ */
+.dark.high-contrast :is(.text-slate-400, .text-slate-500, .text-slate-600, .text-gray-400, .text-gray-500, .text-gray-600),
+.dark .high-contrast-preview :is(.text-slate-400, .text-slate-500, .text-slate-600, .text-gray-400, .text-gray-500, .text-gray-600) {
+  color: hsl(var(--foreground-muted)) !important;
+}
+
+.dark.high-contrast :is(.bg-slate-900, .bg-slate-950, .bg-gray-900, .bg-gray-950),
+.dark .high-contrast-preview :is(.bg-slate-900, .bg-slate-950, .bg-gray-900, .bg-gray-950) {
+  background-color: #000 !important;
+}
+
+.high-contrast :is(.border-white\/5, .border-white\/10, .border-white\/20, .border-border\/40),
+.high-contrast-preview :is(.border-white\/5, .border-white\/10, .border-white\/20, .border-border\/40) {
+  border-color: hsl(var(--border)) !important;
+}
+
+.high-contrast ::placeholder,
+.high-contrast-preview ::placeholder {
+  color: hsl(var(--foreground-subtle)) !important;
+  opacity: 1;
 }

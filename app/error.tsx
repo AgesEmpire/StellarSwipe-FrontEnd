@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Flag, Home, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Flag, Home, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 
@@ -15,6 +15,7 @@ export default function Error({
   reset: () => void;
 }) {
   const [sentryEventId, setSentryEventId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     Sentry.captureException(error);
@@ -30,6 +31,18 @@ export default function Error({
     }
 
     window.location.assign("/");
+  };
+
+  const handleCopyDetails = async () => {
+    const details = buildSupportDetails(error.digest, sentryEventId);
+
+    try {
+      await navigator.clipboard.writeText(details);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
@@ -86,19 +99,54 @@ export default function Error({
             Still stuck? Send us a report and we will take a look.
           </p>
 
-          <a
-            href={reportHref}
-            data-error-digest={error.digest ?? ""}
-            data-sentry-event-id={sentryEventId ?? ""}
-            className="mx-auto mt-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-foreground-muted transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Flag className="h-4 w-4" aria-hidden="true" />
-            Report this error
-          </a>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <a
+              href={reportHref}
+              data-error-digest={error.digest ?? ""}
+              data-sentry-event-id={sentryEventId ?? ""}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-foreground-muted transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Flag className="h-4 w-4" aria-hidden="true" />
+              Report this error
+            </a>
+
+            <button
+              type="button"
+              onClick={handleCopyDetails}
+              aria-label="Copy support details for this error"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-foreground-muted transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-accent-primary" aria-hidden="true" />
+              ) : (
+                <Flag className="h-4 w-4" aria-hidden="true" />
+              )}
+              {copied ? "Support details copied" : "Copy support details"}
+            </button>
+          </div>
+
+          <p aria-live="polite" className="sr-only">
+            {copied ? "Support details copied to clipboard" : ""}
+          </p>
         </div>
       </section>
     </main>
   );
+}
+
+function buildSupportDetails(
+  digest: string | undefined,
+  eventId: string | null
+): string {
+  return [
+    "StellarSwipe error report",
+    `Error ID: ${digest ?? "n/a"}`,
+    `Sentry Event ID: ${eventId ?? "n/a"}`,
+    `Page: ${typeof window !== "undefined" ? window.location.pathname : "n/a"}`,
+    "",
+    "Please describe what you were doing when the error occurred:",
+    "",
+  ].join("\n");
 }
 
 function buildReportHref(
@@ -106,14 +154,6 @@ function buildReportHref(
   eventId: string | null
 ): string {
   const subject = encodeURIComponent("Error Report – StellarSwipe");
-  const body = encodeURIComponent(
-    [
-      `Error ID: ${digest ?? "n/a"}`,
-      `Sentry Event ID: ${eventId ?? "n/a"}`,
-      "",
-      "Please describe what you were doing when the error occurred:",
-      "",
-    ].join("\n")
-  );
+  const body = encodeURIComponent(buildSupportDetails(digest, eventId));
   return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
 }

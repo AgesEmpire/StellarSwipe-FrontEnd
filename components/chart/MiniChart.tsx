@@ -2,7 +2,12 @@
 
 import { useMemo } from "react";
 import { useChartDensityStore, type ChartAxisDensity } from "@/store/useChartDensityStore";
-import { useChartTooltip } from "@/hooks/useChartTooltip";
+import {
+  CHART_FOCUS_OVERLAY_CLASS,
+  CHART_KEYBOARD_INSTRUCTIONS,
+  formatPercentChange,
+  useChartTooltip,
+} from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 
 interface MiniChartProps {
@@ -127,14 +132,17 @@ export function MiniChart({
   );
 
   const trend = isPositive ? "positive" : "negative";
-  const { activeIndex, isVisible, activeDescription, tooltipId, containerProps, showAt, hide } =
+  const pointLabel = (i: number) => labels?.[i] ?? defaultLabel(i, data.length);
+  const { activeIndex, isVisible, activeDescription, tooltipId, instructionsId, containerProps, showAt, hide } =
     useChartTooltip({
       ariaLabel: `Mini chart showing ${trend} trend`,
       describePoint: (i) => {
         const val = data[i];
-        return `Point ${i + 1} of ${data.length}: ${
-          typeof val === "number" ? val.toFixed(4) : val
-        }`;
+        if (typeof val !== "number") return "";
+        const parts = [`Point ${i + 1} of ${data.length}, ${pointLabel(i)}: ${val.toFixed(4)}`];
+        if (i > 0) parts.push(`${formatPercentChange(val, data[i - 1])} from previous point`);
+        if (i > 0) parts.push(`${formatPercentChange(val, data[0])} from start`);
+        return parts.join(", ");
       },
       dataLength: data.length,
     });
@@ -160,7 +168,10 @@ export function MiniChart({
         aria-live="polite"
         className="sr-only"
       >
-        {isVisible ? activeDescription : `Mini chart showing ${trend} trend`}
+        {isVisible ? activeDescription : ""}
+      </span>
+      <span id={instructionsId} className="sr-only">
+        {CHART_KEYBOARD_INSTRUCTIONS}
       </span>
 
       <svg
@@ -222,11 +233,7 @@ export function MiniChart({
       </svg>
 
       {/* Keyboard-navigable overlay (covers the full chart) */}
-      <div
-        {...containerProps}
-        className="absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
-        style={{ outline: "none" }}
-      />
+      <div {...containerProps} className={CHART_FOCUS_OVERLAY_CLASS} />
 
       {/* Floating tooltip */}
       {isVisible && activeIndex !== null && points[activeIndex] && (
@@ -239,15 +246,17 @@ export function MiniChart({
               Math.max(0, points[activeIndex].x - 24),
               width - 52
             ),
-            top: points[activeIndex].y - 28,
+            top: points[activeIndex].y - 44,
             whiteSpace: "nowrap",
             transform: `translate(${tooltipOffset.x}px, ${tooltipOffset.y}px)`,
           }}
           aria-hidden="true"
         >
-          {typeof data[activeIndex] === "number"
-            ? data[activeIndex].toFixed(4)
-            : data[activeIndex]}
+          <div className="text-slate-300">{pointLabel(activeIndex)}</div>
+          <div className="font-semibold">{data[activeIndex].toFixed(4)}</div>
+          {activeIndex > 0 && (
+            <div className="text-slate-300">{formatPercentChange(data[activeIndex], data[activeIndex - 1])}</div>
+          )}
         </div>
       )}
     </div>

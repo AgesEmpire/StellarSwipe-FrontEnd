@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   FileText,
   Download,
@@ -201,6 +201,9 @@ function MultiYearComparisonTable({
   );
 }
 
+type ExportKind = "csv" | "pdf" | "turbotax" | "taxact" | "multi-csv";
+type ExportState = "idle" | "generating" | "ready" | "failed";
+
 export function TaxReportingTool() {
   const { history } = useTransactionStore();
   const [jurisdiction, setJurisdiction] = useState<TaxJurisdiction>("US");
@@ -213,9 +216,12 @@ export function TaxReportingTool() {
     CURRENT_YEAR - 2,
   ]);
   const [csvPreset, setCsvPreset] = useState<CsvPreset>("generic");
-  const [pendingExport, setPendingExport] = useState<
-    "csv" | "pdf" | "turbotax" | "taxact" | "multi-csv" | null
-  >(null);
+  const [pendingExport, setPendingExport] = useState<ExportKind | null>(null);
+  const [exportState, setExportState] = useState<ExportState>("idle");
+  const [lastExport, setLastExport] = useState<ExportKind | null>(null);
+  // Synchronous guard so a double click can't start two generations
+  const generatingRef = useRef(false);
+  const isGenerating = exportState === "generating";
 
   const transactions = useMemo(() => deriveTransactions(history), [history]);
 
@@ -354,8 +360,25 @@ export function TaxReportingTool() {
     },
   };
 
-  function runPendingExport() {
-    if (pendingExport === "csv") {
+  async function startExport(kind: ExportKind) {
+    if (generatingRef.current) return;
+    generatingRef.current = true;
+    setLastExport(kind);
+    setExportState("generating");
+    try {
+      // Yield so the "generating" state paints before synchronous work runs
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      runExport(kind);
+      setExportState("ready");
+    } catch {
+      setExportState("failed");
+    } finally {
+      generatingRef.current = false;
+    }
+  }
+
+  function runExport(kind: ExportKind) {
+    if (kind === "csv") {
       const csv = exportToCsvWithPreset(currentReport, csvPreset);
       triggerDownload(
         csv,
@@ -368,12 +391,12 @@ export function TaxReportingTool() {
       return;
     }
 
-    if (pendingExport === "pdf") {
+    if (kind === "pdf") {
       window.print();
       return;
     }
 
-    if (pendingExport === "turbotax") {
+    if (kind === "turbotax") {
       const txf = formatForTurboTax(currentReport);
       triggerDownload(
         txf,
@@ -386,7 +409,7 @@ export function TaxReportingTool() {
       return;
     }
 
-    if (pendingExport === "taxact") {
+    if (kind === "taxact") {
       const csv = formatForTaxAct(currentReport);
       triggerDownload(
         csv,
@@ -399,7 +422,7 @@ export function TaxReportingTool() {
       return;
     }
 
-    if (pendingExport === "multi-csv") {
+    if (kind === "multi-csv") {
       const sortedYears = [...selectedYears].sort((a, b) => b - a);
       const csv = exportMultiYearCsv(multiYearRows, jurisdiction);
       triggerDownload(
@@ -597,6 +620,7 @@ export function TaxReportingTool() {
               <Button
                 size="sm"
                 variant="outline"
+                disabled={isGenerating}
                 onClick={() => setPendingExport("multi-csv")}
                 className="gap-1.5"
                 aria-label={`Export multi-year comparison for ${selectedYears
@@ -852,6 +876,7 @@ export function TaxReportingTool() {
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={isGenerating}
                     onClick={() => setPendingExport("csv")}
                     className="gap-1.5"
                     aria-label={`Export ${selectedYear} ${jurisdiction} tax report as CSV`}
@@ -862,6 +887,7 @@ export function TaxReportingTool() {
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={isGenerating}
                     onClick={() => setPendingExport("pdf")}
                     className="gap-1.5"
                     aria-label={`Export ${selectedYear} ${jurisdiction} tax report as PDF`}
@@ -872,6 +898,7 @@ export function TaxReportingTool() {
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={isGenerating}
                     onClick={() => setPendingExport("turbotax")}
                     className="gap-1.5"
                     aria-label={`Export ${selectedYear} ${jurisdiction} tax report for TurboTax`}
@@ -882,6 +909,7 @@ export function TaxReportingTool() {
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={isGenerating}
                     onClick={() => setPendingExport("taxact")}
                     className="gap-1.5"
                     aria-label={`Export ${selectedYear} ${jurisdiction} tax report for TaxAct`}
@@ -917,6 +945,38 @@ export function TaxReportingTool() {
         </p>
       </div>
 
+      {exportState !== "idle" && lastExport && (
+        <div
+          role={exportState === "failed" ? "alert" : "status"}
+          aria-live={exportState === "failed" ? "assertive" : "polite"}
+          aria-busy={isGenerating}
+          data-testid="tax-export-status"
+          className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm ${
+            exportState === "failed"
+              ? "border-red-500/30 bg-red-500/5 text-red-400"
+              : "border-border bg-foreground/5 text-foreground"
+          }`}
+        >
+          <span>
+            {exportState === "generating" &&
+              `Generating your ${exportPreviewConfig[lastExport].title.replace(/^Export /, "")}…`}
+            {exportState === "ready" &&
+              `Ready: ${exportPreviewConfig[lastExport].title.replace(/^Export /, "")} has been downloaded.`}
+            {exportState === "failed" &&
+              "Report generation failed. Your selected options are unchanged."}
+          </span>
+          {exportState === "failed" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void startExport(lastExport)}
+            >
+              Retry
+            </Button>
+          )}
+        </div>
+      )}
+
       {pendingExport && (
         <ExportPreviewDialog
           open={pendingExport !== null}
@@ -927,7 +987,7 @@ export function TaxReportingTool() {
           description={exportPreviewConfig[pendingExport].description}
           items={exportPreviewConfig[pendingExport].items}
           confirmLabel={exportPreviewConfig[pendingExport].confirmLabel}
-          onConfirm={runPendingExport}
+          onConfirm={() => void startExport(pendingExport)}
         />
       )}
     </section>

@@ -53,7 +53,7 @@ export const Leaderboard: React.FC = () => {
 
   if (error) {
     return (
-      <div className="text-red-500 p-4">
+      <div className="text-accent-danger p-4">
         Failed to load leaderboard: {error}
       </div>
     );
@@ -61,29 +61,14 @@ export const Leaderboard: React.FC = () => {
 
   return (
     <section className="max-w-5xl mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-indigo-500 to-purple-600 text-transparent bg-clip-text">
+      <h1 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-accent-market to-accent-primary text-transparent bg-clip-text">
         Community Leaderboard
       </h1>
-
-      <div
-        className="flex gap-1 mb-6 border-b border-gray-200"
-        role="tablist"
-        aria-label="Leaderboard time range"
-      >
-        {PERIOD_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            role="tab"
-            aria-selected={period === tab.value}
-            onClick={() => setPeriod(tab.value)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              period === tab.value
-                ? "border-indigo-500 text-indigo-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {tab.label}
-          </button>
+    return (
+      <div className="text-accent-danger p-4">
+        Failed to load leaderboard: {error}
+      </div>
+    );
         ))}
       </div>
 

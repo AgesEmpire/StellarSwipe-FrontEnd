@@ -24,6 +24,7 @@ import {
   type BookmarkFolder,
 } from "@/store/useBookmarkStore";
 import { useBookmarkActions } from "@/hooks/useBookmarkActions";
+import { BulkTagBar } from "@/components/bookmarks/BulkTagBar";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/signals";
@@ -540,6 +541,24 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
 
   const bookmarkedSignals = sortSignals(bookmarkedSignalsUnsorted, sortOrder);
 
+  const tags = useBookmarkStore((s) => s.tags);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const visibleIds = bookmarkedSignals.map((s) => s.id);
+  // Only act on bookmarks that are still visible after filtering/removal.
+  const visibleSelectedIds = selectedIds.filter((id) => visibleIds.includes(id));
+  const allSelected =
+    visibleIds.length > 0 && visibleSelectedIds.length === visibleIds.length;
+
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+
+  const getSignalLabel = (id: string) => {
+    const signal = initialSignals.find((s) => s.id === id);
+    return signal ? `${signal.ticker}/USDC ${signal.action}` : id;
+  };
+
   const portfolioBalance = assets.reduce((sum, asset) => sum + asset.value, 0);
 
   const handleCreateFolder = (name: string) => {
@@ -612,6 +631,24 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                 resultCount={bookmarkedSignals.length}
               />
             )}
+            {isHydrated && bookmarkedSignals.length > 0 && (
+              <>
+                <label className="mb-2 inline-flex items-center gap-2 text-sm text-foreground-muted">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={() => setSelectedIds(allSelected ? [] : visibleIds)}
+                    className="h-4 w-4 accent-sky-400"
+                  />
+                  Select all ({bookmarkedSignals.length})
+                </label>
+                <BulkTagBar
+                  selectedIds={visibleSelectedIds}
+                  getLabel={getSignalLabel}
+                  onSelectionChange={setSelectedIds}
+                />
+              </>
+            )}
             {!isHydrated ? (
               <BookmarksSkeleton />
             ) : bookmarkedSignals.length === 0 ? (
@@ -623,8 +660,20 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                     f.signalIds.includes(signal.id)
                   );
 
+                  const signalTags = tags[signal.id] ?? [];
+
                   return (
                     <div key={signal.id}>
+                      <label className="mb-1 inline-flex items-center gap-2 px-1 text-xs text-foreground-muted">
+                        <input
+                          type="checkbox"
+                          checked={visibleSelectedIds.includes(signal.id)}
+                          onChange={() => toggleSelected(signal.id)}
+                          className="h-4 w-4 accent-sky-400"
+                          aria-label={`Select ${getSignalLabel(signal.id)}`}
+                        />
+                        Select
+                      </label>
                       <SignalCard
                         signalId={signal.id}
                         pair={`${signal.ticker}/USDC`}
@@ -636,6 +685,21 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                         showPassAction={false}
                         portfolioBalance={portfolioBalance}
                       />
+                      {signalTags.length > 0 && (
+                        <ul
+                          className="mt-1 flex flex-wrap gap-1.5 px-1"
+                          aria-label={`Tags for ${getSignalLabel(signal.id)}`}
+                        >
+                          {signalTags.map((t) => (
+                            <li
+                              key={t}
+                              className="rounded-full bg-violet-400/10 px-2.5 py-0.5 text-xs text-violet-300"
+                            >
+                              #{t}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {folders.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1.5 px-1">
                           {signalFolders.map((f) => (

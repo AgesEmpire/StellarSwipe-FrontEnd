@@ -2,6 +2,14 @@
 
 import React, { useMemo, useState } from "react";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // ---------------------------------------------------------------------------
 // Milestone definitions (#350)
@@ -80,6 +88,132 @@ function buildReferralLink(baseUrl: string, channel: ChannelKey): string {
     utm_content: channel,
   });
   return `${baseUrl}?${params.toString()}`;
+}
+
+const SHARE_TEXT = "Join me on StellarSwipe";
+
+/** Builds each channel's share URL from a single, once-encoded referral link. */
+export function buildShareUrl(channel: ChannelKey, link: string): string {
+  const url = encodeURIComponent(link);
+  const text = encodeURIComponent(SHARE_TEXT);
+  switch (channel) {
+    case "twitter":
+      return `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
+    case "telegram":
+      return `https://t.me/share/url?url=${url}&text=${text}`;
+    case "whatsapp":
+      return `https://wa.me/?text=${encodeURIComponent(`${SHARE_TEXT} ${link}`)}`;
+    case "email":
+      return `mailto:?subject=${text}&body=${url}`;
+  }
+}
+
+type CopyStatus = "idle" | "copied" | "failed";
+
+function useCopyStatus() {
+  const [status, setStatus] = useState<CopyStatus>("idle");
+  const copy = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatus("copied");
+    } catch {
+      setStatus("failed");
+    }
+    setTimeout(() => setStatus("idle"), 3000);
+  };
+  return { status, copy };
+}
+
+function ReferralShareDialog() {
+  const { status, copy } = useCopyStatus();
+  const [shareError, setShareError] = useState(false);
+  const canNativeShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  const nativeShare = async () => {
+    setShareError(false);
+    const link = buildReferralLink(BASE_REFERRAL_URL, "twitter");
+    try {
+      await navigator.share({ title: SHARE_TEXT, url: link });
+    } catch (err) {
+      // User cancelling the sheet is not a failure
+      if ((err as Error)?.name !== "AbortError") setShareError(true);
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded text-sm transition-colors"
+          data-testid="share-dialog-trigger"
+        >
+          Share
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share your referral link</DialogTitle>
+          <DialogDescription>
+            Pick a channel or copy the link. Each channel gets its own tracked
+            link.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          {canNativeShare && (
+            <button
+              onClick={nativeShare}
+              className="col-span-2 px-3 py-2 bg-purple-500 hover:bg-purple-600 rounded text-sm"
+            >
+              Share via device…
+            </button>
+          )}
+          {UTM_CHANNELS.map((ch) => (
+            <a
+              key={ch.key}
+              href={buildShareUrl(
+                ch.key,
+                buildReferralLink(BASE_REFERRAL_URL, ch.key)
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid={`share-${ch.key}`}
+              className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded text-sm text-center"
+            >
+              {ch.label}
+            </a>
+          ))}
+        </div>
+        <input
+          readOnly
+          value={BASE_REFERRAL_URL}
+          onFocus={(e) => e.currentTarget.select()}
+          className="bg-black/20 px-3 py-2 rounded text-sm font-mono"
+          aria-label="Referral link"
+        />
+        <button
+          onClick={() => copy(BASE_REFERRAL_URL)}
+          className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded text-sm"
+          data-testid="share-copy-link"
+        >
+          Copy link
+        </button>
+        <p
+          role="status"
+          className={`text-xs min-h-4 ${
+            status === "failed" || shareError ? "text-red-400" : "text-green-400"
+          }`}
+        >
+          {status === "copied" && "Link copied to clipboard."}
+          {status === "failed" &&
+            "Couldn't copy automatically. Select the link field and copy it manually."}
+          {status === "idle" &&
+            shareError &&
+            "Sharing failed. Try a channel above or copy the link."}
+        </p>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +369,7 @@ function MilestoneProgressBar({ referralCount }: { referralCount: number }) {
 // ---------------------------------------------------------------------------
 function ReferralPageInner() {
   const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
+  const { status: copyStatus, copy: copyValue } = useCopyStatus();
   const [selectedChannel, setSelectedChannel] = useState<ChannelKey>("twitter");
 
   // Demo referral data (in a real app this would come from an API)
@@ -265,11 +399,7 @@ function ReferralPageInner() {
 
   const generatedLink = buildReferralLink(BASE_REFERRAL_URL, selectedChannel);
 
-  const copy = async () => {
-    await navigator.clipboard.writeText(generatedLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const copy = () => copyValue(generatedLink);
 
   const channelCounts = referrals.reduce<Record<string, number>>((acc, r) => {
     acc[r.channel] = (acc[r.channel] ?? 0) + 1;
@@ -327,9 +457,19 @@ function ReferralPageInner() {
             data-testid="copy-link-btn"
             aria-label="Copy referral link"
           >
-            {copied ? "Copied!" : "Copy"}
+            {copyStatus === "copied"
+              ? "Copied!"
+              : copyStatus === "failed"
+                ? "Copy failed"
+                : "Copy"}
           </button>
+          <ReferralShareDialog />
         </div>
+        <p role="status" className="sr-only">
+          {copyStatus === "copied" && "Referral link copied."}
+          {copyStatus === "failed" &&
+            "Couldn't copy the link. Select it and copy manually."}
+        </p>
       </div>
 
       {/* Referral list */}

@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { useChartTooltip } from "@/hooks/useChartTooltip";
+import {
+  CHART_FOCUS_OVERLAY_CLASS,
+  CHART_KEYBOARD_INSTRUCTIONS,
+  formatPercentChange,
+  useChartTooltip,
+} from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
 
 interface Candle {
@@ -44,14 +49,16 @@ export function CandlestickChart({
     [data]
   );
 
-  const { activeIndex, isVisible, activeDescription, tooltipId, containerProps, showAt, hide } =
+  const { activeIndex, isVisible, activeDescription, tooltipId, instructionsId, containerProps, showAt, hide } =
     useChartTooltip({
       ariaLabel: "Candlestick chart",
       describePoint: (i) => {
         const c = candles[i];
         if (!c) return "";
         const dir = c.close >= c.open ? "up" : "down";
-        return `Candle ${i + 1} of ${candles.length}: ${dir}. Open ${c.open.toFixed(4)}, Close ${c.close.toFixed(4)}, High ${c.high.toFixed(4)}, Low ${c.low.toFixed(4)}`;
+        const change = formatPercentChange(c.close, c.open);
+        const vsPrevious = i > 0 ? `, ${formatPercentChange(c.close, candles[i - 1].close)} from previous close` : "";
+        return `Candle ${i + 1} of ${candles.length}: ${dir} ${change}. Open ${c.open.toFixed(4)}, Close ${c.close.toFixed(4)}, High ${c.high.toFixed(4)}, Low ${c.low.toFixed(4)}${vsPrevious}`;
       },
       dataLength: candles.length,
     });
@@ -93,7 +100,10 @@ export function CandlestickChart({
         aria-live="polite"
         className="sr-only"
       >
-        {isVisible ? activeDescription : "Candlestick chart"}
+        {isVisible ? activeDescription : ""}
+      </span>
+      <span id={instructionsId} className="sr-only">
+        {CHART_KEYBOARD_INSTRUCTIONS}
       </span>
 
       <svg
@@ -155,11 +165,7 @@ export function CandlestickChart({
       </svg>
 
       {/* Keyboard-navigable overlay */}
-      <div
-        {...containerProps}
-        className="absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
-        style={{ outline: "none" }}
-      />
+      <div {...containerProps} className={CHART_FOCUS_OVERLAY_CLASS} />
 
       {/* Floating tooltip */}
       {isVisible && activeCandle && (
@@ -169,7 +175,7 @@ export function CandlestickChart({
           className="pointer-events-none absolute z-10 rounded bg-slate-900/90 px-2 py-1 shadow-md"
           style={{
             left: Math.min(Math.max(0, tooltipX - 28), width - 60),
-            top: Math.max(0, tooltipY - 32),
+            top: Math.max(0, tooltipY - 44),
             whiteSpace: "nowrap",
             fontSize: 10,
             color: "white",
@@ -179,6 +185,7 @@ export function CandlestickChart({
         >
           <div>O {activeCandle.open.toFixed(4)}</div>
           <div>C {activeCandle.close.toFixed(4)}</div>
+          <div>{formatPercentChange(activeCandle.close, activeCandle.open)}</div>
         </div>
       )}
     </div>

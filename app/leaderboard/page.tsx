@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +17,7 @@ import {
   Keyboard,
   Pin,
   PinOff,
+  RefreshCw,
   Trophy,
 } from "lucide-react";
 import {
@@ -30,6 +32,15 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useWalletStore } from "@/store/useWalletStore";
+
+const PAGE_SIZE = 10;
+
+// #772: how long a metric's underlying data is considered fresh before it is
+// surfaced as stale to the user.
+const STALE_AFTER_MS = 5 * 60 * 1000;
+
+type FreshnessState = "loading" | "fresh" | "stale" | "unavailable";
 
 type SortField = "rank" | "overallScore" | "winRate" | "recentPerformance";
 type SortDirection = "asc" | "desc";
@@ -106,6 +117,128 @@ const DEFAULT_DIRECTION: Record<SortField, SortDirection> = {
   recentPerformance: "desc",
 };
 
+// #776: skeleton rows mirror the real table's column widths so the loading
+// state reserves the same major regions as the loaded content and avoids
+// layout shift. Hidden from assistive tech since it is purely decorative.
+function LeaderboardTableSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="overflow-hidden rounded-xl border border-white/10 bg-white/5"
+    >
+      <div className="flex items-center gap-4 border-b border-white/10 px-4 py-3">
+        {COLUMNS.map((col) => (
+          <div
+            key={col.key}
+            className="h-4 animate-pulse rounded bg-white/10"
+            style={{ width: col.width, maxWidth: "100%" }}
+          />
+        ))}
+      </div>
+      <div className="divide-y divide-white/5">
+        {Array.from({ length: PAGE_SIZE }).map((_, rowIndex) => (
+          <div
+            key={rowIndex}
+            className="flex items-center gap-4 px-4 py-4"
+          >
+            {COLUMNS.map((col) => (
+              <div
+                key={col.key}
+                className="h-4 animate-pulse rounded bg-white/10"
+                style={{ width: col.width, maxWidth: "100%" }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// #772: human-readable relative freshness, e.g. "Updated 2m ago".
+function formatRelativeTime(timestamp: number, now: number): string {
+  const diff = Math.max(0, now - timestamp);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// #772: exact, human-readable timestamp for assistive tech / on interaction.
+function formatExactTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+// #772: a compact, fixed-height freshness indicator for metric cards. The
+// reserved line height keeps card dimensions stable as the label changes.
+function FreshnessTimestamp({
+  state,
+  timestamp,
+  now,
+}: {
+  state: FreshnessState;
+  timestamp: number | null;
+  now: number;
+}) {
+  const hasTimestamp = state !== "loading" && state !== "unavailable" && timestamp != null;
+  const relative = hasTimestamp ? formatRelativeTime(timestamp, now) : null;
+  const exact = hasTimestamp ? formatExactTime(timestamp) : null;
+
+  const label =
+    state === "loading"
+      ? "Loading freshness…"
+      : state === "unavailable"
+        ? "Freshness unavailable"
+        : state === "stale"
+          ? `Stale · updated ${relative}`
+          : `Updated ${relative}`;
+
+  const tone =
+    state === "stale"
+      ? "text-amber-500"
+      : state === "unavailable"
+        ? "text-muted-foreground"
+        : state === "loading"
+          ? "text-muted-foreground"
+          : "text-emerald-500";
+
+  return (
+    <span
+      className={cn(
+        "flex h-4 items-center gap-1 text-[11px] leading-4 tabular-nums",
+        tone
+      )}
+      title={exact ?? undefined}
+      aria-label={exact ? `${label}. Exact time: ${exact}` : label}
+      data-freshness={state}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full",
+          state === "stale"
+            ? "bg-amber-500"
+            : state === "unavailable"
+              ? "bg-muted-foreground/50"
+              : state === "loading"
+                ? "bg-muted-foreground/50 animate-pulse"
+                : "bg-emerald-500"
+        )}
+      />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+  );
+}
+
 export default function LeaderboardPage() {
   return (
     <LeaderboardErrorBoundary>
@@ -129,6 +262,62 @@ function LeaderboardPageInner() {
   const [pinned, setPinned] = useState<ColumnKey[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const [page, setPage] = useState(1);
+  const publicKey = useWalletStore((s) => s.publicKey);
+
+  // #773: track when the current view was last refreshed so we can surface a
+  // stale-data badge and offer a manual refresh action.
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [isStale, setIsStale] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState<
+    "idle" | "pending" | "success" | "error"
+  >("idle");
+
+  // Re-evaluate staleness on an interval and whenever the dataset changes.
+  useEffect(() => {
+    const evaluate = () => {
+      setNow(Date.now());
+      setIsStale(lastUpdated != null && Date.now() - lastUpdated > STALE_THRESHOLD_MS);
+    };
+    evaluate();
+    const timer = window.setInterval(evaluate, 30 * 1000);
+    return () => window.clearInterval(timer);
+  }, [lastUpdated]);
+
+  // A successful fetch (new data or a completed refetch) resets the clock.
+  useEffect(() => {
+    if (!isLoading && !error && providers) {
+      setLastUpdated(Date.now());
+      setIsStale(false);
+    }
+  }, [providers, isLoading, error]);
+
+  const freshnessState: FreshnessState = isLoading
+    ? "loading"
+    : error || !providers
+      ? "unavailable"
+      : lastUpdated != null && now - lastUpdated > STALE_AFTER_MS
+        ? "stale"
+        : "fresh";
+
+  const handleRefresh = async () => {
+    if (refreshStatus === "pending") return;
+    setRefreshStatus("pending");
+    try {
+      await refetch();
+      setLastUpdated(Date.now());
+      setIsStale(false);
+      setRefreshStatus("success");
+      toast.success("Leaderboard data refreshed");
+    } catch {
+      setRefreshStatus("error");
+      toast.error("Could not refresh leaderboard data");
+    } finally {
+      // Return to idle shortly after so the button is reusable.
+      window.setTimeout(() => setRefreshStatus("idle"), 2000);
+    }
+  };
 
   const sortedProviders = useMemo(() => {
     if (!providers) return [];
@@ -141,6 +330,25 @@ function LeaderboardPageInner() {
     });
     return sorted;
   }, [providers, sortField, sortDirection]);
+
+  // Return to the first page whenever the ordering or dataset changes.
+  useEffect(() => {
+    setPage(1);
+  }, [sortField, sortDirection, timeRange]);
+
+  const totalResults = sortedProviders.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedProviders = sortedProviders.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const currentUserIndex = publicKey
+    ? sortedProviders.findIndex((p) => p.address === publicKey)
+    : -1;
+  const currentUser =
+    currentUserIndex >= 0 ? sortedProviders[currentUserIndex] : null;
+  const currentUserPage =
+    currentUserIndex >= 0 ? Math.floor(currentUserIndex / PAGE_SIZE) + 1 : null;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -188,64 +396,29 @@ function LeaderboardPageInner() {
     return {
       position: "sticky",
       left: pinnedOffsets[key],
-      width: COLUMNS.find((c) => c.key === key)!.width,
-      zIndex: 1,
-      boxShadow: isLastPinned ? "2px 0 4px -2px rgba(0,0,0,0.3)" : undefined,
+      width: COLUMNS.find((c) => c.key === key)?.width,
+      zIndex: isLastPinned ? 2 : 1,
     };
-  };
-
-  const activeSortLabel =
-    SORT_OPTIONS.find((o) => o.value === sortField)?.label ?? "rank";
-
-  const SortHeader = ({
-    field,
-    label,
-    className = "",
-  }: {
-    field: SortField;
-    label: string;
-    className?: string;
-  }) => (
-    <button
-      onClick={() => handleSort(field)}
-      className={`flex items-center gap-1 hover:text-foreground transition-colors ${
-        sortField === field ? "text-foreground" : "text-muted-foreground"
-      } ${className}`}
-      type="button"
-      // Current sort state is exposed via aria-sort on the parent <th>.
-      aria-label={`Sort by ${label}`}
-    >
-      {label}
-      {sortField === field &&
-        (sortDirection === "asc" ? (
-          <ChevronUp size={14} aria-hidden="true" />
-        ) : (
-          <ChevronDown size={14} aria-hidden="true" />
-        ))}
-    </button>
-  );
-
-  const PinToggle = ({ column }: { column: ColumnConfig }) => {
-    const isPinned = pinned.includes(column.key);
-    return (
-      <button
-        type="button"
-        onClick={() => togglePin(column.key)}
-        aria-pressed={isPinned}
-        aria-label={`${isPinned ? "Unpin" : "Pin"} ${column.label} column`}
-        className="rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-      >
-        {isPinned ? <Pin size={12} className="fill-current" /> : <PinOff size={12} />}
-      </button>
-    );
   };
 
   if (isLoading) {
     return (
       <PageTransition>
-        <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-          <LoadingState label="Loading leaderboard…" />
-        </main>
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="h-8 w-48 animate-pulse rounded bg-white/10" />
+            <div className="h-10 w-full animate-pulse rounded-lg bg-white/10 sm:w-40" />
+          </div>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {TIME_RANGE_TABS.map((tab) => (
+              <div
+                key={tab.value}
+                className="h-9 w-20 animate-pulse rounded-full bg-white/10"
+              />
+            ))}
+          </div>
+          <LeaderboardTableSkeleton />
+        </div>
       </PageTransition>
     );
   }
@@ -253,310 +426,292 @@ function LeaderboardPageInner() {
   if (error) {
     return (
       <PageTransition>
-        <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-6 flex flex-col gap-2">
+            <h1 className="text-2xl font-bold">Leaderboard</h1>
+            <FreshnessTimestamp
+              state={freshnessState}
+              timestamp={lastUpdated}
+              now={now}
+            />
+          </div>
           <ErrorState
             title="Failed to load leaderboard"
-            description="We couldn't reach the leaderboard service. Please try again."
-            onRetry={() => refetch()}
+            description={error.message}
+            onRetry={refetch}
           />
-        </main>
+        </div>
+          />
+        </div>
       </PageTransition>
     );
   }
 
+  if (!providers || providers.length === 0) {
+    return (
+      <PageTransition>
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          <EmptyState
+            title="No providers yet"
+            description="Provider rankings will appear here once signals are recorded."
+          />
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
-      <main className="flex min-h-screen flex-col gap-6 p-4 sm:gap-8 sm:p-8 bg-gray-950">
-        <header className="w-full flex flex-col gap-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                Leaderboard
-              </h1>
-              <p className="text-sm text-gray-400 mt-2">
-                Top-performing signal providers
-              </p>
-            </div>
-
-            {/* #677: always-visible, stateful sort controls */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div
-                role="group"
-                aria-label="Sort leaderboard by metric"
-                className="flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1"
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleSort(option.value)}
-                    aria-pressed={sortField === option.value}
-                    className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                      sortField === option.value
-                        ? "bg-blue-500/15 text-blue-300"
-                        : "text-gray-400 hover:bg-white/5 hover:text-white"
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSortDirection((dir) => (dir === "asc" ? "desc" : "asc"))
-                  }
-                  aria-pressed={sortDirection === "desc"}
-                  aria-label={`Sorted by ${activeSortLabel} ${
-                    sortDirection === "asc" ? "ascending" : "descending"
-                  }. Activate to switch direction.`}
-                  title={`Sorted ${sortDirection === "asc" ? "ascending" : "descending"}`}
-                  className="flex items-center gap-1 rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  {sortDirection === "asc" ? (
-                    <ArrowUp size={13} aria-hidden="true" />
-                  ) : (
-                    <ArrowDown size={13} aria-hidden="true" />
-                  )}
-                  <span>{sortDirection === "asc" ? "Asc" : "Desc"}</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShortcutsOpen((v) => !v)}
-                aria-expanded={shortcutsOpen}
-                aria-controls="leaderboard-shortcuts-help"
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:border-white/20 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              >
-                <Keyboard size={13} aria-hidden="true" />
-                Shortcuts
-              </button>
-
-              {pinned.length > 0 && (
-                <button
-                  type="button"
-                  onClick={resetPins}
-                  className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
-                >
-                  Reset pinned columns
-                </button>
-              )}
-            </div>
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Trophy className="h-7 w-7 text-amber-400" aria-hidden="true" />
+            <h1 className="text-2xl font-semibold text-white">Leaderboard</h1>
           </div>
-
-          {/* Time range tabs */}
-          <div
-            className="flex gap-1 border-b border-border"
-            role="tablist"
-            aria-label="Leaderboard time range"
-          >
-            {TIME_RANGE_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                role="tab"
-                aria-selected={timeRange === tab.value}
-                onClick={() => setTimeRange(tab.value)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  timeRange === tab.value
-                    ? "border-blue-500 text-blue-400"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshStatus === "pending"}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4",
+                  refreshStatus === "pending" && "animate-spin"
+                )}
+                aria-hidden="true"
+              />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen((open) => !open)}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+            >
+              <Keyboard className="h-4 w-4" aria-hidden="true" />
+              Shortcuts
+            </button>
           </div>
-        </header>
+        </div>
+
+        {isStale && (
+          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+            This view may be out of date. Refresh to see the latest rankings.
+          </div>
+        )}
 
         {shortcutsOpen && (
-          <div
-            id="leaderboard-shortcuts-help"
-            role="note"
-            aria-label="Keyboard shortcuts for table rows"
-            className="w-full rounded-lg border bg-card p-4 text-sm"
-          >
-            <p className="mb-2 font-semibold text-foreground">Row shortcuts</p>
-            <ul className="space-y-1">
-              {ROW_SHORTCUTS.map((s) => (
-                <li key={s.keys} className="flex items-center gap-2 text-muted-foreground">
-                  <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
-                    {s.keys}
+          <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-4">
+            <ul className="space-y-2 text-sm text-white/70">
+              {ROW_SHORTCUTS.map((shortcut) => (
+                <li key={shortcut.keys} className="flex items-center gap-3">
+                  <kbd className="rounded border border-white/20 bg-white/10 px-2 py-0.5 font-mono text-xs text-white">
+                    {shortcut.keys}
                   </kbd>
-                  <span>{s.action}</span>
+                  <span>{shortcut.action}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        <div className="w-full overflow-x-auto rounded-lg border bg-card">
-          <p id="leaderboard-row-hint" className="sr-only">
-            Press Enter to view the provider profile, C to copy the address, and
-            arrow keys to move between rows.
-          </p>
-          <table className="w-full text-sm">
-            <caption className="sr-only">
-              Signal provider leaderboard for the {activeSortLabel.toLowerCase()} range,
-              sorted by {activeSortLabel} (
-              {sortDirection === "asc" ? "ascending" : "descending"}). Activate a
-              row to view that provider&apos;s profile.
-            </caption>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {TIME_RANGE_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setTimeRange(tab.value)}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-sm transition",
+                timeRange === tab.value
+                  ? "bg-white text-black"
+                  : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {SORT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleSort(option.value)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/70 transition hover:bg-white/10",
+                sortField === option.value && "text-white"
+              )}
+            >
+              {option.label}
+              {sortField === option.value &&
+                (sortDirection === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                ))}
+            </button>
+          ))}
+          {pinned.length > 0 && (
+            <button
+              type="button"
+              onClick={resetPins}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/70 transition hover:bg-white/10"
+            >
+              <PinOff className="h-3.5 w-3.5" aria-hidden="true" />
+              Unpin all
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b bg-muted/50">
+              <tr className="border-b border-white/10">
                 {COLUMNS.map((col) => (
                   <th
                     key={col.key}
                     scope="col"
-                    // Only sortable columns carry aria-sort.
-                    aria-sort={
-                      !col.sortField
-                        ? undefined
-                        : col.sortField === sortField
-                          ? sortDirection === "asc"
-                            ? "ascending"
-                            : "descending"
-                          : "none"
-                    }
-                    className={cn(
-                      "px-4 py-3 font-semibold text-foreground bg-muted/50",
-                      col.align === "left" ? "text-left" : "text-right",
-                      pinned.includes(col.key) && "bg-card"
-                    )}
                     style={cellStyle(col.key)}
+                    className={cn(
+                      "px-4 py-3 font-medium text-white/60",
+                      col.align === "right" && "text-right",
+                      pinned.includes(col.key) && "bg-[#0b0b0f]"
+                    )}
                   >
                     <div
                       className={cn(
-                        "flex items-center gap-1.5",
+                        "flex items-center gap-2",
                         col.align === "right" && "justify-end"
                       )}
                     >
                       {col.sortField ? (
-                        <SortHeader field={col.sortField} label={col.label} />
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col.sortField as SortField)}
+                          className="inline-flex items-center gap-1 transition hover:text-white"
+                        >
+                          {col.label}
+                          {sortField === col.sortField &&
+                            (sortDirection === "asc" ? (
+                              <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                            ))}
+                        </button>
                       ) : (
                         <span>{col.label}</span>
                       )}
-                      <PinToggle column={col} />
+                      <button
+                        type="button"
+                        onClick={() => togglePin(col.key)}
+                        aria-label={
+                          pinned.includes(col.key)
+                            ? `Unpin ${col.label} column`
+                            : `Pin ${col.label} column`
+                        }
+                        className="text-white/30 transition hover:text-white"
+                      >
+                        {pinned.includes(col.key) ? (
+                          <Pin className="h-3.5 w-3.5" aria-hidden="true" />
+                        ) : (
+                          <PinOff className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                      </button>
                     </div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody ref={tbodyRef}>
-              {sortedProviders.map((provider) => (
+              {pagedProviders.map((provider: SignalProvider) => (
                 <tr
-                  key={provider.id}
-                  className="border-b hover:bg-muted/30 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  onClick={() => router.push(`/provider/${provider.id}`)}
-                  // Keep native row semantics so cells stay associated with
-                  // their column headers; the hint is announced as a description.
-                  tabIndex={0}
-                  aria-describedby="leaderboard-row-hint"
-                  onKeyDown={(e) => {
-                    // Never hijack keystrokes meant for a focused form field.
-                    const tag = (e.target as HTMLElement).tagName;
-                    if (tag === "INPUT" || tag === "TEXTAREA") return;
-
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(`/provider/${provider.id}`);
-                      return;
-                    }
-
-                    if (e.key === "c" || e.key === "C") {
-                      e.preventDefault();
-                      navigator.clipboard
-                        ?.writeText(provider.address)
-                        .then(() => toast.success("Address copied"))
-                        .catch(() => toast.error("Couldn't copy address"));
-                      return;
-                    }
-
-                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                      e.preventDefault();
-                      const rows = Array.from(
-                        tbodyRef.current?.querySelectorAll<HTMLElement>("tr[tabindex]") ?? []
-                      );
-                      const idx = rows.indexOf(e.currentTarget);
-                      const next = e.key === "ArrowDown" ? rows[idx + 1] : rows[idx - 1];
-                      next?.focus();
-                    }
-                  }}
+                  key={provider.address}
+                  onClick={() => router.push(`/provider/${provider.address}`)}
+                  className="cursor-pointer border-b border-white/5 transition hover:bg-white/5"
                 >
-                  {COLUMNS.map((col) => {
-                    // The provider cell names the row for assistive tech.
-                    const Cell = col.key === "provider" ? "th" : "td";
-                    return (
-                    <Cell
-                      key={col.key}
-                      scope={col.key === "provider" ? "row" : undefined}
-                      className={cn(
-                        "px-4 py-3 bg-card",
-                        col.key === "provider" && "font-normal",
-                        col.align === "right" ? "text-right" : "text-left",
-                        col.key === "rank" && "font-semibold text-foreground",
-                        col.key === "overallScore" &&
-                          "text-right font-semibold text-green-600",
-                        col.key === "winRate" && "font-semibold text-foreground",
-                        col.key === "recentPerformance" &&
-                          (provider.recentPerformance >= 0
-                            ? "text-green-600"
-                            : "text-red-600") + " font-semibold"
-                      )}
-                      style={cellStyle(col.key)}
-                    >
-                      {renderCell(col.key, provider, truncateAddress)}
-                    </Cell>
-                    );
-                  })}
+                  <td className="px-4 py-3 text-white/70" style={cellStyle("rank")}>
+                    {provider.rank}
+                  </td>
+                  <td
+                    className="px-4 py-3 text-white"
+                    style={cellStyle("provider")}
+                  >
+                    {truncateAddress(provider.address)}
+                  </td>
+                  <td
+                    className="px-4 py-3 text-right text-white/70"
+                    style={cellStyle("overallScore")}
+                  >
+                    {provider.overallScore}
+                  </td>
+                  <td
+                    className="px-4 py-3 text-right text-white/70"
+                    style={cellStyle("winRate")}
+                  >
+                    {provider.winRate}%
+                  </td>
+                  <td
+                    className="px-4 py-3 text-right text-white/70"
+                    style={cellStyle("recentPerformance")}
+                  >
+                    {provider.recentPerformance}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {sortedProviders.length === 0 && (
-          <EmptyState
-            title="No providers available"
-            description="No signal providers are ranked for this time range yet. Try another range or check back soon."
-            icon={<Trophy size={28} className="text-slate-400" />}
-          />
+        {currentUser && currentUserPage && currentUserPage !== currentPage && (
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
+            <span>
+              You are ranked #{currentUser.rank} (page {currentUserPage}).
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(currentUserPage)}
+              className="text-white underline-offset-2 hover:underline"
+            >
+              Go to my rank
+            </button>
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between text-sm text-white/70">
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 transition hover:bg-white/10 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 transition hover:bg-white/10 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
 
         <ScrollToTop />
-      </main>
+      </div>
     </PageTransition>
   );
 }
-
-function renderCell(
-  key: ColumnKey,
-  provider: SignalProvider,
-  truncateAddress: (address: string) => string
-) {
-  switch (key) {
-    case "rank":
-      return `#${provider.rank}`;
-    case "provider":
-      return (
-        <div className="flex flex-col gap-0.5">
-          {provider.name && (
-            <p className="font-medium text-foreground">{provider.name}</p>
-          )}
-          <p className="text-xs text-muted-foreground font-mono">
-            {truncateAddress(provider.address)}
-          </p>
-        </div>
-      );
-    case "overallScore":
-      return provider.overallScore;
-    case "winRate":
-      return `${provider.winRate}%`;
-    case "recentPerformance":
-      return `${provider.recentPerformance >= 0 ? "+" : ""}${provider.recentPerformance}%`;
-    default:
-      return null;
-  }
+      </div>
+    </PageTransition>
+  );
 }
-

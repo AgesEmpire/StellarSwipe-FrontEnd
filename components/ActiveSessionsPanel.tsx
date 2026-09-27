@@ -5,7 +5,7 @@
  *
  * Lists all active sessions for the authenticated user and allows them to:
  *  - View device/browser label, approximate location, and last-active time
- *  - Identify their current session (cannot be revoked from here)
+ *  - Identify their current session (ending it requires an explicit warning)
  *  - Revoke individual sessions optimistically (with rollback on failure)
  *  - Revoke all other sessions at once
  *
@@ -17,7 +17,7 @@
  *  - error?          : string — show an error notice instead of the list
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Laptop,
   MapPin,
@@ -25,6 +25,8 @@ import {
   ShieldAlert,
   LogOut,
   Loader2,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -58,6 +60,18 @@ export interface ActiveSessionsPanelProps {
   error?: string | null;
 }
 
+type RevokeResult = { tone: "success" | "error"; message: string };
+
+/** A 404/410 from the API means the session already ended elsewhere. */
+function isAlreadyEnded(err: unknown): boolean {
+  const status = (err as { status?: number } | null)?.status;
+  return status === 404 || status === 410;
+}
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
 // ---------------------------------------------------------------------------
 // Skeleton rows shown while loading
 // ---------------------------------------------------------------------------
@@ -83,9 +97,15 @@ interface SessionRowProps {
   session: Session;
   revoking: boolean;
   onRevoke: (id: string) => void;
+  onEndCurrent: () => void;
 }
 
-function SessionRow({ session, revoking, onRevoke }: SessionRowProps) {
+function SessionRow({
+  session,
+  revoking,
+  onRevoke,
+  onEndCurrent,
+}: SessionRowProps) {
   const revokable = canRevoke(session);
 
   return (
@@ -160,10 +180,21 @@ function SessionRow({ session, revoking, onRevoke }: SessionRowProps) {
           )}
         </Button>
       ) : (
-        /* Current session — no revoke button; hint to use normal sign-out */
-        <span className="text-[11px] text-foreground-muted italic shrink-0 max-w-[90px] text-right leading-tight">
-          Sign out to end this session
-        </span>
+        /* Current session — ending it requires an explicit warning first */
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={revoking}
+          onClick={onEndCurrent}
+          aria-label="End this session and sign out of this device"
+          className="shrink-0 text-[11px] text-foreground-muted"
+        >
+          {revoking ? (
+            <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+          ) : (
+            "Sign out this device"
+          )}
+        </Button>
       )}
     </div>
   );
@@ -184,22 +215,40 @@ export function ActiveSessionsPanel({
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokingAll, setRevokingAll] = useState(false);
-  const [rowError, setRowError] = useState<string | null>(null);
+  const [result, setResult] = useState<RevokeResult | null>(null);
   const [confirmRevokeAllOpen, setConfirmRevokeAllOpen] = useState(false);
+  const [confirmCurrentOpen, setConfirmCurrentOpen] = useState(false);
+
+  // Sync refreshed data in place so the list (and its scroll position) is kept
+  useEffect(() => {
+    setSessions(initialSessions);
+  }, [initialSessions]);
 
   // Single-session revoke with optimistic update + rollback
   const handleRevoke = useCallback(
     async (id: string) => {
       const snapshot = sessions;
+      const label = sessions.find((s) => s.id === id)?.deviceLabel ?? "device";
       setSessions(optimisticRevoke(sessions, id));
       setRevokingId(id);
-      setRowError(null);
+      setResult(null);
       try {
         await onRevoke(id);
-      } catch {
-        // Rollback on failure
-        setSessions(snapshot);
-        setRowError("Failed to revoke session. Please try again.");
+        setResult({ tone: "success", message: `Signed out ${label}. 1 session revoked.` });
+      } catch (err) {
+        if (isAlreadyEnded(err)) {
+          setResult({
+            tone: "success",
+            message: `The session on ${label} had already ended. It was removed from the list.`,
+          });
+        } else {
+          // Rollback on failure
+          setSessions(snapshot);
+          setResult({
+            tone: "error",
+            message: `Failed to revoke the session on ${label}. It is still active. Please try again.`,
+          });
+        }
       } finally {
         setRevokingId(null);
       }
@@ -207,19 +256,29 @@ export function ActiveSessionsPanel({
     [sessions, onRevoke]
   );
 
+  const currentSession = sessions.find((s) => s.isCurrent);
+
   // Bulk revoke with optimistic update + rollback
   const handleRevokeAll = useCallback(async () => {
     const snapshot = sessions;
+    const count = otherSessionCount(sessions);
     setSessions(optimisticRevokeAll(sessions));
     setRevokingAll(true);
-    setRowError(null);
+    setResult(null);
     try {
       await onRevokeAll();
+      setResult({
+        tone: "success",
+        message: `${plural(count, "session")} revoked. Only your current session remains active.`,
+      });
       setConfirmRevokeAllOpen(false);
     } catch {
       // Rollback on failure
       setSessions(snapshot);
-      setRowError("Failed to revoke all sessions. Please try again.");
+      setResult({
+        tone: "error",
+        message: `Failed to revoke ${plural(count, "session")}. They are still active. Please try again.`,
+      });
       setConfirmRevokeAllOpen(false);
     } finally {
       setRevokingAll(false);
@@ -269,13 +328,23 @@ export function ActiveSessionsPanel({
           )}
         </div>
 
-        {/* Error notice (inline) */}
-        {rowError && (
+        {/* Result notice (inline) — announced and visually distinct */}
+        {result && (
           <p
-            role="alert"
-            className="mt-2 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400 border border-red-500/20"
+            role={result.tone === "error" ? "alert" : "status"}
+            data-testid={`sessions-result-${result.tone}`}
+            className={`mt-2 flex items-start gap-2 rounded-md border px-3 py-2 text-xs ${
+              result.tone === "error"
+                ? "bg-red-500/10 text-red-400 border-red-500/20"
+                : "bg-green-500/10 text-green-400 border-green-500/20"
+            }`}
           >
-            {rowError}
+            {result.tone === "error" ? (
+              <AlertTriangle size={13} className="mt-px shrink-0" aria-hidden="true" />
+            ) : (
+              <CheckCircle2 size={13} className="mt-px shrink-0" aria-hidden="true" />
+            )}
+            {result.message}
           </p>
         )}
       </CardHeader>
@@ -324,6 +393,7 @@ export function ActiveSessionsPanel({
                   session={session}
                   revoking={revokingId === session.id}
                   onRevoke={handleRevoke}
+                  onEndCurrent={() => setConfirmCurrentOpen(true)}
                 />
               </li>
             ))}
@@ -371,6 +441,33 @@ export function ActiveSessionsPanel({
                   Revoke {otherCount} {otherCount === 1 ? "session" : "sessions"}
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmCurrentOpen} onOpenChange={setConfirmCurrentOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>End your current session?</DialogTitle>
+            <DialogDescription>
+              Warning: this is the device you are using right now. You will be
+              signed out immediately and need to sign in again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmCurrentOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmCurrentOpen(false);
+                if (currentSession) void handleRevoke(currentSession.id);
+              }}
+              className="gap-2 bg-red-500/90 text-white hover:bg-red-500"
+            >
+              <LogOut size={13} aria-hidden="true" />
+              Sign out this device
             </Button>
           </DialogFooter>
         </DialogContent>

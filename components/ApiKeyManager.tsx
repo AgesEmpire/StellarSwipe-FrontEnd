@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, AlertTriangle, KeyRound, Clock } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  AlertTriangle,
+  KeyRound,
+  Clock,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -16,6 +24,15 @@ import {
 
 // ── One-time token reveal banner ─────────────────────────────────────────────
 
+/** Revealed tokens are automatically masked again after this many seconds. */
+export const REVEAL_TIMEOUT_SECONDS = 30;
+
+function maskToken(token: string): string {
+  return token.length <= 8
+    ? "•".repeat(token.length)
+    : `${token.slice(0, 4)}${"•".repeat(token.length - 8)}${token.slice(-4)}`;
+}
+
 function NewTokenBanner({
   token,
   onDismiss,
@@ -23,6 +40,17 @@ function NewTokenBanner({
   token: string;
   onDismiss: () => void;
 }) {
+  const [confirmingReveal, setConfirmingReveal] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const revealed = secondsLeft > 0;
+
+  // Count down while revealed; reaching zero masks the token again.
+  useEffect(() => {
+    if (!revealed) return;
+    const id = window.setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [revealed, secondsLeft]);
+
   return (
     <div
       role="alert"
@@ -38,11 +66,79 @@ function NewTokenBanner({
         </p>
       </div>
       <div className="flex items-center gap-2 rounded-lg bg-background border px-3 py-2">
-        <code className="flex-1 text-xs font-mono break-all select-all text-foreground">
-          {token}
+        <code
+          id="new-api-key-value"
+          className={cn(
+            "flex-1 text-xs font-mono break-all text-foreground",
+            revealed ? "select-all" : "select-none"
+          )}
+          aria-label={revealed ? "API key (revealed)" : "API key (hidden)"}
+        >
+          {revealed ? token : maskToken(token)}
         </code>
+        {revealed ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSecondsLeft(0)}
+            aria-controls="new-api-key-value"
+            className="gap-1.5 shrink-0"
+          >
+            <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+            Hide
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmingReveal(true)}
+            disabled={confirmingReveal}
+            aria-controls="new-api-key-value"
+            className="gap-1.5 shrink-0"
+          >
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+            Reveal
+          </Button>
+        )}
         <CopyButton value={token} label="Copy API key" />
       </div>
+      {confirmingReveal && (
+        <div
+          className="flex flex-wrap items-center gap-2 text-xs"
+          data-testid="reveal-confirm"
+        >
+          <span className="text-foreground">
+            Make sure no one can see your screen. Reveal the key for{" "}
+            {REVEAL_TIMEOUT_SECONDS} seconds?
+          </span>
+          <Button
+            size="sm"
+            autoFocus
+            onClick={() => {
+              setConfirmingReveal(false);
+              setSecondsLeft(REVEAL_TIMEOUT_SECONDS);
+            }}
+          >
+            Confirm reveal
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmingReveal(false)}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {/* Announce state changes only, not every countdown tick */}
+        <span aria-live="polite">
+          {revealed
+            ? `Key visible. It will be hidden automatically after ${REVEAL_TIMEOUT_SECONDS} seconds.`
+            : "Key hidden. You can copy it without revealing it."}
+        </span>
+        {revealed && <span aria-hidden="true"> ({secondsLeft}s left)</span>}
+      </p>
       <Button variant="outline" size="sm" onClick={onDismiss}>
         I&apos;ve copied it
       </Button>

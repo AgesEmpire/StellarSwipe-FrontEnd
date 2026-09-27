@@ -14,6 +14,8 @@ import { NotificationPermissionPrompt } from "@/components/NotificationPermissio
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
+import { MobileNav } from "@/components/MobileNav";
+import { ToastViewport } from "@/components/ToastViewport";
 
 // Dev-only overlays (~950 lines combined) render null in production but were
 // previously statically imported into every page's root layout bundle. They
@@ -90,11 +92,13 @@ export default function RootLayout({
          * Reads the persisted Zustand theme ("stellar-theme" → state.theme),
          * falls back to the OS prefers-color-scheme, then applies the correct
          * .dark / .light class to <html> before any CSS or React hydration.
+         * Also applies the persisted high-contrast preference ("stellar-contrast")
+         * so it never flashes the default palette first (#788).
          * suppressHydrationWarning on <html> lets React reconcile safely.
          */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('stellar-theme');var t=s?JSON.parse(s).state?.theme:null;if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.classList.remove('light','dark');document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('stellar-theme');var t=s?JSON.parse(s).state?.theme:null;if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.classList.remove('light','dark');document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}try{var c=localStorage.getItem('stellar-contrast');if(c&&JSON.parse(c).state?.highContrast===true){document.documentElement.classList.add('high-contrast');}}catch(e){}})();`,
           }}
         />
       </head>
@@ -109,10 +113,11 @@ export default function RootLayout({
           <ScrollRestoration />
           <WebVitalsReporting />
           <Navbar />
+          <MobileNav />
           <PageTransitionPlaceholder />
           {/* id="main-content" is the skip-link target; pages provide the <main> landmark */}
           <div id="main-content" tabIndex={-1} className="outline-none">
-            {children}
+            <div className="pb-20 md:pb-0">{children}</div>
           </div>
           <TradeStatusBanner />
           <DevPerfOverlay />
@@ -121,6 +126,10 @@ export default function RootLayout({
           <NotificationPermissionPrompt />
           <PWAInstallPrompt />
           <GuidedTourSpotlight />
+          {/* Bounded, non-overlapping toast region. Positioned below the fixed
+              navbar and above the mobile nav / primary form actions so queued
+              messages never cover navigation or submit buttons. */}
+          <ToastViewport />
         </Providers>
       </body>
     </html>

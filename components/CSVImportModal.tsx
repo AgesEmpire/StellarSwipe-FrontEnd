@@ -47,6 +47,8 @@ interface ValidationResult {
   isValid: boolean;
 }
 
+const REQUIRED_COLUMNS: CSVColumn[] = ["Date", "Asset Pair", "Amount", "Price", "Token"];
+
 export function CSVImportModal() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("upload");
@@ -231,16 +233,17 @@ export function CSVImportModal() {
     clearCSVImportDraft();
   };
 
-  const hasUnmappedRequired = useMemo(() => {
-    const required: CSVColumn[] = [
-      "Date",
-      "Asset Pair",
-      "Amount",
-      "Price",
-      "Token",
-    ];
-    return required.some((col) => !mapping[col]);
-  }, [mapping]);
+  const mappingIssues = useMemo(() => {
+    const issues: string[] = [];
+    const missing = REQUIRED_COLUMNS.filter((col) => !mapping[col]);
+    if (missing.length) issues.push(`Missing required mappings: ${missing.join(", ")}.`);
+    const selected = Object.values(mapping).filter(Boolean);
+    const duplicates = [...new Set(selected.filter((source, index) => selected.indexOf(source) !== index))];
+    if (duplicates.length) issues.push(`Duplicate source columns: ${duplicates.join(", ")}. Choose each source only once.`);
+    const unsupported = Object.values(mapping).filter((source) => source && !headers.includes(source));
+    if (unsupported.length) issues.push(`Unsupported source columns: ${unsupported.join(", ")}.`);
+    return issues;
+  }, [headers, mapping]);
 
   return (
     <Dialog
@@ -374,6 +377,9 @@ export function CSVImportModal() {
                     </select>
                   </div>
                 ))}
+              </div>
+              <div role="status" aria-live="polite" className={cn("rounded-xl border p-3 text-sm", mappingIssues.length ? "border-amber-400/30 bg-amber-500/10 text-amber-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200")}>
+                {mappingIssues.length ? mappingIssues.map((issue) => <p key={issue}>{issue}</p>) : "All columns are mapped and ready for preview."}
               </div>
             </div>
           )}
@@ -516,7 +522,7 @@ export function CSVImportModal() {
             {step === "mapping" && (
               <Button
                 onClick={validateRows}
-                disabled={hasUnmappedRequired || isProcessing}
+                disabled={mappingIssues.length > 0 || isProcessing}
                 className="gap-2"
               >
                 {isProcessing ? (

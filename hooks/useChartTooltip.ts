@@ -8,6 +8,25 @@ export interface ChartTooltipPoint {
   label?: string;
 }
 
+/**
+ * Classes for the keyboard focus overlay rendered on top of a chart.
+ * - `pointer-events-none` lets pointer/touch events reach the SVG hit areas
+ *   underneath, so hover and tap keep working.
+ * - The focus indicator is a ring (box-shadow), which never affects layout.
+ */
+export const CHART_FOCUS_OVERLAY_CLASS =
+  "pointer-events-none absolute inset-0 rounded outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+export const CHART_KEYBOARD_INSTRUCTIONS =
+  "Use the left and right arrow keys to move between data points, Home and End to jump to the first or last point, and Escape to clear.";
+
+/** Signed percentage change from `reference` to `value`, e.g. "+2.40%". */
+export function formatPercentChange(value: number, reference: number): string {
+  if (!reference) return "0.00%";
+  const pct = ((value - reference) / Math.abs(reference)) * 100;
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+}
+
 export interface UseChartTooltipReturn {
   /** Index of the currently active data point, or null if none */
   activeIndex: number | null;
@@ -17,6 +36,8 @@ export interface UseChartTooltipReturn {
   activeDescription: string;
   /** Unique id for aria-describedby relationships */
   tooltipId: string;
+  /** Id of the element holding CHART_KEYBOARD_INSTRUCTIONS (render it sr-only) */
+  instructionsId: string;
   /** Call on keyboard ArrowLeft/ArrowRight to navigate between points */
   handleKeyDown: (e: React.KeyboardEvent, dataLength: number) => void;
   /** Call on pointer/touch enter of a segment/point */
@@ -26,7 +47,8 @@ export interface UseChartTooltipReturn {
   /** Props to spread on the container element */
   containerProps: {
     tabIndex: number;
-    role: "img";
+    role: "application";
+    "aria-roledescription": string;
     "aria-label": string;
     "aria-describedby": string;
     onKeyDown: (e: React.KeyboardEvent) => void;
@@ -59,6 +81,7 @@ export function useChartTooltip({
 }: UseChartTooltipOptions): UseChartTooltipReturn {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const tooltipId = useId();
+  const instructionsId = useId();
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isVisible = activeIndex !== null;
@@ -126,9 +149,12 @@ export function useChartTooltip({
 
   const containerProps = {
     tabIndex: 0,
-    role: "img" as const,
+    // "application" lets screen readers pass arrow keys through to the chart
+    // instead of treating it as a static image.
+    role: "application" as const,
+    "aria-roledescription": "interactive chart",
     "aria-label": ariaLabel,
-    "aria-describedby": tooltipId,
+    "aria-describedby": `${instructionsId} ${tooltipId}`,
     onKeyDown: (e: React.KeyboardEvent) => handleKeyDown(e, dataLength),
     onBlur: hide,
   };
@@ -138,6 +164,7 @@ export function useChartTooltip({
     isVisible,
     activeDescription,
     tooltipId,
+    instructionsId,
     handleKeyDown,
     showAt,
     hide,

@@ -15,6 +15,10 @@ import {
 import { usePerformanceMonitoringStore } from "@/store/usePerformanceMonitoringStore";
 import type { NetworkConnectionType } from "@/lib/performance/types";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableDensityControl } from "@/components/TableDensityControl";
+import { usePerformanceTableDensity } from "@/store/usePerformanceTableDensityStore";
+import { TABLE_DENSITY_CLASSES, type TableDensity } from "@/lib/tableDensity";
+import { cn } from "@/lib/utils";
 
 function formatMs(ms: number): string {
   return `${ms} ms`;
@@ -54,11 +58,14 @@ function NetworkRow({
   type,
   count,
   avgApiMs,
+  density,
 }: {
   type: NetworkConnectionType;
   count: number;
   avgApiMs: number;
+  density: TableDensity;
 }) {
+  const cell = TABLE_DENSITY_CLASSES[density].cell;
   const label =
     type === "wifi"
       ? "WiFi"
@@ -67,9 +74,9 @@ function NetworkRow({
       : type.charAt(0).toUpperCase() + type.slice(1);
 
   return (
-    <tr className="bg-white/5 text-sm">
-      <td className="rounded-l-lg px-3 py-2 text-foreground-muted">{label}</td>
-      <td className="rounded-r-lg px-3 py-2 text-right tabular-nums text-foreground">
+    <tr className="bg-white/5">
+      <td className={cn("rounded-l-lg break-words text-foreground-muted", cell)}>{label}</td>
+      <td className={cn("rounded-r-lg text-right tabular-nums text-foreground", cell)}>
         {count} calls · avg {avgApiMs} ms
       </td>
     </tr>
@@ -98,8 +105,6 @@ function HeatmapCanvas({ points }: { points: { x: number; y: number }[] }) {
         />
       ))}
       {points.length === 0 && (
-        <div className="flex h-full items-center justify-center text-xs text-foreground-muted" aria-hidden="true">
-          No interactions recorded yet
         <div className="p-3">
           <EmptyState
             title="No interactions recorded yet"
@@ -116,6 +121,8 @@ export function PerformanceDashboard() {
   const consent = usePerformanceMonitoringStore((s) => s.consent);
   const setConsent = usePerformanceMonitoringStore((s) => s.setConsent);
   const summary = usePerformanceMonitoringStore((s) => s.getSummary());
+  const [tableDensity, setTableDensity] = usePerformanceTableDensity();
+  const densityClasses = TABLE_DENSITY_CLASSES[tableDensity];
 
   const routeStats = useMemo(() => {
     const byRoute = new Map<string, number[]>();
@@ -251,8 +258,16 @@ export function PerformanceDashboard() {
         </section>
       )}
 
+      <div className="flex justify-end" data-print-hide>
+        <TableDensityControl
+          value={tableDensity}
+          onChange={setTableDensity}
+          label="Performance table density"
+        />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <section className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground-muted">
             <Timer className="h-4 w-4 text-sky-400" />
             Page load time by route
@@ -264,7 +279,10 @@ export function PerformanceDashboard() {
               className="rounded-xl bg-transparent py-6"
             />
           ) : (
-            <table className="w-full border-separate border-spacing-y-2 text-sm">
+            <table
+              className={cn("w-full border-separate", densityClasses.table)}
+              data-density={tableDensity}
+            >
               <caption className="sr-only">Average page load time by route</caption>
               <thead>
                 <tr>
@@ -275,96 +293,62 @@ export function PerformanceDashboard() {
               <tbody>
                 {routeStats.map((r) => (
                   <tr key={r.route} className="bg-white/5">
-                    <td className="rounded-l-lg px-3 py-2">
+                    <td className={cn("rounded-l-lg break-all", densityClasses.cell)}>
                       <Link href={r.route} className="font-mono text-sky-400 hover:underline">
                         {r.route}
                       </Link>
                     </td>
-                    <td className="rounded-r-lg px-3 py-2 text-right tabular-nums text-foreground">
+                    <td className={cn("rounded-r-lg text-right tabular-nums text-foreground", densityClasses.cell)}>
                       {r.avgMs} ms · {r.count}×
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <ul className="space-y-2">
-              {routeStats.map((r) => (
-                <li
-                  key={r.route}
-                  className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm"
-                >
-                  <Link
-                    href={r.route}
-                    className="font-mono text-sky-400 hover:underline"
-                  >
-                    {r.route}
-                  </Link>
-                  <span className="tabular-nums text-foreground">
-                    {r.avgMs} ms · {r.count}×
-                  </span>
-                </li>
-              ))}
-            </ul>
           )}
         </section>
 
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <section className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground-muted">
             <Wifi className="h-4 w-4 text-sky-400" />
             Network type impact
           </h2>
-          <div>
-            {summary.apiResponses.length === 0 ? (
-              <p className="text-sm text-foreground-muted">No API data yet.</p>
-            ) : (
-              <table className="w-full border-separate border-spacing-y-2">
-                <caption className="sr-only">API calls and average response time by network type</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="sr-only">Network type</th>
-                    <th scope="col" className="sr-only">Call count and average response time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(Object.entries(summary.networkBreakdown) as [
-                    NetworkConnectionType,
-                    { count: number; avgApiMs: number },
-                  ][])
-                    .filter(([, v]) => v.count > 0)
-                    .map(([type, stats]) => (
-                      <NetworkRow
-                        key={type}
-                        type={type}
-                        count={stats.count}
-                        avgApiMs={stats.avgApiMs}
-                      />
-                    ))}
-                </tbody>
-              </table>
-          <div className="space-y-2">
-            {(
-              Object.entries(summary.networkBreakdown) as [
-                NetworkConnectionType,
-                { count: number; avgApiMs: number }
-              ][]
-            )
-              .filter(([, v]) => v.count > 0)
-              .map(([type, stats]) => (
-                <NetworkRow
-                  key={type}
-                  type={type}
-                  count={stats.count}
-                  avgApiMs={stats.avgApiMs}
-                />
-              ))}
-            {summary.apiResponses.length === 0 && (
-              <EmptyState
-                title="No API data yet"
-                description="API response metrics will appear once requests are captured."
-                className="rounded-xl bg-transparent py-6"
-              />
-            )}
-          </div>
+          {summary.apiResponses.length === 0 ? (
+            <EmptyState
+              title="No API data yet"
+              description="API response metrics will appear once requests are captured."
+              className="rounded-xl bg-transparent py-6"
+            />
+          ) : (
+            <table
+              className={cn("w-full border-separate", densityClasses.table)}
+              data-density={tableDensity}
+            >
+              <caption className="sr-only">API calls and average response time by network type</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="sr-only">Network type</th>
+                  <th scope="col" className="sr-only">Call count and average response time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Object.entries(summary.networkBreakdown) as [
+                  NetworkConnectionType,
+                  { count: number; avgApiMs: number },
+                ][])
+                  .filter(([, v]) => v.count > 0)
+                  .map(([type, stats]) => (
+                    <NetworkRow
+                      key={type}
+                      type={type}
+                      count={stats.count}
+                      avgApiMs={stats.avgApiMs}
+                      density={tableDensity}
+                    />
+                  ))}
+              </tbody>
+            </table>
+          )}
         </section>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { useToastStore, type ToastMessage } from "@/store/useToastStore";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,7 @@ const toneIcons: Record<ToastMessage["tone"], typeof CheckCircle2> = {
  * @see {@link https://storybook.stellarswipe.dev/?path=/docs/ui-toastprovider--docs Storybook — ToastProvider}
  */
 export function ToastProvider() {
+  const prefersReducedMotion = useReducedMotion();
   const toasts = useToastStore((state) => state.toasts);
   const dismiss = useToastStore((state) => state.dismiss);
   const pause = useToastStore((state) => state.pause);
@@ -75,10 +76,10 @@ export function ToastProvider() {
             <motion.div
               key={toast.id}
               layout
-              initial={{ opacity: 0, y: 16, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.98 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.98 }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+              exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 16, scale: 0.98 }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.25, ease: "easeOut" }}
               role={toast.tone === "error" ? "alert" : "status"}
               aria-live={ariaLive}
               onMouseEnter={() => pause(toast.id)}

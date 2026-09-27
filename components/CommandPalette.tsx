@@ -1,198 +1,13 @@
 "use client";
 
-import * as React from "react";
-import * as Dialog from "@radix-ui/react-dialog";
-import { useRouter } from "next/navigation";
-import { Search, CornerDownLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-interface Command {
-  id: string;
-  label: string;
-  group: string;
-  href: string;
-  keywords?: string;
-}
-
-const COMMANDS: Command[] = [
-  { id: "home", label: "Home", group: "Navigate", href: "/" },
-  { id: "signals", label: "Signals", group: "Navigate", href: "/app", keywords: "feed" },
-  { id: "leaderboard", label: "Leaderboard", group: "Navigate", href: "/leaderboard", keywords: "providers ranking" },
-  { id: "performance", label: "Performance Monitoring", group: "Navigate", href: "/performance", keywords: "metrics" },
-  { id: "analytics", label: "Analytics", group: "Navigate", href: "/analytics", keywords: "portfolio" },
-  { id: "compare", label: "Compare Signals", group: "Navigate", href: "/compare" },
-  { id: "backtest", label: "Backtest Simulator", group: "Navigate", href: "/backtest-sim" },
-  { id: "tax", label: "Tax Report", group: "Navigate", href: "/tax-report" },
-  { id: "referral", label: "Referral", group: "Navigate", href: "/referral" },
-  { id: "security", label: "Security", group: "Navigate", href: "/security" },
-];
-
-export function CommandPalette() {
-  const [open, setOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const listRef = React.useRef<HTMLUListElement>(null);
-  const router = useRouter();
-
-  const results = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return COMMANDS;
-    return COMMANDS.filter(
-      (c) =>
-        c.label.toLowerCase().includes(q) ||
-        c.keywords?.toLowerCase().includes(q)
-    );
-  }, [query]);
-
-  // Global Cmd/Ctrl+K shortcut, from anywhere in the app.
-  React.useEffect(() => {
-    function handleGlobalKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setOpen((prev) => !prev);
-      }
-    }
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, []);
-
-  // Reset transient state whenever the palette opens.
-  React.useEffect(() => {
-    if (open) {
-      setQuery("");
-      setActiveIndex(0);
-    }
-  }, [open]);
-
-  // Keep the active index valid as the filtered result set changes.
-  React.useEffect(() => {
-    setActiveIndex((prev) => Math.min(prev, Math.max(results.length - 1, 0)));
-  }, [results.length]);
-
-  // Keep the highlighted option scrolled into view.
-  React.useEffect(() => {
-    const activeEl = listRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    activeEl?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex]);
-
-  function selectCommand(command: Command) {
-    setOpen(false);
-    router.push(command.href);
-  }
-
-  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((prev) => (results.length ? (prev + 1) % results.length : 0));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((prev) => (results.length ? (prev - 1 + results.length) % results.length : 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const command = results[activeIndex];
-      if (command) selectCommand(command);
-    }
-  }
-
-  const activeId = results[activeIndex] ? `command-option-${results[activeIndex].id}` : undefined;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label="Open command palette"
-      >
-        <Search className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden rounded border border-border bg-surface-high px-1.5 py-0.5 text-[10px] font-medium text-foreground-subtle sm:inline">
-          ⌘K
-        </kbd>
-      </button>
-
-      <Dialog.Root open={open} onOpenChange={setOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-modal bg-black/60 backdrop-blur-sm" />
-          <Dialog.Content
-            aria-describedby="command-palette-desc"
-            className="dialog-content fixed left-1/2 top-[15%] z-modal w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-background shadow-elevation-3 outline-none"
-          >
-            <Dialog.Title className="sr-only">Command palette</Dialog.Title>
-            <p id="command-palette-desc" className="sr-only">
-              Type to search for a page, then use the arrow keys and Enter to navigate.
-            </p>
-
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-              <Search className="h-4 w-4 shrink-0 text-foreground-subtle" aria-hidden="true" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                placeholder="Search for a page or action…"
-                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-subtle"
-                role="combobox"
-                aria-expanded="true"
-                aria-controls="command-palette-listbox"
-                aria-autocomplete="list"
-                aria-activedescendant={activeId}
-                autoFocus
-              />
-            </div>
-
-            <div aria-live="polite" className="sr-only">
-              {results.length} {results.length === 1 ? "result" : "results"} available
-            </div>
-
-            {results.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-foreground-muted" role="status">
-                No commands found for “{query}”.
-              </p>
-            ) : (
-              <ul
-                ref={listRef}
-                id="command-palette-listbox"
-                role="listbox"
-                aria-label="Commands"
-                className="max-h-80 overflow-y-auto p-2"
-              >
-                {results.map((command, index) => {
-                  const isActive = index === activeIndex;
-                  return (
-                    <li
-                      key={command.id}
-                      id={`command-option-${command.id}`}
-                      role="option"
-                      aria-selected={isActive}
-                      data-active={isActive}
-                      onMouseEnter={() => setActiveIndex(index)}
-                      onClick={() => selectCommand(command)}
-                      className={cn(
-                        "flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm",
-                        isActive ? "bg-accent-primary/10 text-foreground" : "text-foreground-muted"
-                      )}
-                    >
-                      <span>{command.label}</span>
-                      {isActive && (
-                        <CornerDownLeft className="h-3.5 w-3.5 text-foreground-subtle" aria-hidden="true" />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    </>
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Clock, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/store/useThemeStore";
+import { useRecentSearchesStore, type RecentSearch } from "@/store/useRecentSearchesStore";
+import { MAX_VISIBLE_RECENT_SEARCHES } from "@/lib/recentSearches";
 import { EmptyState } from "@/components/ui/empty-state";
 
 interface CommandItem {
@@ -203,6 +18,10 @@ interface CommandItem {
   onSelect?: () => void;
   keywords?: string[];
 }
+
+type PaletteOption =
+  | { kind: "recent"; id: string; recent: RecentSearch; item?: CommandItem }
+  | { kind: "command"; id: string; item: CommandItem };
 
 function fuzzyMatch(query: string, text: string): boolean {
   if (!query) return true;
@@ -228,11 +47,16 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const router = useRouter();
   const { toggle: toggleTheme } = useThemeStore();
+  const recentSearches = useRecentSearchesStore((s) => s.recentSearches);
+  const addRecentSearch = useRecentSearchesStore((s) => s.addRecentSearch);
+  const removeRecentSearch = useRecentSearchesStore((s) => s.removeRecentSearch);
+  const clearRecentSearches = useRecentSearchesStore((s) => s.clearRecentSearches);
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [announcement, setAnnouncement] = useState("");
 
   const items: CommandItem[] = [
     { id: "home", label: "Home", group: "Routes", href: "/" },
@@ -300,15 +124,41 @@ export function CommandPalette({
       item.keywords?.some((k) => fuzzyMatch(query, k))
   );
 
+  // Recent searches are shown only before the user starts typing, and only
+  // for entries that can still be resolved to a destination or action.
+  const recentOptions: PaletteOption[] = query.trim()
+    ? []
+    : recentSearches
+        .map((recent) => ({
+          kind: "recent" as const,
+          id: `recent-${recent.commandId}`,
+          recent,
+          item: items.find((i) => i.id === recent.commandId),
+        }))
+        .filter((option) => option.item || option.recent.href)
+        .slice(0, MAX_VISIBLE_RECENT_SEARCHES);
+
+  const options: PaletteOption[] = [
+    ...recentOptions,
+    ...filtered.map((item) => ({ kind: "command" as const, id: item.id, item })),
+  ];
+  const activeOption = options[activeIndex];
+
   useEffect(() => {
     setActiveIndex(0);
   }, [query]);
+
+  // Keep the active index valid when entries are removed.
+  useEffect(() => {
+    setActiveIndex((i) => Math.min(i, Math.max(options.length - 1, 0)));
+  }, [options.length]);
 
   useEffect(() => {
     if (open) {
       previousFocusRef.current = document.activeElement as HTMLElement | null;
       setQuery("");
       setActiveIndex(0);
+      setAnnouncement("");
       requestAnimationFrame(() => inputRef.current?.focus());
     } else if (previousFocusRef.current) {
       previousFocusRef.current.focus();
@@ -316,17 +166,56 @@ export function CommandPalette({
     }
   }, [open]);
 
-  const handleSelect = useCallback(
-    (item: CommandItem) => {
+  const runDestination = useCallback(
+    (item: CommandItem | undefined, href: string | undefined) => {
       onClose();
-      if (item.href) {
-        router.push(item.href);
+      if (href) {
+        router.push(href);
       } else {
-        item.onSelect?.();
+        item?.onSelect?.();
       }
     },
     [onClose, router]
   );
+
+  const handleSelect = useCallback(
+    (option: PaletteOption) => {
+      if (option.kind === "recent") {
+        const { recent, item } = option;
+        // Restore the exact destination that was recorded, keeping the
+        // original query associated with the entry.
+        addRecentSearch({
+          commandId: recent.commandId,
+          label: item?.label ?? recent.label,
+          href: recent.href ?? item?.href,
+          query: recent.query,
+        });
+        runDestination(item, recent.href ?? item?.href);
+        return;
+      }
+
+      const { item } = option;
+      addRecentSearch({ commandId: item.id, label: item.label, href: item.href, query });
+      runDestination(item, item.href);
+    },
+    [addRecentSearch, runDestination, query]
+  );
+
+  const handleRemoveRecent = useCallback(
+    (recent: RecentSearch) => {
+      removeRecentSearch(recent.commandId);
+      setAnnouncement(`Removed ${recent.label} from recent searches`);
+      inputRef.current?.focus();
+    },
+    [removeRecentSearch]
+  );
+
+  const handleClearRecent = useCallback(() => {
+    clearRecentSearches();
+    setActiveIndex(0);
+    setAnnouncement("Recent searches cleared");
+    inputRef.current?.focus();
+  }, [clearRecentSearches]);
 
   useEffect(() => {
     if (!open) return;
@@ -342,7 +231,7 @@ export function CommandPalette({
           container.querySelectorAll<HTMLElement>(
             "input, button, [href], [tabindex]:not([tabindex='-1'])"
           )
-        ).filter((el) => !el.hasAttribute("disabled"));
+        ).filter((el) => !el.hasAttribute("disabled") && el.tabIndex !== -1);
         if (focusable.length === 0) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -360,23 +249,102 @@ export function CommandPalette({
         }
         return;
       }
+      // Arrow / Enter / Delete only drive the list while the search input
+      // has focus, so buttons such as "Clear" keep their native behaviour.
+      if (document.activeElement !== inputRef.current) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+        setActiveIndex((i) => Math.min(i + 1, options.length - 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setActiveIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter") {
         e.preventDefault();
-        const item = filtered[activeIndex];
-        if (item) handleSelect(item);
+        if (activeOption) handleSelect(activeOption);
+      } else if (e.key === "Delete" && activeOption?.kind === "recent") {
+        e.preventDefault();
+        handleRemoveRecent(activeOption.recent);
       }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose, filtered, activeIndex, handleSelect]);
+  }, [open, onClose, options.length, activeOption, handleSelect, handleRemoveRecent]);
+
+  const hasRecent = recentOptions.length > 0;
+  const descriptionId = "command-palette-help";
 
   if (!open || typeof document === "undefined") return null;
+
+  const renderOption = (option: PaletteOption, index: number) => {
+    const isActive = index === activeIndex;
+    const optionId = `cmd-${option.id}`;
+
+    if (option.kind === "recent") {
+      const { recent, item } = option;
+      const label = item?.label ?? recent.label;
+      return (
+        <li
+          key={option.id}
+          id={optionId}
+          role="option"
+          aria-selected={isActive}
+          aria-label={recent.query ? `${label}, searched “${recent.query}”` : label}
+          onClick={() => handleSelect(option)}
+          onMouseEnter={() => setActiveIndex(index)}
+          className={cn(
+            "group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+            isActive ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/50"
+          )}
+        >
+          <Clock size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate">
+            {label}
+            {recent.query && (
+              <span className="ml-2 text-xs text-muted-foreground">“{recent.query}”</span>
+            )}
+          </span>
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={`Remove ${label} from recent searches`}
+            title="Remove from recent searches (Delete)"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRemoveRecent(recent);
+            }}
+            className={cn(
+              "rounded p-1 text-muted-foreground transition-opacity hover:bg-background/60 hover:text-foreground",
+              isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            )}
+          >
+            <X size={12} aria-hidden="true" />
+          </button>
+        </li>
+      );
+    }
+
+    const { item } = option;
+    return (
+      <li
+        key={option.id}
+        id={optionId}
+        role="option"
+        aria-selected={isActive}
+        onClick={() => handleSelect(option)}
+        onMouseEnter={() => setActiveIndex(index)}
+        className={cn(
+          "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+          isActive ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/50"
+        )}
+      >
+        <span className="w-4 text-center text-muted-foreground text-xs" aria-hidden="true">
+          {item.group === "Routes" ? "→" : "⚡"}
+        </span>
+        <span className="flex-1">{item.label}</span>
+        <span className="text-[10px] text-muted-foreground">{item.group}</span>
+      </li>
+    );
+  };
 
   return createPortal(
     <div
@@ -384,6 +352,7 @@ export function CommandPalette({
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
+      aria-describedby={descriptionId}
     >
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -394,6 +363,10 @@ export function CommandPalette({
         ref={dialogRef}
         className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-popover shadow-2xl overflow-hidden"
       >
+        <p id={descriptionId} className="sr-only">
+          Type to search routes and actions. Use the arrow keys to move through results and Enter to
+          select. {hasRecent ? "Press Delete to remove the highlighted recent search." : ""}
+        </p>
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <Search
             size={15}
@@ -410,11 +383,9 @@ export function CommandPalette({
             aria-label="Search command palette"
             aria-autocomplete="list"
             aria-controls="command-palette-list"
-            aria-activedescendant={
-              filtered[activeIndex]
-                ? `cmd-${filtered[activeIndex].id}`
-                : undefined
-            }
+            aria-activedescendant={activeOption ? `cmd-${activeOption.id}` : undefined}
+            autoComplete="off"
+            spellCheck={false}
           />
           <button
             onClick={onClose}
@@ -425,11 +396,38 @@ export function CommandPalette({
           </button>
         </div>
 
+        <div role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </div>
+
+        {hasRecent && (
+          <div className="flex items-center justify-between px-4 pt-2">
+            <span id="command-palette-recent-heading" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Recent
+            </span>
+            <button
+              type="button"
+              onClick={handleClearRecent}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Clear recent searches
+            </button>
+          </div>
+        )}
+
         <ul
           id="command-palette-list"
           role="listbox"
+          aria-label="Commands"
           className="max-h-72 overflow-y-auto p-1"
         >
+          {hasRecent && (
+            <li role="presentation">
+              <ul role="group" aria-labelledby="command-palette-recent-heading">
+                {recentOptions.map((option, i) => renderOption(option, i))}
+              </ul>
+            </li>
+          )}
           {filtered.length === 0 ? (
             <li className="px-2 py-2">
               <EmptyState
@@ -438,44 +436,37 @@ export function CommandPalette({
                 className="rounded-xl bg-transparent py-8"
               />
             </li>
-          ) : (
-            filtered.map((item, i) => (
-              <li
-                key={item.id}
-                id={`cmd-${item.id}`}
-                role="option"
-                aria-selected={i === activeIndex}
-                onClick={() => handleSelect(item)}
-                onMouseEnter={() => setActiveIndex(i)}
-                className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                  i === activeIndex
-                    ? "bg-accent text-accent-foreground"
-                    : "text-foreground hover:bg-accent/50"
-                )}
+          ) : hasRecent ? (
+            <li role="presentation">
+              <div
+                id="command-palette-all-heading"
+                className="mt-1 border-t border-border px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
               >
-                <span
-                  className="w-4 text-center text-muted-foreground text-xs"
-                  aria-hidden="true"
-                >
-                  {item.group === "Routes" ? "→" : "⚡"}
-                </span>
-                <span className="flex-1">{item.label}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {item.group}
-                </span>
-              </li>
-            ))
+                All commands
+              </div>
+              <ul role="group" aria-labelledby="command-palette-all-heading">
+                {filtered.map((item, i) =>
+                  renderOption({ kind: "command", id: item.id, item }, recentOptions.length + i)
+                )}
+              </ul>
+            </li>
+          ) : (
+            filtered.map((item, i) => renderOption({ kind: "command", id: item.id, item }, i))
           )}
         </ul>
 
-        <div className="border-t border-border px-4 py-2 flex gap-4 text-[11px] text-muted-foreground">
+        <div className="border-t border-border px-4 py-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
           <span>
             <kbd className="font-mono">↑↓</kbd> navigate
           </span>
           <span>
             <kbd className="font-mono">↵</kbd> select
           </span>
+          {activeOption?.kind === "recent" && (
+            <span>
+              <kbd className="font-mono">Del</kbd> remove
+            </span>
+          )}
           <span>
             <kbd className="font-mono">Esc</kbd> close
           </span>
