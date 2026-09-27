@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/store/useThemeStore";
 import { useRecentSearchesStore, type RecentSearch } from "@/store/useRecentSearchesStore";
 import { MAX_VISIBLE_RECENT_SEARCHES } from "@/lib/recentSearches";
-import { EmptyState } from "@/components/ui/empty-state";
 
 interface CommandItem {
   id: string;
@@ -430,11 +429,66 @@ export function CommandPalette({
           )}
           {filtered.length === 0 ? (
             <li className="px-2 py-2">
-              <EmptyState
-                title="No results"
-                description={`No results for "${query}"`}
-                className="rounded-xl bg-transparent py-8"
-              />
+              <div
+                role="status"
+                aria-label={`No results for ${query}`}
+                className="flex flex-col items-center gap-3 rounded-xl px-4 py-8 text-center"
+              >
+                <Search
+                  size={28}
+                  className="text-muted-foreground/40"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    No results for &ldquo;{query}&rdquo;
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Try a different keyword or one of the suggestions below.
+                  </p>
+                </div>
+                {/* Suggestions — hardcoded to the most useful entry points */}
+                <ul className="mt-1 flex flex-wrap justify-center gap-2" aria-label="Suggested searches">
+                  {[
+                    { label: "Signals", id: "signals" },
+                    { label: "Bookmarks", id: "bookmarks" },
+                    { label: "Toggle Theme", id: "toggle-theme" },
+                    { label: "Compare", id: "compare" },
+                  ].map((suggestion) => {
+                    const match = items.find((i) => i.id === suggestion.id);
+                    if (!match) return null;
+                    return (
+                      <li key={suggestion.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            addRecentSearch({
+                              commandId: match.id,
+                              label: match.label,
+                              href: match.href,
+                              query,
+                            });
+                            runDestination(match, match.href);
+                          }}
+                          className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground-muted hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                        >
+                          {suggestion.label}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    inputRef.current?.focus();
+                  }}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                >
+                  Clear search
+                </button>
+              </div>
             </li>
           ) : hasRecent ? (
             <li role="presentation">
