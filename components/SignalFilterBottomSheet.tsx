@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -35,20 +36,46 @@ export function SignalFilterBottomSheet({
   timeframe = "1d",
   onTimeframeChange,
 }: SignalFilterBottomSheetProps) {
-  const {
-    direction,
-    asset,
-    provider,
-    bookmarkedOnly,
-    setDirection,
-    setAsset,
-    setProvider,
-    setBookmarkedOnly,
-    reset,
-  } = useSignalFilterStore();
+  const store = useSignalFilterStore();
+
+  // Edits are made against a local draft so the feed underneath doesn't
+  // re-filter while the user is still choosing. Apply commits the draft;
+  // Cancel / Escape / backdrop / swipe-down discard it.
+  const [direction, setDirection] = useState<FilterDirection>(store.direction);
+  const [asset, setAsset] = useState(store.asset);
+  const [provider, setProvider] = useState(store.provider);
+  const [bookmarkedOnly, setBookmarkedOnly] = useState(store.bookmarkedOnly);
+  const [draftTimeframe, setDraftTimeframe] = useState<Timeframe>(timeframe);
+
+  useEffect(() => {
+    if (!open) return;
+    const current = useSignalFilterStore.getState();
+    setDirection(current.direction);
+    setAsset(current.asset);
+    setProvider(current.provider);
+    setBookmarkedOnly(current.bookmarkedOnly);
+    setDraftTimeframe(timeframe);
+  }, [open, timeframe]);
 
   const isActive =
     direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
+
+  const handleReset = () => {
+    // Reset only clears the draft — nothing changes until Apply.
+    setDirection("ALL");
+    setAsset("");
+    setProvider("");
+    setBookmarkedOnly(false);
+  };
+
+  const handleApply = () => {
+    store.setDirection(direction);
+    store.setAsset(asset);
+    store.setProvider(provider);
+    store.setBookmarkedOnly(bookmarkedOnly);
+    if (draftTimeframe !== timeframe) onTimeframeChange?.(draftTimeframe);
+    onClose();
+  };
 
   return (
     <BottomSheet
@@ -63,33 +90,49 @@ export function SignalFilterBottomSheet({
         </span>
       }
       headerExtra={
-        <>
+        <button
+          type="button"
+          onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
+          aria-pressed={bookmarkedOnly}
+          className={cn(
+            "rounded-full px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+            bookmarkedOnly
+              ? "bg-sky-500/15 text-sky-300 border border-sky-500/40"
+              : "bg-white/5 text-slate-300 border border-white/10 hover:border-white/20 hover:text-white"
+          )}
+        >
+          Bookmarked
+        </button>
+      }
+      footer={
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
-            aria-pressed={bookmarkedOnly}
-            className={cn(
-              "rounded-full px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
-              bookmarkedOnly
-                ? "bg-sky-500/15 text-sky-300 border border-sky-500/40"
-                : "bg-white/5 text-slate-300 border border-white/10 hover:border-white/20 hover:text-white"
-            )}
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           >
-            Bookmarked
+            Cancel
           </button>
-          {isActive && (
-            <button
-              onClick={reset}
-              className="text-xs text-sky-400 hover:text-sky-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500 rounded"
-              aria-label="Clear all filters"
-            >
-              Clear all
-            </button>
-          )}
-        </>
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={!isActive}
+            aria-label="Reset all filters"
+            className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={handleApply}
+            className="flex-[1.5] rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-400 active:bg-sky-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+          >
+            Apply filters
+          </button>
+        </div>
       }
     >
-      <div className="px-4 pb-6 space-y-5">
+      <div className="px-4 pb-4 space-y-5">
         {/* Direction row */}
               <div>
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -200,11 +243,11 @@ export function SignalFilterBottomSheet({
                     <button
                       key={tf}
                       type="button"
-                      onClick={() => onTimeframeChange?.(tf)}
-                      aria-pressed={timeframe === tf}
+                      onClick={() => setDraftTimeframe(tf)}
+                      aria-pressed={draftTimeframe === tf}
                       className={cn(
                         "flex-1 rounded-xl py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
-                        timeframe === tf
+                        draftTimeframe === tf
                           ? "bg-sky-500/20 text-sky-400 border border-sky-500/40"
                           : "bg-white/5 text-slate-400 border border-white/10 hover:border-white/20"
                       )}
@@ -218,7 +261,7 @@ export function SignalFilterBottomSheet({
               {/* Active filter summary */}
               {isActive && (
                 <p className="text-xs text-slate-500" aria-live="polite">
-                  Active:{" "}
+                  Pending:{" "}
                   {[
                     direction !== "ALL" && `Direction: ${direction}`,
                     asset && `Market: ${asset}`,
@@ -229,14 +272,6 @@ export function SignalFilterBottomSheet({
                 </p>
               )}
 
-        {/* Apply button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-400 active:bg-sky-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-        >
-          Apply filters
-        </button>
       </div>
     </BottomSheet>
   );

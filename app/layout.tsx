@@ -92,11 +92,13 @@ export default function RootLayout({
          * Reads the persisted Zustand theme ("stellar-theme" → state.theme),
          * falls back to the OS prefers-color-scheme, then applies the correct
          * .dark / .light class to <html> before any CSS or React hydration.
+         * Also applies the persisted high-contrast preference ("stellar-contrast")
+         * so it never flashes the default palette first (#788).
          * suppressHydrationWarning on <html> lets React reconcile safely.
          */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('stellar-theme');var t=s?JSON.parse(s).state?.theme:null;if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.classList.remove('light','dark');document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('stellar-theme');var t=s?JSON.parse(s).state?.theme:null;if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.classList.remove('light','dark');document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}try{var c=localStorage.getItem('stellar-contrast');if(c&&JSON.parse(c).state?.highContrast===true){document.documentElement.classList.add('high-contrast');}}catch(e){}})();`,
           }}
         />
       </head>

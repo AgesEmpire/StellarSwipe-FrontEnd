@@ -11,6 +11,7 @@ import { toast } from "@/lib/toast";
 import { useSubmitGuard } from "@/hooks/useSubmitGuard";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useKeyboardInset, useKeepFocusedFieldVisible } from "@/hooks/useKeyboardInset";
 
 type AutosaveStatus = "idle" | "saving" | "saved" | "offline" | "failed";
 
@@ -115,6 +116,28 @@ export function JournalEntryForm({
   // read the current state — avoids stale closures.
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
+
+  // ── Mobile keyboard handling ───────────────────────────────────────
+  // Lift the sticky action bar above the on-screen keyboard and keep the
+  // focused field visible between the page top and that bar.
+  const formRef = useRef<HTMLFormElement>(null);
+  const actionBarRef = useRef<HTMLDivElement>(null);
+  const [actionBarHeight, setActionBarHeight] = useState(72);
+  const { inset: keyboardInset, isOpen: keyboardOpen } = useKeyboardInset();
+  const keepFocusedFieldVisible = useKeepFocusedFieldVisible(formRef, {
+    inset: keyboardInset,
+    actionBarHeight,
+  });
+
+  useEffect(() => {
+    const bar = actionBarRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      setActionBarHeight(Math.round(entry.contentRect.height) + 24);
+    });
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
 
   // ── Dirty tracking ─────────────────────────────────────────────────
   // The form is "dirty" once the user makes any meaningful edit. We track
@@ -276,6 +299,12 @@ export function JournalEntryForm({
       message,
     }));
   }, [errors, submitted]);
+
+  // Validation / submit messages render above the form; when the keyboard is
+  // open that pushes the active control down behind it — pull it back.
+  useEffect(() => {
+    if (keyboardOpen) keepFocusedFieldVisible();
+  }, [summaryErrors.length, submitError, keyboardOpen, keepFocusedFieldVisible]);
 
   /** Optimistic create: add entry locally → call API → replace id or rollback. */
   const submitCreateEntry = useCallback(
@@ -515,7 +544,7 @@ export function JournalEntryForm({
         pressed from any field. useSubmitGuard ensures only one in-flight
         request is sent regardless of which path triggered submission.
       */}
-      <form id="journal-entry-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <form ref={formRef} id="journal-entry-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label htmlFor="journal-entry-date" className="text-xs font-medium text-slate-400">Date</label>
           <input
@@ -670,8 +699,16 @@ export function JournalEntryForm({
         while an editable draft (new or edit) is actually open.
       */}
       <div
-        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-white/10 bg-slate-900/95 px-4 pt-3 backdrop-blur sm:hidden"
-        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        ref={actionBarRef}
+        data-keyboard-open={keyboardOpen || undefined}
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-white/10 bg-slate-900/95 px-4 pt-3 backdrop-blur transition-transform duration-150 ease-out motion-reduce:transition-none sm:hidden"
+        style={{
+          // Translate (rather than change `bottom`) so the bar tracks the
+          // keyboard on the compositor without re-laying out the page.
+          transform: keyboardInset ? `translate3d(0, -${keyboardInset}px, 0)` : undefined,
+          // The home indicator is hidden behind the keyboard while it's open.
+          paddingBottom: keyboardOpen ? "0.75rem" : "max(0.75rem, env(safe-area-inset-bottom))",
+        }}
       >
         <Button
           type="button"
