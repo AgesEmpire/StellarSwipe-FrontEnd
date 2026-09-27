@@ -21,6 +21,7 @@ import {
   revokeAllOtherSessions,
 } from "@/lib/sessionApi";
 import type { Session } from "@/lib/sessionUtils";
+import { RouteBreadcrumb } from "@/components/RouteBreadcrumb";
 
 // ---------------------------------------------------------------------------
 // Mock seed data — replaced by real API once the backend is available.
@@ -102,6 +103,8 @@ export default function ActiveSessionsPage() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
       <div className="mx-auto w-full max-w-2xl space-y-6">
+        {/* #758 — Route-aware breadcrumb (replaces manual back link) */}
+        <RouteBreadcrumb />
         {/* Back navigation */}
         <Link
           href="/security"

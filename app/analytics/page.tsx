@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { RouteBreadcrumb } from "@/components/RouteBreadcrumb";
 import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator";
 import { SavedViewTabs } from "@/components/analytics/SavedViewTabs";
 import { PeriodComparisonWidget } from "@/components/comparison/PeriodComparisonWidget";
@@ -288,6 +289,8 @@ function AnalyticsPageInner() {
 
   return (
     <div className="p-6">
+      {/* #758 — Route-aware breadcrumb */}
+      <RouteBreadcrumb />
       {/* Header row with toggle */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <h1 className="text-2xl font-bold" data-focus-target>Portfolio Analytics</h1>

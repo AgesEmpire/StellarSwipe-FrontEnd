@@ -17,10 +17,17 @@ import { PnLWidget } from "@/components/chart/PnLWidget";
 import { PortfolioAllocationChart } from "@/components/chart/PortfolioAllocationChart";
 import { PortfolioPerformanceBenchmarkChart } from "@/components/chart/PortfolioPerformanceBenchmarkChart";
 import { RetryStateCard } from "@/components/ui/RetryStateCard";
+import { DashboardQuickAdd } from "@/components/DashboardQuickAdd";
+import {
+  useDashboardLayoutStore,
+  DEFAULT_WIDGET_ORDER,
+  type DashboardWidgetId,
+} from "@/store/useDashboardLayoutStore";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const DEFAULT_ORDER = ["summary", "pnl", "allocation", "performance"];
+// Legacy local drag-order (kept for drag state; visibility is driven by store)
+const DEFAULT_ORDER: DashboardWidgetId[] = [...DEFAULT_WIDGET_ORDER];
 const STORAGE_KEY = "stellar-swipe-dashboard-layout";
 
 /**
@@ -125,11 +132,11 @@ class WidgetErrorBoundary extends Component<
 
 // ─── Widget registry ─────────────────────────────────────────────────────────
 
-const WIDGET_META: Record<string, { title: string; component: ReactNode }> = {
-  summary: { title: "Portfolio Summary", component: <PortfolioSummaryCards /> },
-  pnl: { title: "P&L Overview", component: <PnLWidget /> },
-  allocation: { title: "Portfolio Allocation", component: <PortfolioAllocationChart /> },
-  performance: {
+const WIDGET_META: Record<DashboardWidgetId, { title: string; component: ReactNode }> = {
+  "portfolio-summary": { title: "Portfolio Summary", component: <PortfolioSummaryCards /> },
+  "pnl-overview": { title: "P&L Overview", component: <PnLWidget /> },
+  "portfolio-allocation": { title: "Portfolio Allocation", component: <PortfolioAllocationChart /> },
+  "transaction-activity": {
     title: "Performance vs Benchmark",
     component: <PortfolioPerformanceBenchmarkChart />,
   },
@@ -138,13 +145,15 @@ const WIDGET_META: Record<string, { title: string; component: ReactNode }> = {
 // ─── DashboardWidgets ────────────────────────────────────────────────────────
 
 export function DashboardWidgets() {
-  const [order, setOrder] = useState<string[]>(DEFAULT_ORDER);
+  // Drag order is managed locally (mirroring store order on mount/reset)
+  const storeVisible = useDashboardLayoutStore((s) => s.visible);
+  const [order, setOrder] = useState<DashboardWidgetId[]>(DEFAULT_ORDER);
   const [mounted, setMounted] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const orderRef = useRef(order);
   orderRef.current = order;
 
-  const announcePosition = useCallback((widgetId: string, list: string[]) => {
+  const announcePosition = useCallback((widgetId: DashboardWidgetId, list: DashboardWidgetId[]) => {
     const title = WIDGET_META[widgetId]?.title ?? widgetId;
     setAnnouncement(
       `${title} moved to position ${list.indexOf(widgetId) + 1} of ${list.length}.`
@@ -158,10 +167,9 @@ export function DashboardWidgets() {
         const parsed = JSON.parse(saved);
         if (
           Array.isArray(parsed) &&
-          parsed.length === DEFAULT_ORDER.length &&
-          parsed.every((x) => DEFAULT_ORDER.includes(x))
+          parsed.every((x: unknown) => DEFAULT_WIDGET_ORDER.includes(x as DashboardWidgetId))
         ) {
-          setOrder(parsed);
+          setOrder(parsed as DashboardWidgetId[]);
         }
       } catch {
         // Ignore parsing errors — fall back to default order.
@@ -170,7 +178,16 @@ export function DashboardWidgets() {
     setMounted(true);
   }, []);
 
-  const handleReorder = useCallback((newOrder: string[]) => {
+  // When a new widget is added via QuickAdd, append it to drag order if absent.
+  useEffect(() => {
+    setOrder((prev) => {
+      const toAdd = storeVisible.filter((id) => !prev.includes(id));
+      if (toAdd.length === 0) return prev;
+      return [...prev, ...toAdd];
+    });
+  }, [storeVisible]);
+
+  const handleReorder = useCallback((newOrder: DashboardWidgetId[]) => {
     setOrder(newOrder);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
@@ -190,7 +207,7 @@ export function DashboardWidgets() {
   }, []);
 
   const handleDragEnd = useCallback(
-    (widgetId: string) => {
+    (widgetId: DashboardWidgetId) => {
       // Reorder.Group updates order continuously during the drag; persist and
       // announce the final settled position once the drag completes.
       const finalOrder = orderRef.current;
@@ -217,6 +234,9 @@ export function DashboardWidgets() {
     [order, handleReorder, announcePosition]
   );
 
+  // Only render widgets that are both in drag-order and in the store's visible list.
+  const visibleOrder = order.filter((id) => storeVisible.includes(id));
+
   if (!mounted) {
     // SSR / hydration pass — render widgets in default order without drag
     // controls to avoid hydration mismatches.
@@ -225,8 +245,8 @@ export function DashboardWidgets() {
         {DEFAULT_ORDER.map((id) => {
           const meta = WIDGET_META[id];
           return (
-            <WidgetErrorBoundary key={id} widgetId={id} widgetTitle={meta.title}>
-              {meta.component}
+            <WidgetErrorBoundary key={id} widgetId={id} widgetTitle={meta?.title ?? id}>
+              {meta?.component}
             </WidgetErrorBoundary>
           );
         })}
@@ -240,23 +260,27 @@ export function DashboardWidgets() {
         <span className="text-xs font-semibold text-foreground-muted uppercase tracking-wider">
           Dashboard Widgets
         </span>
-        <button
-          onClick={handleReset}
-          className="flex items-center gap-1.5 text-xs text-foreground-subtle hover:text-foreground hover:bg-white/5 px-2 py-1 rounded transition-colors"
-          title="Reset layout to default order"
-        >
-          <RotateCcw size={12} />
-          Reset Layout
-        </button>
+        <div className="flex items-center gap-2">
+          {/* #756 — Quick-add widget action */}
+          <DashboardQuickAdd />
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-1.5 text-xs text-foreground-subtle hover:text-foreground hover:bg-white/5 px-2 py-1 rounded transition-colors"
+            title="Reset layout to default order"
+          >
+            <RotateCcw size={12} />
+            Reset Layout
+          </button>
+        </div>
       </div>
 
       <Reorder.Group
         axis="y"
-        values={order}
+        values={visibleOrder}
         onReorder={handleReorder}
         className="flex flex-col gap-6"
       >
-        {order.map((widgetId, index) => {
+        {visibleOrder.map((widgetId, index) => {
           const meta = WIDGET_META[widgetId] ?? {
             title: widgetId,
             component: null,
@@ -267,7 +291,7 @@ export function DashboardWidgets() {
               widgetId={widgetId}
               widgetTitle={meta.title}
               index={index}
-              totalItems={order.length}
+              totalItems={visibleOrder.length}
               onMove={moveItem}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
