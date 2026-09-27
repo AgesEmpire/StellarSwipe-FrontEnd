@@ -218,3 +218,9 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-453 -->
 - #453: Add Storybook stories for CommandPalette, ApiKeyManager, CSVImportModal, WalletDropdown, and QRPairingPanel
+
+<!-- handsoff-issue-818 -->
+- #818: Add keyboard inspection for individual comparison chart points
+
+<!-- handsoff-issue-819 -->
+- #819: Duplicate a journal entry as a starting point for a new trade note

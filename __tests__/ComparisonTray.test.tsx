@@ -187,3 +187,132 @@ describe("ComparisonTray – clear all", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ComparisonTray – metric definitions", () => {
+  it("exposes a keyboard-accessible help button for each metric", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    const helpButtons = screen.getAllByRole("button", {
+      name: /what does .* mean/i,
+    });
+    expect(helpButtons.length).toBeGreaterThan(0);
+    helpButtons.forEach((btn) => {
+      expect(btn).toHaveAttribute("aria-expanded", "false");
+    });
+  });
+
+  it("opens a metric definition via keyboard and announces it", async () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    const helpButton = screen.getAllByRole("button", {
+      name: /what does .* mean/i,
+    })[0];
+
+    helpButton.focus();
+    expect(helpButton).toHaveFocus();
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(helpButton).toHaveAttribute("aria-expanded", "true");
+    const definition = screen.getByRole("tooltip");
+    expect(definition).toBeInTheDocument();
+    expect(definition).toHaveTextContent(/./);
+  });
+
+  it("dismisses the metric definition with Escape", async () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    const helpButton = screen.getAllByRole("button", {
+      name: /what does .* mean/i,
+    })[0];
+
+    await userEvent.click(helpButton);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(helpButton).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("does not render a generic explanation for unknown metrics", () => {
+    seedSignals(1);
+    render(<ComparisonTray />);
+
+    // Unknown metrics must not surface a help affordance at all.
+    expect(
+      screen.queryByRole("button", { name: /what does unknown mean/i })
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("ComparisonTray – scale control", () => {
+  it("renders a labeled control for switching scale modes", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    expect(
+      screen.getByRole("group", { name: /scale/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /normalized/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /absolute/i })
+    ).toBeInTheDocument();
+  });
+
+  it("defaults to the normalized scale", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    expect(
+      screen.getByRole("radio", { name: /normalized/i })
+    ).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: /absolute/i })
+    ).not.toBeChecked();
+  });
+
+  it("switches to the absolute scale and reflects it in the chart summary", async () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    await userEvent.click(screen.getByRole("radio", { name: /absolute/i }));
+
+    expect(
+      screen.getByRole("radio", { name: /absolute/i })
+    ).toBeChecked();
+    expect(
+      screen.getByRole("img", { name: /absolute/i })
+    ).toBeInTheDocument();
+  });
+
+  it("reflects the normalized scale in the chart summary", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    expect(
+      screen.getByRole("img", { name: /normalized/i })
+    ).toBeInTheDocument();
+  });
+
+  it("preserves selected comparison items when switching scale modes", async () => {
+    seedSignals(3);
+    render(<ComparisonTray />);
+
+    await userEvent.click(screen.getByRole("radio", { name: /absolute/i }));
+
+    expect(screen.getByText("Signal 1")).toBeInTheDocument();
+    expect(screen.getByText("Signal 2")).toBeInTheDocument();
+    expect(screen.getByText("Signal 3")).toBeInTheDocument();
+    expect(useComparisonStore.getState().signals.map((s) => s.id)).toEqual([
+      "sig-1",
+      "sig-2",
+      "sig-3",
+    ]);
+  });
+});
