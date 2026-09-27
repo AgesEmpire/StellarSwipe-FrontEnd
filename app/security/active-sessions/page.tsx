@@ -15,12 +15,14 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Shield, ChevronLeft } from "lucide-react";
 import { ActiveSessionsPanel } from "@/components/ActiveSessionsPanel";
+import { AccountActivityList } from "@/components/AccountActivityList";
 import {
+  fetchAccountActivity,
   fetchSessions,
   revokeSession,
   revokeAllOtherSessions,
 } from "@/lib/sessionApi";
-import type { Session } from "@/lib/sessionUtils";
+import type { AccountActivity, Session } from "@/lib/sessionUtils";
 
 // ---------------------------------------------------------------------------
 // Mock seed data — replaced by real API once the backend is available.
@@ -32,6 +34,8 @@ const MOCK_SESSIONS: Session[] = [
     location: "London, UK",
     lastActiveAt: new Date().toISOString(),
     isCurrent: true,
+    device: "macOS",
+    browser: "Chrome",
   },
   {
     id: "sess_002",
@@ -49,6 +53,21 @@ const MOCK_SESSIONS: Session[] = [
   },
 ];
 
+const MOCK_ACTIVITY: AccountActivity[] = [
+  {
+    id: "act_001",
+    description: "Signed in",
+    occurredAt: new Date().toISOString(),
+    device: "Chrome on macOS",
+    location: "London, UK",
+  },
+  {
+    id: "act_002",
+    description: "Session ended by sign-out",
+    occurredAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
@@ -57,6 +76,9 @@ export default function ActiveSessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [activity, setActivity] = useState<
+    AccountActivity[] | null | undefined
+  >(undefined);
 
   // Load sessions on mount — falls back to mock data if the API endpoint is
   // unavailable (expected during local development without a backend).
@@ -86,6 +108,16 @@ export default function ActiveSessionsPage() {
     }
 
     load();
+    fetchAccountActivity()
+      .then((data) => !cancelled && setActivity(data))
+      .catch(() => {
+        // Dev falls back to mock data; production labels history unavailable
+        if (!cancelled) {
+          setActivity(
+            process.env.NODE_ENV !== "production" ? MOCK_ACTIVITY : null
+          );
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -134,6 +166,8 @@ export default function ActiveSessionsPage() {
           isLoading={isLoading}
           error={loadError}
         />
+
+        <AccountActivityList activity={activity} />
       </div>
     </main>
   );
