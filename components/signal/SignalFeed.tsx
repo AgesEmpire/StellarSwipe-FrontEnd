@@ -15,12 +15,11 @@ import { FeedDensityToggle } from "@/components/FeedDensityToggle";
 import { useFeedDensityStore } from "@/store/useFeedDensityStore";
 import { ExpiredSignalBanner } from "@/components/ExpiredSignalBanner";
 import { useSignalFilterStore } from "@/store/useSignalFilterStore";
-import { useBookmarkStore } from "@/store/useBookmarkStore";
 import { useRecentlyViewedStore } from "@/store/useRecentlyViewedStore";
-import { useSnoozeStore, selectVisibleSignals } from "@/store/useSnoozeStore";
+import { useSnoozeStore } from "@/store/useSnoozeStore";
 import { RecentlyViewedStrip } from "@/components/RecentlyViewedStrip";
 import type { Signal } from "@/lib/signals";
-import { Search, X, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
@@ -30,6 +29,7 @@ import { fetchSignals } from "@/lib/api";
 import { queryOptions } from "@/lib/queryOptions";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useFilterUrlSync } from "@/hooks/useFilterUrlSync";
+import { useSearchFilter } from "@/hooks/useSearchFilter";
 import {
   readPersistedSplitRatio,
   persistSplitRatio,
@@ -60,23 +60,16 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   const feedRef = useRef<HTMLDivElement | null>(null);
   const parentRef = useRef<HTMLDivElement | null>(null);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
+  /** Ref for the search input so we can focus it via keyboard shortcut */
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // #727: keep filters in sync with shareable URL parameters
   useFilterUrlSync();
 
-  // #99: provider search state (persisted in filter store)
-  const { direction, asset, provider, bookmarkedOnly, sortOrder, setProvider } =
+  const { direction, asset, provider, bookmarkedOnly, reset: resetFilters } =
     useSignalFilterStore();
   const density = useFeedDensityStore((s) => s.density);
-  const bookmarkedIds = useBookmarkStore((state) => state.bookmarks);
-  // #321: snoozed signals are hidden from the feed until their snooze elapses.
-  const snoozedMap = useSnoozeStore((state) => state.snoozed);
   const pruneExpiredSnoozes = useSnoozeStore((state) => state.pruneExpired);
-  const [providerSearch, setProviderSearch] = useState(provider);
-  // #685: debounce the free-text search term used for filtering so a fast
-  // typist doesn't trigger a full re-filter of the signal list on every
-  // keystroke. The input itself still updates instantly via providerSearch.
-  const [debouncedSearch, setDebouncedSearch] = useState(provider);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const { addView } = useRecentlyViewedStore();
   // Bumped on a timer so expired snoozes are re-evaluated and signals return.
@@ -133,16 +126,6 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     [data]
   );
 
-  // Reflect external provider changes (URL restore, back/forward, reset).
-  useEffect(() => {
-    setProviderSearch((current) => (current === provider ? current : provider));
-  }, [provider]);
-
-  useEffect(() => {
-    const handle = setTimeout(() => setDebouncedSearch(providerSearch), 150);
-    return () => clearTimeout(handle);
-  }, [providerSearch]);
-
   const availableProviders = useMemo(
     () => [...new Set(allSignals.map((s) => s.ticker))].sort(),
     [allSignals]
@@ -153,82 +136,15 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     [allSignals]
   );
 
-  const filteredSignals = useMemo<Signal[]>(() => {
-    let filtered = [...allSignals];
-    const searchTerm = debouncedSearch.trim().toLowerCase();
-
-    if (direction !== "ALL") {
-      filtered = filtered.filter((s) => s.action === direction);
-    }
-
-    if (asset.trim()) {
-      const query = asset.trim().toLowerCase();
-      filtered = filtered.filter((s) => s.ticker.toLowerCase().includes(query));
-    }
-
-    if (provider.trim()) {
-      const query = provider.trim().toLowerCase();
-      filtered = filtered.filter((s) => s.ticker.toLowerCase().includes(query));
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (s) =>
-          s.ticker.toLowerCase().includes(searchTerm) ||
-          s.details.toLowerCase().includes(searchTerm) ||
-          s.action.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    if (bookmarkedOnly) {
-      filtered = filtered.filter((s) => bookmarkedIds.includes(s.id));
-    }
-
-    // #321: hide signals that are currently snoozed; they re-appear once the
-    // snooze expires (snoozeTick forces this to re-run periodically).
-    filtered = selectVisibleSignals(filtered, snoozedMap);
-
-    return filtered;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    allSignals,
-    direction,
-    asset,
-    provider,
-    debouncedSearch,
-    bookmarkedOnly,
-    bookmarkedIds,
-    snoozedMap,
-    snoozeTick,
-  ]);
-
-  const signals = useMemo<Signal[]>(() => {
-    const copy = [...filteredSignals];
-    if (sortOrder === "latest") {
-      copy.sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-    } else if (sortOrder === "hot") {
-      // Best Performing: newest signals with highest confidence
-      copy.sort(
-        (a, b) =>
-          b.confidence - a.confidence ||
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-    } else if (sortOrder === "confidence") {
-      // Confidence: strictly by confidence score descending
-      copy.sort((a, b) => b.confidence - a.confidence);
-    } else if (sortOrder === "relevant") {
-      // Relevant: BUY/SELL before HOLD, then by confidence
-      const actionWeight = (s: Signal) => (s.action === "HOLD" ? 0 : 1);
-      copy.sort(
-        (a, b) =>
-          actionWeight(b) - actionWeight(a) || b.confidence - a.confidence
-      );
-    }
-    return copy;
-  }, [filteredSignals, sortOrder]);
+  // #657 + #685: useSearchFilter centralises debounced search + filter logic.
+  const {
+    searchValue: providerSearch,
+    setSearchValue: handleProviderSearch,
+    clearSearch,
+    filteredSignals: signals,
+    filteredCount,
+    hasActiveFilters,
+  } = useSearchFilter({ signals: allSignals, snoozeTick });
 
   const selectedSignal = useMemo(
     () => signals.find((signal) => signal.id === selectedSignalId) ?? null,
@@ -266,6 +182,19 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     onRefresh: handlePullRefresh,
     disabled: isLoading, // Disable while initial load is in flight
   });
+
+  // #657: Cmd/Ctrl+K focuses the search bar from anywhere on the feed
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -427,15 +356,6 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, loadMore, autoLoadFailed, scrollEl]);
 
-  // #99: sync provider search to filter store
-  const handleProviderSearch = useCallback(
-    (value: string) => {
-      setProviderSearch(value);
-      setProvider(value);
-    },
-    [setProvider]
-  );
-
   return (
     <section
       ref={feedRef}
@@ -492,41 +412,55 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
         </div>
       </div>
 
-      {/* #99: Provider search input */}
-      <div className="mb-4">
+      {/* #657: Search bar — prominent, sticky, with Cmd/Ctrl+K shortcut hint */}
+      <div className="sticky top-0 z-10 -mx-4 mb-4 bg-slate-950/95 px-4 pt-2 pb-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
         <div className="relative flex items-center">
           <Search
             size={14}
-            className="absolute left-3 text-slate-500 pointer-events-none"
+            className="absolute left-3 text-slate-400 pointer-events-none"
             aria-hidden="true"
           />
           <input
+            ref={searchInputRef}
             type="search"
             value={providerSearch}
             onChange={(e) => handleProviderSearch(e.target.value)}
-            placeholder="Search provider / ticker…"
-            aria-label="Search signals by provider or ticker"
-            className="w-full rounded-full bg-white/5 border border-white/10 pl-8 pr-8 py-1.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-white/20 transition-colors"
+            placeholder="Search ticker, provider or signal… (⌘K)"
+            aria-label="Search signals by ticker, provider or description"
+            className="w-full rounded-full border border-white/15 bg-white/8 pl-8 pr-10 py-2 text-sm text-gray-200 placeholder-gray-500 shadow-sm shadow-slate-950/30 transition-all hover:border-white/25 focus:border-sky-500/60 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
           />
-          {providerSearch && (
+          {providerSearch ? (
             <button
-              onClick={() => handleProviderSearch("")}
-              aria-label="Clear provider search"
+              onClick={clearSearch}
+              aria-label="Clear search"
               className="absolute right-3 text-slate-500 hover:text-slate-300 transition-colors"
             >
-              <X size={12} />
+              <X size={13} />
             </button>
+          ) : (
+            <kbd
+              aria-hidden="true"
+              className="absolute right-3 hidden items-center rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 sm:flex"
+            >
+              ⌘K
+            </kbd>
           )}
         </div>
-        {/* #99: show matching provider count */}
-        {providerSearch && (
-          <p className="mt-1 text-[11px] text-slate-500" aria-live="polite">
-            {t("signals.matching_count", {
-              count: signals.length,
-              query: providerSearch,
-            })}
-          </p>
-        )}
+        {/* Live result count below the search bar */}
+        <p
+          className="mt-1.5 text-[11px] text-slate-500"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {providerSearch
+            ? t("signals.matching_count", {
+                count: filteredCount,
+                query: providerSearch,
+              })
+            : hasActiveFilters
+            ? `${filteredCount} result${filteredCount !== 1 ? "s" : ""} match your filters`
+            : null}
+        </p>
       </div>
 
       {/* Filters — desktop: inline panel; mobile: bottom sheet trigger */}
@@ -541,12 +475,19 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
           >
             <SlidersHorizontal size={13} aria-hidden="true" />
             Filters
-            {(direction !== "ALL" ||
-              asset !== "" ||
-              provider !== "" ||
-              bookmarkedOnly ||
-              providerSearch.trim() !== "") && (
-              <span className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white">
+            {hasActiveFilters && (
+              <span
+                className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white transition-transform animate-in zoom-in-75 duration-150"
+                aria-label={`${
+                  [
+                    direction !== "ALL",
+                    asset !== "",
+                    provider !== "",
+                    bookmarkedOnly,
+                    providerSearch.trim() !== "",
+                  ].filter(Boolean).length
+                } active filters`}
+              >
                 {
                   [
                     direction !== "ALL",
@@ -566,6 +507,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
           <SignalFeedFilters
             availableAssets={availableAssets}
             availableProviders={availableProviders}
+            filteredCount={filteredCount}
           />
         </div>
       </div>
@@ -640,16 +582,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
               />
             ) : !isError && signals.length === 0 ? (
               <SignalEmptyState
-                variant={
-                  direction !== "ALL" ||
-                  asset.trim() !== "" ||
-                  provider.trim() !== "" ||
-                  bookmarkedOnly ||
-                  providerSearch.trim() !== ""
-                    ? "no-results"
-                    : "no-signals"
-                }
+                variant={hasActiveFilters ? "no-results" : "no-signals"}
                 onRefresh={() => refetch()}
+                onClearFilters={hasActiveFilters ? resetFilters : undefined}
               />
             ) : (
               <div
