@@ -18,6 +18,7 @@ export async function GET(request: Request) {
   const page = Number(url.searchParams.get("page") ?? "1");
   const pageSize = Number(url.searchParams.get("pageSize") ?? "10");
   const view = url.searchParams.get("view");
+  const signalId = url.searchParams.get("signalId");
 
   if (
     Number.isNaN(page) ||
@@ -42,6 +43,23 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json(activity, { status: 200 });
+  }
+
+  if (view === "confidence-history") {
+    if (!signalId) {
+      return NextResponse.json(
+        { error: "signalId is required to load confidence history." },
+        { status: 400 }
+      );
+    }
+
+    const history = await traceWorker(
+      "worker:signals:confidence-history",
+      async () => buildConfidenceHistory(signalId),
+      { signalId }
+    );
+
+    return NextResponse.json(history, { status: 200 });
   }
 
   const feed = await traceWorker(
