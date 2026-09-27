@@ -7,8 +7,19 @@ export interface PortfolioAsset {
   value: number;
   percentage: number;
   color: string;
+  /** Average cost per unit times quantity; undefined means data not available. */
+  costBasis?: number;
   realizedPnL?: number;
   unrealizedPnL?: number;
+  /** Constituent tokens for grouped/segment assets (e.g. a pool or fund). */
+  constituents?: PortfolioConstituent[];
+}
+
+export interface PortfolioConstituent {
+  symbol: string;
+  name: string;
+  value: number;
+  percentage: number;
 }
 
 export interface PortfolioState {
