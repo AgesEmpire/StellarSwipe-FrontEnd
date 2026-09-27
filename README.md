@@ -209,3 +209,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-810 -->
 - #810: Preview estimated proceeds before closing a position
+
+<!-- handsoff-issue-811 -->
+- #811: Manage active price alerts with pause, edit, and trigger history
