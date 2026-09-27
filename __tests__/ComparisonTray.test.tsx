@@ -248,3 +248,71 @@ describe("ComparisonTray – metric definitions", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("ComparisonTray – scale control", () => {
+  it("renders a labeled control for switching scale modes", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    expect(
+      screen.getByRole("group", { name: /scale/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /normalized/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /absolute/i })
+    ).toBeInTheDocument();
+  });
+
+  it("defaults to the normalized scale", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    expect(
+      screen.getByRole("radio", { name: /normalized/i })
+    ).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: /absolute/i })
+    ).not.toBeChecked();
+  });
+
+  it("switches to the absolute scale and reflects it in the chart summary", async () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    await userEvent.click(screen.getByRole("radio", { name: /absolute/i }));
+
+    expect(
+      screen.getByRole("radio", { name: /absolute/i })
+    ).toBeChecked();
+    expect(
+      screen.getByRole("img", { name: /absolute/i })
+    ).toBeInTheDocument();
+  });
+
+  it("reflects the normalized scale in the chart summary", () => {
+    seedSignals(2);
+    render(<ComparisonTray />);
+
+    expect(
+      screen.getByRole("img", { name: /normalized/i })
+    ).toBeInTheDocument();
+  });
+
+  it("preserves selected comparison items when switching scale modes", async () => {
+    seedSignals(3);
+    render(<ComparisonTray />);
+
+    await userEvent.click(screen.getByRole("radio", { name: /absolute/i }));
+
+    expect(screen.getByText("Signal 1")).toBeInTheDocument();
+    expect(screen.getByText("Signal 2")).toBeInTheDocument();
+    expect(screen.getByText("Signal 3")).toBeInTheDocument();
+    expect(useComparisonStore.getState().signals.map((s) => s.id)).toEqual([
+      "sig-1",
+      "sig-2",
+      "sig-3",
+    ]);
+  });
+});
