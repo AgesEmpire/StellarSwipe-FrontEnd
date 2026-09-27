@@ -18,6 +18,11 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
+import {
+  DEFAULT_PDF_REPORT_OPTIONS,
+  PdfReportPreviewDialog,
+  type PdfReportOptions,
+} from "@/components/PdfReportPreviewDialog";
 import { ColumnVisibilityControl } from "@/components/ColumnVisibilityControl";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
 import { toast } from "@/lib/toast";
@@ -219,6 +224,10 @@ export function TaxReportingTool() {
   const [pendingExport, setPendingExport] = useState<ExportKind | null>(null);
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [lastExport, setLastExport] = useState<ExportKind | null>(null);
+  // PDF preview (#781): options are kept here so they survive closing the
+  // dialog to edit filters.
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfOptions, setPdfOptions] = useState<PdfReportOptions>(DEFAULT_PDF_REPORT_OPTIONS);
   // Synchronous guard so a double click can't start two generations
   const generatingRef = useRef(false);
   const isGenerating = exportState === "generating";
@@ -392,7 +401,7 @@ export function TaxReportingTool() {
     }
 
     if (kind === "pdf") {
-      window.print();
+      printPdf();
       return;
     }
 
@@ -436,6 +445,26 @@ export function TaxReportingTool() {
     }
   }
 
+  // The print stylesheet reads the data-print-* attributes on the report
+  // section, which are derived from `pdfOptions`.
+  function printPdf() {
+    if (typeof window.print !== "function") {
+      throw new Error("Printing is not supported in this browser.");
+    }
+    window.print();
+  }
+
+  async function generatePdf() {
+    // Yield so the dialog's "generating" state paints before the print dialog blocks
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    printPdf();
+    setLastExport("pdf");
+    setExportState("ready");
+    toast.success("PDF ready", {
+      description: `Choose "Save as PDF" in the print dialog to save your ${selectedYear} ${jurisdiction} report.`,
+    });
+  }
+
   const printDate = new Date().toLocaleDateString(undefined, {
     year: "numeric",
     month: "long",
@@ -447,7 +476,18 @@ export function TaxReportingTool() {
       className="space-y-6"
       aria-label="Tax Reporting Tool"
       data-print-report
-      data-print-title={`StellarSwipe Tax Report ${selectedYear} — ${jurisdiction}`}
+      data-print-title={
+        pdfOptions.customTitle.trim() || `StellarSwipe Tax Report ${selectedYear} — ${jurisdiction}`
+      }
+      data-print-branding={pdfOptions.branding}
+      data-print-orientation={pdfOptions.orientation}
+      data-print-sections={[
+        pdfOptions.includeSummary && "summary",
+        pdfOptions.includeRates && "rates",
+        pdfOptions.includeTransactions && "transactions",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-print-subtitle={`Generated ${printDate}`}
       data-print-date={printDate}
     >
@@ -888,7 +928,7 @@ export function TaxReportingTool() {
                     size="sm"
                     variant="outline"
                     disabled={isGenerating}
-                    onClick={() => setPendingExport("pdf")}
+                    onClick={() => setPdfPreviewOpen(true)}
                     className="gap-1.5"
                     aria-label={`Export ${selectedYear} ${jurisdiction} tax report as PDF`}
                   >
@@ -976,6 +1016,24 @@ export function TaxReportingTool() {
           )}
         </div>
       )}
+
+      <PdfReportPreviewDialog
+        open={pdfPreviewOpen}
+        onOpenChange={setPdfPreviewOpen}
+        report={currentReport}
+        options={pdfOptions}
+        onOptionsChange={setPdfOptions}
+        filters={[
+          { label: "Tax year", value: String(selectedYear) },
+          { label: "Jurisdiction", value: `${rates.label} (${jurisdiction})` },
+        ]}
+        onEditFilters={() => {
+          setPdfPreviewOpen(false);
+          // Wait for the dialog to release focus before moving it to the filters
+          setTimeout(() => document.getElementById("jurisdiction-select")?.focus(), 0);
+        }}
+        onGenerate={generatePdf}
+      />
 
       {pendingExport && (
         <ExportPreviewDialog

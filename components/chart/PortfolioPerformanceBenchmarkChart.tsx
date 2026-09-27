@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Download, Share2 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
-import { useXLMPriceHistory, type PricePoint } from "@/hooks/usePriceHistory";
+import { useXLMPriceHistory } from "@/hooks/usePriceHistory";
 import {
   computeBenchmarkSeries,
   type PortfolioValuePoint,
@@ -25,6 +26,40 @@ import {
   useChartInterval,
 } from "@/components/chart/ChartIntervalSelector";
 import { CHART_INTERVALS } from "@/store/useChartIntervalStore";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
+import {
+  DEFAULT_BENCHMARK_ID,
+  deriveBenchmarkPrices,
+  formatBenchmarkFreshness,
+  getBenchmark,
+  isBenchmarkUsable,
+} from "@/lib/benchmarks";
+import { BenchmarkSelector } from "@/components/chart/BenchmarkSelector";
+import { ChartSnapshotDialog, type SnapshotChartOption } from "@/components/chart/ChartSnapshotDialog";
+import {
+  AddAnnotationButton,
+  AnnotationEditor,
+  AnnotationList,
+  AnnotationMarker,
+  formatAnnotationDate,
+} from "@/components/chart/ChartAnnotations";
+import { toDayKey, useChartAnnotations, type ChartAnnotation } from "@/hooks/useChartAnnotations";
+
+const CHART_ID = "portfolio-performance-benchmark";
+const PORTFOLIO_METRIC = "portfolio-value";
+const BENCHMARK_STORAGE_KEY = "stellarswipe:benchmark";
+
+const RANGE_OPTIONS = [
+  { points: 7, label: "7D" },
+  { points: 30, label: "30D" },
+  { points: 90, label: "90D" },
+] as const;
+
+type EditorState =
+  | { mode: "create"; timestamp: number }
+  | { mode: "edit"; annotation: ChartAnnotation }
+  | null;
 
 interface PortfolioPerformanceBenchmarkChartProps {
   className?: string;
@@ -62,6 +97,14 @@ export function PortfolioPerformanceBenchmarkChart({
   const { totalValue, assets, isLoading } = usePortfolioStore();
   const [showBenchmark, setShowBenchmark] = useState(true);
   const chartColors = useChartColors();
+  const [rangePoints, setRangePoints] = useState<number>(30);
+  const [benchmarkId, setBenchmarkId] = useState<string>(DEFAULT_BENCHMARK_ID);
+  const [benchmarkRetryKey, setBenchmarkRetryKey] = useState(0);
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+  const [editor, setEditor] = useState<EditorState>(null);
+  const { annotations, addAnnotation, updateAnnotation, removeAnnotation } =
+    useChartAnnotations(CHART_ID);
 
   // Supported intervals — benchmark chart has enough mock data for these.
   const SUPPORTED_INTERVALS = ["1W", "1M", "3M", "1Y"] as const;
@@ -72,26 +115,64 @@ export function PortfolioPerformanceBenchmarkChart({
   });
 
   const intervalMeta = CHART_INTERVALS[interval];
-  const xlmHistory = useXLMPriceHistory({
+
+  // Restore the last chosen benchmark; fall back to the default if the saved
+  // id is no longer offered.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(BENCHMARK_STORAGE_KEY);
+      if (saved && getBenchmark(saved)) setBenchmarkId(saved);
+    } catch {
+      // storage unavailable
+    }
+  }, []);
+
+  const changeBenchmark = useCallback((id: string) => {
+    setBenchmarkId(id);
+    try {
+      window.localStorage.setItem(BENCHMARK_STORAGE_KEY, id);
+    } catch {
+      // storage unavailable
+    }
+  }, []);
+
+  const benchmark = getBenchmark(benchmarkId) ?? getBenchmark(DEFAULT_BENCHMARK_ID)!;
+  const benchmarkUsable = isBenchmarkUsable(benchmark);
+  const benchmarkLabel = benchmark.label;
+
+  const baseHistory = useXLMPriceHistory({
     points: intervalMeta.points,
     interval: intervalMeta.historyInterval,
   });
+  const xlmHistory = useMemo(
+    () => (benchmarkUsable ? deriveBenchmarkPrices(benchmark, baseHistory) : []),
+    // benchmarkRetryKey lets "Retry" re-request the benchmark feed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [benchmark, benchmarkUsable, baseHistory, benchmarkRetryKey]
+  );
   const portfolioHistory = useMemo(() => {
     const initial = assets.reduce(
       (sum, a) => sum + (a.value - (a.unrealizedPnL ?? 0)),
       0
     );
-    const history: PortfolioValuePoint[] = xlmHistory.map((point, i) => ({
+    const history: PortfolioValuePoint[] = baseHistory.slice(0, -1).map((point) => ({
       timestamp: point.timestamp,
       value: initial + Math.random() * 200,
     }));
     history.push({ timestamp: Date.now(), value: totalValue });
     return history.sort((a, b) => a.timestamp - b.timestamp);
-  }, [xlmHistory, totalValue, assets]);
+  }, [baseHistory, totalValue, assets]);
 
   const { portfolio: portfolioPoints, benchmark: benchmarkPoints } =
     useMemo(() => {
       const initialPortfolioValue = portfolioHistory[0]?.value ?? totalValue;
+      if (xlmHistory.length === 0) {
+        // Benchmark unavailable: still chart the portfolio on its own.
+        return {
+          portfolio: [...portfolioHistory].sort((a, b) => a.timestamp - b.timestamp),
+          benchmark: [] as PortfolioValuePoint[],
+        };
+      }
       return computeBenchmarkSeries(
         portfolioHistory,
         xlmHistory,
@@ -100,7 +181,7 @@ export function PortfolioPerformanceBenchmarkChart({
     }, [portfolioHistory, xlmHistory, totalValue]);
 
   const chartData = useMemo(() => {
-    if (portfolioPoints.length === 0 || benchmarkPoints.length === 0) {
+    if (portfolioPoints.length === 0) {
       return { portfolioPath: "", benchmarkPath: "", maxVal: 0, minVal: 0, portfolioPts: [], benchmarkPts: [] };
     }
 
@@ -188,13 +269,18 @@ export function PortfolioPerformanceBenchmarkChart({
     return best;
   };
 
+  const annotationsForDay = (timestamp: number) => {
+    const day = toDayKey(timestamp);
+    return annotations.filter((a) => a.metric === PORTFOLIO_METRIC && a.day === day);
+  };
+
   const formatPointDate = (timestamp: number) =>
     new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   // A single keyboard navigator covers both series: each point reports the
   // portfolio value plus, when shown, the benchmark comparison.
   const tooltip = useChartTooltip({
-    ariaLabel: "Portfolio performance versus XLM benchmark",
+    ariaLabel: `Portfolio performance versus ${benchmark.name} benchmark`,
     describePoint: (i) => {
       const pt = chartData.portfolioPts[i];
       if (!pt) return "";
@@ -209,9 +295,13 @@ export function PortfolioPerformanceBenchmarkChart({
         const benchStart = chartData.benchmarkPts[0].value;
         const gap = pt.value - bench.value;
         parts.push(
-          `XLM benchmark $${bench.value.toFixed(2)}, ${formatPercentChange(bench.value, benchStart)} since start`,
+          `${benchmarkLabel} benchmark $${bench.value.toFixed(2)}, ${formatPercentChange(bench.value, benchStart)} since start`,
           `Portfolio ${gap >= 0 ? "ahead of" : "behind"} benchmark by $${Math.abs(gap).toFixed(2)}`
         );
+      }
+      const notes = annotationsForDay(pt.timestamp);
+      if (notes.length > 0) {
+        parts.push(`${notes.length} ${notes.length === 1 ? "note" : "notes"}: ${notes.map((n) => n.note).join("; ")}`);
       }
       return parts.join(". ");
     },
@@ -219,6 +309,111 @@ export function PortfolioPerformanceBenchmarkChart({
   });
   const { ref: tooltipRef, offset: tooltipOffset } =
     useTooltipCollision<HTMLDivElement>(tooltip.isVisible, [tooltip.activeIndex]);
+
+  // Remember the last inspected point so "Add note" still works after the
+  // pointer leaves the chart or focus moves to the button.
+  useEffect(() => {
+    if (tooltip.activeIndex !== null) setSelectedPointIndex(tooltip.activeIndex);
+  }, [tooltip.activeIndex]);
+
+  useEffect(() => {
+    setSelectedPointIndex(null);
+  }, [rangePoints]);
+
+  const selectedPoint =
+    selectedPointIndex !== null ? chartData.portfolioPts[selectedPointIndex] ?? null : null;
+
+  const rangeStartDay = portfolioPoints.length > 0 ? toDayKey(portfolioPoints[0].timestamp) : 0;
+  const rangeEndDay =
+    portfolioPoints.length > 0 ? toDayKey(portfolioPoints[portfolioPoints.length - 1].timestamp) : 0;
+  const isAnnotationInRange = useCallback(
+    (a: ChartAnnotation) => a.day >= rangeStartDay && a.day <= rangeEndDay,
+    [rangeStartDay, rangeEndDay]
+  );
+
+  const snapshotCharts = useMemo<SnapshotChartOption[]>(() => {
+    const benchmarkSeries = {
+      id: "benchmark",
+      label: `${benchmark.label} (benchmark)`,
+      color: chartColors.secondary,
+      dashed: true,
+      points: benchmarkPoints,
+    };
+    const portfolioSeries = {
+      id: "portfolio",
+      label: "Portfolio",
+      color: chartColors.primary,
+      isPrivate: true,
+      points: portfolioPoints,
+    };
+    const source = `${benchmark.name}: ${benchmark.source} (${formatBenchmarkFreshness(benchmark).toLowerCase()})`;
+    return [
+      {
+        id: "portfolio-vs-benchmark",
+        title: `Portfolio performance vs ${benchmark.label}`,
+        unit: "USD",
+        sources: benchmarkPoints.length > 0 ? [source] : [],
+        series: benchmarkPoints.length > 0 ? [portfolioSeries, benchmarkSeries] : [portfolioSeries],
+      },
+      ...(benchmarkPoints.length > 0
+        ? [
+            {
+              id: "benchmark-only",
+              title: `${benchmark.name} performance`,
+              unit: benchmark.unit,
+              sources: [source],
+              series: [benchmarkSeries],
+            },
+          ]
+        : []),
+    ];
+  }, [benchmark, benchmarkPoints, portfolioPoints, chartColors]);
+
+  const exportCsv = useCallback(() => {
+    try {
+      const benchByDay = new Map(benchmarkPoints.map((p) => [toDayKey(p.timestamp), p.value]));
+      const rows = [
+        `# Benchmark: ${benchmark.name}`,
+        `# Benchmark source: ${benchmark.source}`,
+        `# Benchmark last updated: ${new Date(benchmark.lastUpdated).toISOString()}`,
+        `date,portfolio_usd,${benchmark.id}_benchmark_usd`,
+        ...portfolioPoints.map((p) => {
+          const bench = benchByDay.get(toDayKey(p.timestamp));
+          return `${new Date(p.timestamp).toISOString().slice(0, 10)},${p.value.toFixed(2)},${bench !== undefined ? bench.toFixed(2) : ""}`;
+        }),
+      ];
+      const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `portfolio-vs-${benchmark.id}-${rangePoints}d.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Performance exported", {
+        description: `CSV includes the ${benchmark.name} benchmark and its source.`,
+      });
+    } catch {
+      toast.error("Export failed", { description: "Please try again." });
+    }
+  }, [benchmark, benchmarkPoints, portfolioPoints, rangePoints]);
+
+  function saveEditor(note: string) {
+    if (!editor) return;
+    if (editor.mode === "create") {
+      addAnnotation(PORTFOLIO_METRIC, editor.timestamp, note);
+      toast.success("Note added");
+    } else {
+      updateAnnotation(editor.annotation.id, note);
+      toast.success("Note updated");
+    }
+    setEditor(null);
+  }
+
+  function deleteAnnotation(a: ChartAnnotation) {
+    removeAnnotation(a.id);
+    if (editor?.mode === "edit" && editor.annotation.id === a.id) setEditor(null);
+    toast.success("Note removed");
+  }
 
   if (isLoading) {
     return <PortfolioPerformanceBenchmarkChartSkeleton className={className} />;
@@ -229,13 +424,13 @@ export function PortfolioPerformanceBenchmarkChart({
       <Card className={cn("w-full", className)}>
         <CardHeader>
           <h2 className="text-base font-semibold text-foreground">
-            Portfolio Performance vs XLM Benchmark
+            Portfolio Performance vs {benchmark.label} Benchmark
           </h2>
         </CardHeader>
         <CardContent>
           <EmptyState
             title="No portfolio history yet"
-            description="Once you hold at least one asset, we'll chart your performance against the XLM benchmark here."
+            description={`Once you hold at least one asset, `we'll chart your performance against the ${benchmark.name} benchmark here.`}
             className="h-48 rounded-xl bg-transparent py-6"
           />
         </CardContent>
@@ -252,13 +447,13 @@ export function PortfolioPerformanceBenchmarkChart({
       <Card className={cn("w-full", className)}>
         <CardHeader>
           <h2 className="text-base font-semibold text-foreground">
-            Portfolio Performance vs XLM Benchmark
+            Portfolio Performance vs {benchmark.label} Benchmark
           </h2>
         </CardHeader>
         <CardContent>
           <EmptyState
             title="Not enough history yet"
-            description="We need a bit more price history before we can chart your performance against the XLM benchmark. Check back shortly."
+            description={`We need a bit more price history before we can chart your performance against the ${benchmark.name} benchmark. Check back shortly.`}
             className="h-48 rounded-xl bg-transparent py-6"
           />
         </CardContent>
@@ -274,7 +469,7 @@ export function PortfolioPerformanceBenchmarkChart({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-foreground">
-            Portfolio Performance vs XLM Benchmark
+            Portfolio Performance vs {benchmark.label} Benchmark
           </h2>
           {/* Interval selector — stable layout, loading state preserved */}
           <ChartIntervalSelector
@@ -296,6 +491,15 @@ export function PortfolioPerformanceBenchmarkChart({
               aria-checked={showBenchmark}
               aria-label="Show XLM benchmark series"
               onClick={() => setShowBenchmark((v) => !v)}
+              className={cn(
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                showBenchmark ? "bg-blue-500" : "bg-surface-high"
+              )}
+            >
+              <span
+                aria-hidden="true"
+
               className={cn(
                 "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
@@ -367,9 +571,11 @@ export function PortfolioPerformanceBenchmarkChart({
             width="100%"
             height="100%"
             viewBox={`0 0 ${chartData.width} ${chartData.height}`}
-            aria-hidden="true"
+            role="group"
+            aria-label="Chart notes"
             className="overflow-visible"
           >
+            <g aria-hidden="true">
             {showBenchmark && chartData.benchmarkPath && (
               <path
                 d={chartData.benchmarkPath}
@@ -393,7 +599,7 @@ export function PortfolioPerformanceBenchmarkChart({
               />
             )}
 
-            {showBenchmark && (
+            {showBenchmark && chartData.benchmarkPath && (
               <text
                 x={(chartData?.width ?? 0) - 4}
                 y={14}
@@ -401,7 +607,7 @@ export function PortfolioPerformanceBenchmarkChart({
                 fill={chartColors.secondary}
                 textAnchor="end"
               >
-                ╌ XLM benchmark
+                {benchmark.label} (benchmark)
               </text>
             )}
             <text
@@ -413,6 +619,11 @@ export function PortfolioPerformanceBenchmarkChart({
             >
               ─ Portfolio
             </text>
+              textAnchor="end"
+            >
+              ─ Portfolio
+            </text>
+            </g>
 
             {/* Invisible pointer/touch hit areas, one per point */}
             {chartData.portfolioPts.map((pt, i) => {
@@ -429,9 +640,29 @@ export function PortfolioPerformanceBenchmarkChart({
                   fill="transparent"
                   onPointerEnter={() => tooltip.showAt(i)}
                   onPointerLeave={tooltip.hide}
-                  onTouchStart={(e) => { e.preventDefault(); tooltip.showAt(i); }}
+                  onClick={() => setSelectedPointIndex(i)}
+                  onTouchStart={(e) => { e.preventDefault(); tooltip.showAt(i); setSelectedPointIndex(i); }}
                   onTouchEnd={tooltip.hide}
                   style={{ cursor: "crosshair" }}
+                />
+              );
+            })}
+
+            {/* Annotation markers (#783), matched to points by calendar day */}
+            {annotations.map((a) => {
+              if (a.metric !== PORTFOLIO_METRIC) return null;
+              const pt = chartData.portfolioPts.find((p) => toDayKey(p.timestamp) === a.day);
+              if (!pt) return null;
+              return (
+                <AnnotationMarker
+                  key={a.id}
+                  x={pt.x}
+                  y={pt.y}
+                  annotation={a}
+                  metricLabel="Portfolio value"
+                  color={chartColors.primary}
+                  isActive={editor?.mode === "edit" && editor.annotation.id === a.id}
+                  onActivate={(annotation) => setEditor({ mode: "edit", annotation })}
                 />
               );
             })}
@@ -493,7 +724,7 @@ export function PortfolioPerformanceBenchmarkChart({
                   {bench && gap !== null && (
                     <>
                       <div>
-                        <span className="font-semibold text-blue-400">XLM</span> ${bench.value.toFixed(2)}
+                        <span className="font-semibold text-blue-400">{benchmark.label}</span> ${bench.value.toFixed(2)}
                       </div>
                       <div className="text-slate-300">
                         {gap >= 0 ? "+" : "−"}${Math.abs(gap).toFixed(2)} vs benchmark
@@ -547,7 +778,8 @@ export function PortfolioPerformanceBenchmarkChart({
                 <div>
                   <span className="text-foreground-muted">XLM return</span>
                   <p className="font-mono text-blue-400">
-                    +{performanceDelta.benchmarkReturn}%
+                    {performanceDelta.benchmarkReturn >= 0 ? "+" : ""}
+                    {performanceDelta.benchmarkReturn}%
                   </p>
                 </div>
               ) : (
@@ -560,7 +792,65 @@ export function PortfolioPerformanceBenchmarkChart({
             </div>
           </>
         )}
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-foreground-muted">
+          <span aria-live="polite">
+            {selectedPoint
+              ? `Selected: ${formatAnnotationDate(toDayKey(selectedPoint.timestamp))}`
+              : "Select a point to add a note."}
+          </span>
+          <AddAnnotationButton
+            disabled={!selectedPoint || editor !== null}
+            dateLabel={selectedPoint ? formatAnnotationDate(toDayKey(selectedPoint.timestamp)) : null}
+            onClick={() => {
+              if (!selectedPoint) return;
+              const existing = annotationsForDay(selectedPoint.timestamp)[0];
+              setEditor(
+                existing
+                  ? { mode: "edit", annotation: existing }
+                  : { mode: "create", timestamp: selectedPoint.timestamp }
+              );
+            }}
+          />
+        </div>
+
+        {editor && (
+          <AnnotationEditor
+            mode={editor.mode}
+            metricLabel="Portfolio value"
+            dateLabel={formatAnnotationDate(
+              editor.mode === "create" ? toDayKey(editor.timestamp) : editor.annotation.day
+            )}
+            initialNote={editor.mode === "edit" ? editor.annotation.note : ""}
+            onSave={saveEditor}
+            onDelete={
+              editor.mode === "edit" ? () => deleteAnnotation(editor.annotation) : undefined
+            }
+            onCancel={() => setEditor(null)}
+          />
+        )}
+
+        <AnnotationList
+          annotations={annotations.filter((a) => a.metric === PORTFOLIO_METRIC)}
+          metricLabel={() => "Portfolio value"}
+          isInRange={isAnnotationInRange}
+          activeId={editor?.mode === "edit" ? editor.annotation.id : null}
+          onEdit={(annotation) => setEditor({ mode: "edit", annotation })}
+          onRemove={deleteAnnotation}
+        />
+
+        <p className="mt-3 text-[10px] text-foreground-muted">
+          Benchmark: {benchmark.name} · Source: {benchmark.source} ·{" "}
+          {formatBenchmarkFreshness(benchmark)}
+        </p>
       </CardContent>
+
+      <ChartSnapshotDialog
+        open={snapshotOpen}
+        onOpenChange={setSnapshotOpen}
+        charts={snapshotCharts}
+        defaultChartId="portfolio-vs-benchmark"
+      />
     </Card>
   );
 }
