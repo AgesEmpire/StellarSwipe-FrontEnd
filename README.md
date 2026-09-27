@@ -212,3 +212,9 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-811 -->
 - #811: Manage active price alerts with pause, edit, and trigger history
+
+<!-- handsoff-issue-812 -->
+- #812: Show signal source evidence in the expanded signal view
+
+<!-- handsoff-issue-453 -->
+- #453: Add Storybook stories for CommandPalette, ApiKeyManager, CSVImportModal, WalletDropdown, and QRPairingPanel

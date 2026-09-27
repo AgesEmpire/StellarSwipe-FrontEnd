@@ -26,6 +26,30 @@ export interface Session {
   lastActiveAt: string;
   /** True for the session that is executing this page */
   isCurrent: boolean;
+  /** Device / OS reported by the service, e.g. "macOS" (optional) */
+  device?: string;
+  /** Browser reported by the service, e.g. "Chrome 128" (optional) */
+  browser?: string;
+}
+
+/** Recent sign-in / session event shown beside active sessions (#833). */
+export interface AccountActivity {
+  id: string;
+  /** Human-readable description, e.g. "Signed in" */
+  description: string;
+  /** ISO-8601 timestamp of the event */
+  occurredAt: string;
+  /** Only present when the service reports it — never inferred */
+  device?: string;
+  location?: string;
+}
+
+/** Formats an ISO timestamp in the user's locale, or null if invalid. */
+export function formatTimestamp(iso: string): string | null {
+  const date = new Date(iso);
+  return isNaN(date.getTime())
+    ? null
+    : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export type SessionsState =

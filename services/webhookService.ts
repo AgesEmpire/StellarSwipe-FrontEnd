@@ -64,6 +64,24 @@ export function buildSamplePayload(event: WebhookEventType): WebhookPayload {
   };
 }
 
+/** Payload schema version per supported event, used for previews (#830). */
+const EVENT_SCHEMA_VERSIONS: Record<WebhookEventType, string> = {
+  new_signal: "1.0",
+  trade_execution: "1.0",
+  portfolio_alert: "1.0",
+};
+
+/** Returns a sample payload and schema version, or null for unknown events. */
+export function getSamplePayloadPreview(
+  event: string
+): { version: string; payload: WebhookPayload } | null {
+  if (!Object.prototype.hasOwnProperty.call(EVENT_SCHEMA_VERSIONS, event)) {
+    return null;
+  }
+  const key = event as WebhookEventType;
+  return { version: EVENT_SCHEMA_VERSIONS[key], payload: buildSamplePayload(key) };
+}
+
 export async function sendTestWebhook(
   webhookId: string
 ): Promise<WebhookDelivery> {

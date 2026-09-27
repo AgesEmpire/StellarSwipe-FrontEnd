@@ -11,6 +11,7 @@ import { X } from "lucide-react";
 import { PortfolioAllocationChartSkeleton } from "@/components/DashboardWidgetSkeletons";
 import { useChartColors } from "@/lib/chartPalette";
 import { ChartPatternDefs } from "@/components/chart/ChartPatternDefs";
+import { useTargetAllocationStore } from "@/store/useTargetAllocationStore";
 
 interface PortfolioAllocationChartProps {
   className?: string;
@@ -25,6 +26,7 @@ export function PortfolioAllocationChart({
 }: PortfolioAllocationChartProps) {
   const { assets, totalValue, isLoading } = usePortfolioStore();
   const { privacyMode } = usePrivacyStore();
+  const { targets, overlayVisible } = useTargetAllocationStore();
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const mask = (v: string) => (privacyMode ? PRIVACY_MASK : v);
 
@@ -233,6 +235,59 @@ export function PortfolioAllocationChart({
                 </g>
               );
             })}
+
+            {/* Target allocation band overlay (#798) — tick marks at target angle */}
+            {overlayVisible && arcs.map((arc) => {
+              const targetPct = targets[arc.symbol];
+              if (targetPct === undefined) return null;
+
+              const centerX = width / 2;
+              const centerY = height / 2;
+              const outerRadius = Math.min(width, height) / 2 - 10;
+              const innerRadius = outerRadius * 0.4;
+
+              // Accumulate to the arc's start angle then add target offset
+              const arcIndex = arcs.indexOf(arc);
+              const startAngleDeg = arcs
+                .slice(0, arcIndex)
+                .reduce((sum, a) => sum + (a.percentage / 100) * 360, 0);
+              const targetAngleDeg = startAngleDeg + (targetPct / 100) * 360;
+              const rad = ((targetAngleDeg - 90) * Math.PI) / 180;
+
+              const x1 = centerX + (innerRadius - 4) * Math.cos(rad);
+              const y1 = centerY + (innerRadius - 4) * Math.sin(rad);
+              const x2 = centerX + (outerRadius + 4) * Math.cos(rad);
+              const y2 = centerY + (outerRadius + 4) * Math.sin(rad);
+
+              return (
+                <g
+                  key={`target-${arc.symbol}`}
+                  aria-label={`Target for ${arc.name}: ${targetPct.toFixed(1)}%`}
+                  role="img"
+                  pointerEvents="none"
+                >
+                  {/* Dashed tick line */}
+                  <line
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="white"
+                    strokeWidth={2}
+                    strokeDasharray="3 2"
+                    opacity={0.85}
+                  />
+                  {/* Small diamond at outer tip */}
+                  <circle
+                    cx={x2}
+                    cy={y2}
+                    r={3}
+                    fill="white"
+                    opacity={0.9}
+                  />
+                </g>
+              );
+            })}
           </svg>
 
           {/* Floating tooltip for the hovered/focused segment */}
@@ -277,7 +332,7 @@ export function PortfolioAllocationChart({
               <button
                 type="button"
                 onClick={() => setSelectedSymbol(null)}
-                aria-label="Close data point details"
+                aria-label={`Close ${selectedAsset.name} details`}
                 className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 <X size={14} />
@@ -306,36 +361,113 @@ export function PortfolioAllocationChart({
                 </>
               )}
             </dl>
+
+            {/* Token drilldown — constituent assets (#797) */}
+            {selectedAsset.constituents && selectedAsset.constituents.length > 0 ? (
+              <div className="mt-3 border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">
+                  {selectedAsset.name} constituents
+                </p>
+                <ul
+                  aria-label={`Constituent tokens of ${selectedAsset.name}`}
+                  className="space-y-1"
+                >
+                  {selectedAsset.constituents.map((token) => (
+                    <li
+                      key={token.symbol}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-foreground">
+                        {token.name}{" "}
+                        <span className="text-muted-foreground text-xs">
+                          ({token.symbol})
+                        </span>
+                      </span>
+                      <span className="font-mono text-foreground text-xs">
+                        {mask(
+                          `$${token.value.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}`
+                        )}{" "}
+                        <span className="text-muted-foreground">
+                          ({token.percentage.toFixed(1)}%)
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : selectedAsset.constituents && selectedAsset.constituents.length === 0 ? (
+              <div className="mt-3 border-t border-border pt-3">
+                <p
+                  className="text-xs text-muted-foreground"
+                  aria-live="polite"
+                >
+                  No constituent assets for this segment.
+                </p>
+              </div>
+            ) : null}
           </div>
         )}
 
         <ul className="mt-4 space-y-2" aria-label="Portfolio allocation breakdown">
-          {chartData.map((asset) => (
-            <li key={asset.symbol}>
-              <button
-                type="button"
-                onClick={() => toggleSelection(asset.symbol)}
-                aria-pressed={selectedSymbol === asset.symbol}
-                className={cn(
-                  "flex w-full items-center justify-between rounded px-1 py-0.5 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-500",
-                  selectedSymbol === asset.symbol ? "bg-white/5" : "hover:bg-white/5"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: asset.color }}
-                    aria-hidden="true"
-                  />
-                  <span className="text-foreground">{asset.name}</span>
-                  <span className="sr-only">({asset.pattern.label})</span>
-                </div>
-                <span className="font-mono text-foreground-muted">
-                  {asset.percentage.toFixed(1)}%
-                </span>
-              </button>
-            </li>
-          ))}
+          {chartData.map((asset) => {
+            const targetPct = targets[asset.symbol];
+            const showTarget = overlayVisible && targetPct !== undefined;
+            const diff = showTarget ? asset.percentage - targetPct : null;
+            return (
+              <li key={asset.symbol}>
+                <button
+                  type="button"
+                  onClick={() => toggleSelection(asset.symbol)}
+                  aria-pressed={selectedSymbol === asset.symbol}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded px-1 py-0.5 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-500",
+                    selectedSymbol === asset.symbol ? "bg-white/5" : "hover:bg-white/5"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: asset.color }}
+                      aria-hidden="true"
+                    />
+                    <span className="text-foreground">{asset.name}</span>
+                    <span className="sr-only">({asset.pattern.label})</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono text-foreground-muted text-xs">
+                    <span aria-label={`Actual: ${asset.percentage.toFixed(1)} percent`}>
+                      {asset.percentage.toFixed(1)}%
+                    </span>
+                    {showTarget && (
+                      <>
+                        <span className="text-muted-foreground" aria-hidden="true">
+                          /
+                        </span>
+                        <span
+                          className="text-muted-foreground"
+                          aria-label={`Target: ${targetPct.toFixed(1)} percent`}
+                        >
+                          {targetPct.toFixed(1)}%
+                        </span>
+                        {diff !== null && (
+                          <span
+                            className={cn(
+                              diff > 0 ? "text-green-500" : diff < 0 ? "text-red-500" : "text-muted-foreground"
+                            )}
+                            aria-label={`Difference from target: ${diff >= 0 ? "+" : ""}${diff.toFixed(1)} percent`}
+                          >
+                            {diff >= 0 ? "+" : ""}{diff.toFixed(1)}%
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </CardContent>
     </Card>
