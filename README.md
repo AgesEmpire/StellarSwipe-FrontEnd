@@ -233,3 +233,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-826 -->
 - #826: Run a tax-report preflight for missing transaction data
+
+<!-- handsoff-issue-827 -->
+- #827: Add a transaction line-item review to tax report previews
