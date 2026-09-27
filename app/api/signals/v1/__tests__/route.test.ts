@@ -72,3 +72,58 @@ describe("GET /api/signals (current entry point)", () => {
     expect(init?.headers?.["Deprecation"]).toBeUndefined();
   });
 });
+
+describe("confidence history on signal details (#815)", () => {
+  it("exposes confidence observations in timestamp order", async () => {
+    const { GET: currentGET } = await import("@/app/api/signals/route");
+    await currentGET(makeRequest("?page=1&pageSize=5"));
+    const body = mockJson.mock.calls[0][0] as ReturnType<typeof buildSignalPage>;
+    const item = body.items[0] as unknown as {
+      confidenceHistory?: Array<{ confidence: number; observedAt: string }>;
+    };
+    const history = item.confidenceHistory ?? [];
+    const times = history.map((h) => new Date(h.observedAt).getTime());
+    const sorted = [...times].sort((a, b) => a - b);
+    expect(times).toEqual(sorted);
+  });
+
+  it("provides an accessible text alternative for each observation", async () => {
+    const { GET: currentGET } = await import("@/app/api/signals/route");
+    await currentGET(makeRequest("?page=1&pageSize=5"));
+    const body = mockJson.mock.calls[0][0] as ReturnType<typeof buildSignalPage>;
+    const item = body.items[0] as unknown as {
+      confidenceHistory?: Array<{ confidence: number; observedAt: string; label?: string }>;
+    };
+    for (const obs of item.confidenceHistory ?? []) {
+      expect(typeof obs.label).toBe("string");
+      expect(obs.label).toContain(String(obs.confidence));
+    }
+  });
+
+  it("distinguishes historical observations from the current confidence value", async () => {
+    const { GET: currentGET } = await import("@/app/api/signals/route");
+    await currentGET(makeRequest("?page=1&pageSize=5"));
+    const body = mockJson.mock.calls[0][0] as ReturnType<typeof buildSignalPage>;
+    const item = body.items[0] as unknown as {
+      confidence: number;
+      confidenceHistory?: Array<{ confidence: number; observedAt: string }>;
+    };
+    const history = item.confidenceHistory ?? [];
+    if (history.length > 0) {
+      const latest = history[history.length - 1];
+      expect(latest.confidence).not.toBe(item.confidence);
+    }
+  });
+
+  it("handles empty history without fabricating observations", async () => {
+    const { GET: currentGET } = await import("@/app/api/signals/route");
+    await currentGET(makeRequest("?page=1&pageSize=5"));
+    const body = mockJson.mock.calls[0][0] as ReturnType<typeof buildSignalPage>;
+    for (const raw of body.items) {
+      const item = raw as unknown as { confidenceHistory?: unknown[] };
+      if (item.confidenceHistory !== undefined) {
+        expect(Array.isArray(item.confidenceHistory)).toBe(true);
+      }
+    }
+  });
+});

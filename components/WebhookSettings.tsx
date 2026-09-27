@@ -9,6 +9,10 @@ import { sendTestWebhook } from "@/services/webhookService";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus, Send, Copy } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useValidationSummary } from "@/hooks/useValidationSummary";
+import { ValidationSummary } from "@/components/forms/ValidationSummary";
+import { WebhookPayloadPreview } from "@/components/WebhookPayloadPreview";
+import { WebhookSubscriptionMatrix } from "@/components/WebhookSubscriptionMatrix";
 
 const EVENT_OPTIONS: { value: WebhookEventType; label: string }[] = [
   { value: "new_signal", label: "New Signal" },
@@ -33,7 +37,7 @@ export function WebhookSettings() {
     Record<string, { state: "sending" | "success" | "failed"; message: string }>
   >({});
   const [copied, setCopied] = useState<string | null>(null);
-  const { errors, validate, clearFieldError } = useValidationSummary();
+  const { errors } = useValidationSummary();
 
   const handleAdd = () => {
     const trimmed = url.trim();
@@ -154,6 +158,16 @@ export function WebhookSettings() {
         </Button>
       </div>
 
+      <WebhookPayloadPreview events={EVENT_OPTIONS} />
+
+      {webhooks.length > 0 && (
+        <WebhookSubscriptionMatrix
+          webhooks={webhooks}
+          events={EVENT_OPTIONS}
+          onUpdate={updateEvents}
+        />
+      )}
+
       {/* Webhook list */}
       {webhooks.length === 0 && (
         <EmptyState
@@ -232,26 +246,6 @@ export function WebhookSettings() {
               {testStatus[wh.id].message}
             </p>
           )}
-
-          {/* Events */}
-          <div className="flex flex-wrap gap-2">
-            {EVENT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() =>
-                  updateEvents(wh.id, toggleEvent(wh.events, opt.value))
-                }
-                className={`rounded-full px-3 py-1 text-xs border transition-colors ${
-                  wh.events.includes(opt.value)
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "border-muted-foreground text-muted-foreground"
-                }`}
-                aria-pressed={wh.events.includes(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
 
           {/* Secret */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

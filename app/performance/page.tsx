@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { PerformanceDashboard } from "@/components/performance/PerformanceDashboard";
 import { NetworkErrorState } from "@/components/NetworkErrorState";
+import { RouteBreadcrumb } from "@/components/RouteBreadcrumb";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const FRESHNESS_THRESHOLD_MS = 5 * 60 * 1000;
@@ -178,6 +179,7 @@ export default function PerformancePage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <RouteBreadcrumb />
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
