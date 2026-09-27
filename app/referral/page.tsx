@@ -60,6 +60,135 @@ export function calcMilestoneProgress(count: number): number {
 }
 
 // ---------------------------------------------------------------------------
+// Referral rewards progress tracker (#834)
+// ---------------------------------------------------------------------------
+export type ReferralStage = "pending" | "completed" | "ineligible";
+
+export interface Referral {
+  /** Stable identifier for the referral. */
+  id: string;
+  /** Current stage of the referral in the invite → reward flow. */
+  stage: ReferralStage;
+  /**
+   * Human-readable description of what still needs to happen before the
+   * referral qualifies for its reward. Only present while the referral is
+   * still pending; omitted once it is completed or ineligible.
+   */
+  nextRequirement?: string;
+}
+
+/** Plain-language explanation for each referral stage. */
+export const REFERRAL_STAGE_LABELS: Record<ReferralStage, string> = {
+  pending: "Pending",
+  completed: "Completed",
+  ineligible: "Ineligible",
+};
+
+export const REFERRAL_STAGE_DESCRIPTIONS: Record<ReferralStage, string> = {
+  pending:
+    "Your invite was sent. This referral is waiting to meet the qualification requirement below.",
+  completed:
+    "This referral qualified and the reward has been credited to your account.",
+  ineligible:
+    "This referral can no longer qualify for a reward. No further action is needed.",
+};
+
+/**
+ * Returns the plain-language explanation for a referral's current stage.
+ * Falls back to a neutral message for unknown stages so the tracker never
+ * renders an empty or misleading state.
+ */
+export function getReferralStageDescription(stage: ReferralStage): string {
+  return (
+    REFERRAL_STAGE_DESCRIPTIONS[stage] ??
+    "This referral's status is currently unavailable."
+  );
+}
+
+/**
+ * Returns the next qualification requirement for a referral, or null when
+ * there is nothing left to qualify (completed/ineligible) or when the
+ * requirement metadata is missing.
+ */
+export function getNextRequirement(
+  referral: Referral
+): string | null {
+  if (referral.stage !== "pending") return null;
+  const requirement = referral.nextRequirement?.trim();
+  return requirement ? requirement : null;
+}
+
+const STAGE_STYLES: Record<ReferralStage, string> = {
+  pending: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30",
+  completed: "bg-green-500/15 text-green-300 border-green-500/30",
+  ineligible: "bg-white/10 text-white/60 border-white/20",
+};
+
+function ReferralProgressTracker({ referrals }: { referrals: Referral[] }) {
+  if (referrals.length === 0) {
+    return (
+      <div
+        className="bg-white/5 p-4 rounded mb-4 text-sm text-white/60"
+        role="region"
+        aria-label="Referral rewards progress tracker"
+      >
+        No referrals yet. Share your link to start tracking progress.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="bg-white/5 p-4 rounded mb-4"
+      role="region"
+      aria-label="Referral rewards progress tracker"
+    >
+      <h2 className="text-sm font-semibold mb-3">
+        Referral rewards progress
+      </h2>
+      <ul className="space-y-3">
+        {referrals.map((referral) => {
+          const requirement = getNextRequirement(referral);
+          return (
+            <li
+              key={referral.id}
+              className="border border-white/10 rounded p-3"
+              data-testid={`referral-${referral.id}`}
+              data-stage={referral.stage}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">
+                  Referral {referral.id}
+                </span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded border ${STAGE_STYLES[referral.stage]}`}
+                  data-testid={`referral-${referral.id}-stage`}
+                >
+                  {REFERRAL_STAGE_LABELS[referral.stage] ?? referral.stage}
+                </span>
+              </div>
+              <p className="text-xs text-white/60 mt-1">
+                {getReferralStageDescription(referral.stage)}
+              </p>
+              {referral.stage === "pending" && (
+                <p
+                  className="text-xs text-white/80 mt-1"
+                  data-testid={`referral-${referral.id}-requirement`}
+                >
+                  {requirement
+                    ? `Next step: ${requirement}`
+                    : "Next step: qualification details are not available yet."}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // UTM link helpers
 // ---------------------------------------------------------------------------
 const BASE_REFERRAL_URL = "https://app.example.com/referral/ABC123";
@@ -237,298 +366,74 @@ function MilestoneProgressBar({ referralCount }: { referralCount: number }) {
       aria-label="Referral milestone progress"
     >
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-semibold text-sm">Milestone Progress</h2>
-        {reachedMilestone && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-medium">
-            {reachedMilestone.label} reached
-          </span>
-        )}
+        <span className="text-sm font-medium">
+          {allComplete
+            ? "All milestones reached"
+            : `Next: ${nextMilestone.label} (${nextMilestone.threshold} referrals)`}
+        </span>
+        <span className="text-xs text-white/60">
+          {reachedMilestone
+            ? `Current: ${reachedMilestone.label}`
+            : "No milestone yet"}
+        </span>
       </div>
-
-      {/* Celebratory banner */}
-      {isNewlyReached && reachedMilestone && (
+      <div
+        className="h-2 bg-black/30 rounded overflow-hidden"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress)}
+      >
         <div
-          role="status"
-          aria-live="polite"
-          className="mb-3 flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/40 px-3 py-2"
-        >
-          <span className="text-lg" aria-hidden="true">🎉</span>
-          <div>
-            <p className="text-sm font-semibold text-purple-200">
-              Milestone reached: {reachedMilestone.label}!
-            </p>
-            <p className="text-xs text-gray-300">
-              You&apos;ve unlocked <strong>{reachedMilestone.reward}</strong>.
-            </p>
-          </div>
-        </div>
+          className="h-full bg-purple-500 transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="text-xs text-white/60 mt-2">
+        {allComplete
+          ? "You've unlocked every referral reward."
+          : `${referralCount} of ${nextMilestone.threshold} referrals toward ${nextMilestone.reward}.`}
+      </p>
+      {isNewlyReached && (
+        <p className="text-xs text-green-400 mt-1" role="status">
+          Milestone reached! Reward unlocked.
+        </p>
       )}
-
-      {allComplete ? (
-        <div
-          role="status"
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/40 px-3 py-2"
-        >
-          <span className="text-lg" aria-hidden="true">🏆</span>
-          <p className="text-sm font-semibold text-yellow-200">
-            All milestones completed — you&apos;re a Legend!
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Progress label */}
-          <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
-            <span>
-              {referralCount} / {nextMilestone.threshold} referrals
-            </span>
-            <span>
-              Next:{" "}
-              <span className="text-purple-300 font-medium">
-                {nextMilestone.reward}
-              </span>{" "}
-              at {nextMilestone.threshold}
-            </span>
-          </div>
-
-          {/* Progress bar */}
-          <div
-            className="relative h-3 w-full overflow-hidden rounded-full bg-white/10"
-            role="progressbar"
-            aria-valuenow={referralCount}
-            aria-valuemin={0}
-            aria-valuemax={nextMilestone.threshold}
-            aria-label={`${referralCount} of ${nextMilestone.threshold} referrals to next milestone`}
-          >
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          {/* Milestone tick marks */}
-          <div className="relative mt-1 flex justify-between text-[10px] text-gray-500">
-            {REFERRAL_MILESTONES.map((m) => {
-              const reachedThis = referralCount >= m.threshold;
-              return (
-                <span
-                  key={m.threshold}
-                  className={
-                    reachedThis ? "text-purple-400 font-medium" : undefined
-                  }
-                  title={`${m.label}: ${m.reward}`}
-                >
-                  {m.threshold}
-                </span>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* All milestones list */}
-      <ul className="mt-3 space-y-1.5" aria-label="All milestones">
-        {REFERRAL_MILESTONES.map((m) => {
-          const done = referralCount >= m.threshold;
-          return (
-            <li
-              key={m.threshold}
-              className="flex items-center justify-between text-xs"
-            >
-              <span className="flex items-center gap-1.5">
-                <span
-                  className={
-                    done ? "text-purple-400" : "text-gray-600"
-                  }
-                  aria-hidden="true"
-                >
-                  {done ? "✓" : "○"}
-                </span>
-                <span className={done ? "text-gray-300" : "text-gray-500"}>
-                  {m.threshold} referrals — {m.label}
-                </span>
-              </span>
-              <span
-                className={
-                  done
-                    ? "text-purple-300 font-medium"
-                    : "text-gray-500"
-                }
-              >
-                {m.reward}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Page component
+// Page
 // ---------------------------------------------------------------------------
-function ReferralPageInner() {
-  const { t } = useI18n();
-  const { status: copyStatus, copy: copyValue } = useCopyStatus();
-  const [selectedChannel, setSelectedChannel] = useState<ChannelKey>("twitter");
-
-  // Demo referral data (in a real app this would come from an API)
-  const referrals = [
-    {
-      id: "r1",
-      email: "alice@example.com",
-      status: "verified",
-      earned: 10,
-      channel: "twitter",
-    },
-    {
-      id: "r2",
-      email: "bob@example.com",
-      status: "pending",
-      earned: 0,
-      channel: "telegram",
-    },
-  ];
-
-  // Only count verified referrals toward milestones
-  const verifiedCount = useMemo(
-    () => referrals.filter((r) => r.status === "verified").length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [referrals.length]
-  );
-
-  const generatedLink = buildReferralLink(BASE_REFERRAL_URL, selectedChannel);
-
-  const copy = () => copyValue(generatedLink);
-
-  const channelCounts = referrals.reduce<Record<string, number>>((acc, r) => {
-    acc[r.channel] = (acc[r.channel] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Referral Program</h1>
-
-      {/* ── Milestone progress bar (#350) ─────────────────────────────────── */}
-      <MilestoneProgressBar referralCount={verifiedCount} />
-
-      {/* UTM link generator */}
-      <div className="bg-white/5 p-4 rounded mb-4">
-        <p className="text-sm text-gray-400 mb-2">
-          Generate referral link with UTM tracking
-        </p>
-
-        {/* Channel selector */}
-        <div
-          className="flex flex-wrap gap-2 mb-3"
-          role="group"
-          aria-label="Select channel"
-        >
-          {UTM_CHANNELS.map((ch) => (
-            <button
-              key={ch.key}
-              onClick={() => setSelectedChannel(ch.key)}
-              aria-pressed={selectedChannel === ch.key}
-              data-testid={`channel-${ch.key}`}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                selectedChannel === ch.key
-                  ? "bg-purple-500 text-white"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20"
-              }`}
-            >
-              {ch.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Generated link display + copy */}
-        <div className="flex gap-2 items-center">
-          <input
-            readOnly
-            value={generatedLink}
-            className="flex-1 bg-black/20 px-3 py-2 rounded text-sm font-mono"
-            data-testid="utm-link-input"
-            aria-label="Generated referral link with UTM parameters"
-          />
-          <button
-            onClick={copy}
-            className="px-3 py-2 bg-purple-500 hover:bg-purple-600 rounded text-sm transition-colors"
-            data-testid="copy-link-btn"
-            aria-label="Copy referral link"
-          >
-            {copyStatus === "copied"
-              ? "Copied!"
-              : copyStatus === "failed"
-                ? "Copy failed"
-                : "Copy"}
-          </button>
-          <ReferralShareDialog />
-        </div>
-        <p role="status" className="sr-only">
-          {copyStatus === "copied" && "Referral link copied."}
-          {copyStatus === "failed" &&
-            "Couldn't copy the link. Select it and copy manually."}
-        </p>
-      </div>
-
-      {/* Referral list */}
-      <div className="bg-white/5 p-4 rounded mb-4">
-        <h2 className="font-semibold mb-2">Active Referrals</h2>
-        <div className="space-y-2">
-          {referrals.map((r) => (
-            <div
-              key={r.id}
-              className="flex items-center justify-between p-2 bg-black/20 rounded"
-            >
-              <div>
-                <div className="text-sm">{r.email}</div>
-                <div className="text-xs text-gray-400">
-                  Status: {r.status} · Channel: {r.channel}
-                </div>
-              </div>
-              <div className="text-sm">Earned: ${r.earned}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Channel performance breakdown */}
-      <div className="bg-white/5 p-4 rounded mb-4">
-        <h2 className="font-semibold mb-2">Performance by Channel</h2>
-        <div className="space-y-1">
-          {UTM_CHANNELS.map((ch) => (
-            <div
-              key={ch.key}
-              className="flex items-center justify-between text-sm"
-            >
-              <span className="text-gray-300">{ch.label}</span>
-              <span
-                className="text-gray-400"
-                data-testid={`channel-count-${ch.key}`}
-              >
-                {t("referral.count", { count: channelCounts[ch.key] ?? 0 })}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-4 text-sm text-gray-400">
-        By participating you agree to the{" "}
-        <a href="#" className="text-purple-400">
-          Referral Terms &amp; Conditions
-        </a>
-        .
-      </div>
-    </div>
-  );
-}
+const SAMPLE_REFERRALS: Referral[] = [
+  {
+    id: "ABC123",
+    stage: "pending",
+    nextRequirement: "Complete their first trade",
+  },
+  { id: "DEF456", stage: "completed" },
+  { id: "GHI789", stage: "ineligible" },
+];
 
 export default function ReferralPage() {
+  const referralCount = useMemo(
+    () => SAMPLE_REFERRALS.filter((r) => r.stage === "completed").length,
+    []
+  );
+
   return (
-    <RouteErrorBoundary featureName="Referrals">
-      <ReferralPageInner />
+    <RouteErrorBoundary>
+      <main className="min-h-screen bg-black text-white p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-semibold">Referrals</h1>
+            <ReferralShareDialog />
+          </div>
+          <MilestoneProgressBar referralCount={referralCount} />
+          <ReferralProgressTracker referrals={SAMPLE_REFERRALS} />
+        </div>
+      </main>
     </RouteErrorBoundary>
   );
 }
