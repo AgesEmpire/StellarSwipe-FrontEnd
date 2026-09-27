@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, RadioTower, RefreshCw, SearchX, Users } from "lucide-react";
+import { BookOpen, RadioTower, RefreshCw, SearchX, SlidersHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,6 +15,11 @@ interface SignalEmptyStateProps {
    */
   variant?: EmptyStateVariant;
   onRefresh: () => void;
+  /**
+   * Called when the user clicks "Clear filters" in the no-results variant.
+   * If omitted the button still appears but only calls `onRefresh`.
+   */
+  onClearFilters?: () => void;
 }
 
 const VARIANTS: Record<
@@ -43,8 +48,14 @@ const VARIANTS: Record<
 export function SignalEmptyState({
   variant = "no-signals",
   onRefresh,
+  onClearFilters,
 }: SignalEmptyStateProps) {
   const { Icon, heading, body, ariaLabel } = VARIANTS[variant];
+
+  const handleClearFilters = () => {
+    onClearFilters?.();
+    onRefresh();
+  };
 
   return (
     <motion.div
@@ -59,15 +70,28 @@ export function SignalEmptyState({
         className="py-16"
         icon={<Icon className="h-8 w-8 text-sky-400/70" />}
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onRefresh}
-            className="gap-2"
-          >
-            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            {variant === "no-results" ? "Clear & Refresh" : "Refresh"}
-          </Button>
+          variant === "no-results" ? (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={handleClearFilters}
+              className="gap-2 bg-sky-500 hover:bg-sky-400 text-white"
+              aria-label="Clear all filters and refresh"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              Clear filters
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRefresh}
+              className="gap-2"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              Refresh
+            </Button>
+          )
         }
         secondaryAction={
           variant === "no-signals" ? (
@@ -90,15 +114,15 @@ export function SignalEmptyState({
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="outline" asChild className="gap-2">
-              <a
-                href="https://docs.stellarswipe.io"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                Browse Docs
-              </a>
+            /* no-results secondary action: soft refresh without clearing filters */
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRefresh}
+              className="gap-2"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              Refresh
             </Button>
           )
         }

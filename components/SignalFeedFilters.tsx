@@ -1,9 +1,16 @@
 "use client";
 
 import { forwardRef, useMemo, useRef, useState } from "react";
-import { Bookmark, ListFilter, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
+import {
+  Bookmark,
+  ListFilter,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Signal } from "@/lib/api";
+import type { Signal } from "@/lib/types";
 import {
   FilterDirection,
   useSignalFilterStore,
@@ -28,6 +35,11 @@ interface SignalFeedFiltersProps {
   /** Whether the signal dataset is still loading — shows a loading state for counts */
   isLoadingCounts?: boolean;
   /**
+   * Total signals surviving ALL active filters — displayed next to the heading
+   * so users immediately know how many results their choices produce.
+   */
+  filteredCount?: number;
+  /**
    * Ref forwarded to the first focusable filter control.
    * Allows parent code (e.g. a keyboard shortcut) to programmatically focus the
    * filter section without triggering a search or submit action.
@@ -36,7 +48,13 @@ interface SignalFeedFiltersProps {
 }
 
 /** Small badge that renders a per-option result count with distinct loading/empty/unavailable states */
-function CountBadge({ count, isLoading }: { count: number | null; isLoading?: boolean }) {
+function CountBadge({
+  count,
+  isLoading,
+}: {
+  count: number | null;
+  isLoading?: boolean;
+}) {
   if (isLoading) {
     return (
       <span
@@ -53,7 +71,12 @@ function CountBadge({ count, isLoading }: { count: number | null; isLoading?: bo
     );
   }
   return (
-    <span className={cn("ml-1 text-[10px] tabular-nums", count === 0 ? "opacity-40" : "opacity-80")}>
+    <span
+      className={cn(
+        "ml-1 text-[10px] tabular-nums transition-opacity",
+        count === 0 ? "opacity-40" : "opacity-80"
+      )}
+    >
       ({count})
     </span>
   );
@@ -66,6 +89,7 @@ export function SignalFeedFilters({
   availableProviders = [],
   signals,
   isLoadingCounts = false,
+  filteredCount,
   filterFocusRef,
 }: SignalFeedFiltersProps) {
   const {
@@ -110,9 +134,13 @@ export function SignalFeedFilters({
     if (!signals) return null;
     return {
       direction: (value: FilterDirection) =>
-        value === "ALL" ? signals.length : signals.filter((s) => s.action === value).length,
-      asset: (value: string) => signals.filter((s) => s.asset === value).length,
-      provider: (value: string) => signals.filter((s) => s.providerId === value).length,
+        value === "ALL"
+          ? signals.length
+          : signals.filter((s) => s.direction === value).length,
+      asset: (value: string) =>
+        signals.filter((s) => s.asset === value).length,
+      provider: (value: string) =>
+        signals.filter((s) => s.providerId === value).length,
     };
   }, [signals]);
 
@@ -127,7 +155,10 @@ export function SignalFeedFilters({
         className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4"
       >
         <span className="sr-only">Loading filters…</span>
-        <div aria-hidden="true" className="h-4 w-16 rounded bg-surface-high animate-pulse" />
+        <div
+          aria-hidden="true"
+          className="h-4 w-16 rounded bg-surface-high animate-pulse"
+        />
         <div aria-hidden="true" className="flex gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -143,6 +174,14 @@ export function SignalFeedFilters({
   const isActive =
     direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
 
+  /** Count of individual active criteria — used in the active-filter summary badge */
+  const activeFilterCount = [
+    direction !== "ALL",
+    asset !== "",
+    provider !== "",
+    bookmarkedOnly,
+  ].filter(Boolean).length;
+
   const quickAssets = availableAssets.slice(0, MAX_QUICK_FILTERS);
   const quickProviders = availableProviders.slice(0, MAX_QUICK_FILTERS);
 
@@ -150,13 +189,37 @@ export function SignalFeedFilters({
     <section
       aria-label="Signal feed filters"
       aria-description="Press F to focus filters"
-      className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4"
+      className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4 transition-shadow"
     >
-      {/* Title row */}
+      {/* Title row — sticky on larger viewports */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="flex items-center gap-2 text-xs font-medium text-foreground-muted uppercase tracking-wide">
           <SlidersHorizontal size={13} aria-hidden="true" />
           Filters
+          {/* Active-filter count badge */}
+          {activeFilterCount > 0 && (
+            <span
+              aria-label={`${activeFilterCount} active filter${activeFilterCount > 1 ? "s" : ""}`}
+              className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-sky-500 px-1 text-[10px] font-bold text-white tabular-nums transition-all duration-200"
+            >
+              {activeFilterCount}
+            </span>
+          )}
+          {/* Live result count */}
+          {filteredCount !== undefined && (
+            <span
+              aria-live="polite"
+              aria-atomic="true"
+              className={cn(
+                "text-[11px] font-normal tabular-nums transition-colors",
+                filteredCount === 0
+                  ? "text-amber-400/80"
+                  : "text-foreground-muted"
+              )}
+            >
+              — {filteredCount} result{filteredCount !== 1 ? "s" : ""}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-3">
           <button
@@ -171,11 +234,11 @@ export function SignalFeedFilters({
           {isActive && (
             <button
               onClick={reset}
-              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
+              className="flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
               aria-label="Clear all filters"
             >
               <X size={12} />
-              Clear
+              Clear all
             </button>
           )}
         </div>
@@ -187,36 +250,38 @@ export function SignalFeedFilters({
         </div>
       )}
 
+      {/* Quick-filter pills — bookmarked + asset + provider shortcuts */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
           aria-pressed={bookmarkedOnly}
           className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
             bookmarkedOnly
-              ? "bg-sky-500/15 text-sky-300 border border-sky-500/40"
-              : "bg-white/5 text-gray-300 border border-white/10 hover:border-white/20 hover:text-gray-200"
+              ? "bg-sky-500/20 text-sky-300 border border-sky-500/50 shadow-[0_0_0_1px] shadow-sky-500/20"
+              : "bg-white/5 text-gray-300 border border-white/10 hover:border-white/20 hover:text-gray-200 hover:bg-white/8"
           )}
         >
-          <Bookmark size={14} aria-hidden="true" />
+          <Bookmark size={12} aria-hidden="true" />
           Bookmarked
         </button>
 
         {quickAssets.map((assetLabel) => {
           const count = counts ? counts.asset(assetLabel) : null;
+          const isSelected = asset === assetLabel;
           return (
             <button
               key={assetLabel}
               type="button"
-              onClick={() => setAsset(asset === assetLabel ? "" : assetLabel)}
-              aria-pressed={asset === assetLabel}
+              onClick={() => setAsset(isSelected ? "" : assetLabel)}
+              aria-pressed={isSelected}
               aria-label={`Filter by asset ${assetLabel}${count !== null ? `, ${count} results` : ""}`}
               className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                asset === assetLabel
-                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
-                  : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
+                "rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                isSelected
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-[0_0_0_1px] shadow-emerald-500/20"
+                  : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground hover:bg-surface-high/20"
               )}
             >
               {assetLabel}
@@ -227,18 +292,19 @@ export function SignalFeedFilters({
 
         {quickProviders.map((providerLabel) => {
           const count = counts ? counts.provider(providerLabel) : null;
+          const isSelected = provider === providerLabel;
           return (
             <button
               key={providerLabel}
               type="button"
-              onClick={() => setProvider(provider === providerLabel ? "" : providerLabel)}
-              aria-pressed={provider === providerLabel}
+              onClick={() => setProvider(isSelected ? "" : providerLabel)}
+              aria-pressed={isSelected}
               aria-label={`Filter by provider ${providerLabel}${count !== null ? `, ${count} results` : ""}`}
               className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                provider === providerLabel
-                  ? "bg-orange-500/15 text-orange-300 border border-orange-500/40"
-                  : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground"
+                "rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                isSelected
+                  ? "bg-orange-500/20 text-orange-300 border border-orange-500/50 shadow-[0_0_0_1px] shadow-orange-500/20"
+                  : "bg-surface text-foreground border border-border hover:border-border-strong hover:text-foreground hover:bg-surface-high/20"
               )}
             >
               {providerLabel}
@@ -248,11 +314,13 @@ export function SignalFeedFilters({
         })}
       </div>
 
+      {/* Direction + asset + provider selectors */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Direction pills */}
         <fieldset className="flex items-center gap-1" aria-label="Filter by direction">
           {DIRECTIONS.map(({ label, value }, idx) => {
             const count = counts ? counts.direction(value) : null;
+            const isSelected = direction === value;
             return (
               <button
                 key={value}
@@ -263,17 +331,17 @@ export function SignalFeedFilters({
                   }
                 } : undefined}
                 onClick={() => setDirection(value)}
-                aria-pressed={direction === value}
+                aria-pressed={isSelected}
                 aria-label={`Filter by direction ${label}${count !== null ? `, ${count} results` : ""}`}
                 className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                  direction === value
+                  "rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  isSelected
                     ? value === "BUY"
-                      ? "bg-green-500/20 text-green-400 border border-green-500/40"
+                      ? "bg-green-500/20 text-green-400 border border-green-500/50 shadow-[0_0_0_1px] shadow-green-500/20"
                       : value === "SELL"
-                      ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                      : "bg-blue-500/20 text-blue-400 border border-blue-500/40"
-                    : "bg-surface text-foreground-muted border border-border hover:border-border-strong hover:text-foreground"
+                      ? "bg-red-500/20 text-red-400 border border-red-500/50 shadow-[0_0_0_1px] shadow-red-500/20"
+                      : "bg-blue-500/20 text-blue-400 border border-blue-500/50 shadow-[0_0_0_1px] shadow-blue-500/20"
+                    : "bg-surface text-foreground-muted border border-border hover:border-border-strong hover:text-foreground hover:bg-surface-high/20"
                 )}
               >
                 {label}
@@ -292,7 +360,10 @@ export function SignalFeedFilters({
               aria-label="Filter by asset"
               className="appearance-none rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-white/20 transition-colors pr-6"
             >
-              <option value="">All assets{counts ? ` (${counts.direction("ALL")})` : ""}</option>
+              <option value="">
+                All assets
+                {counts ? ` (${counts.direction("ALL")})` : ""}
+              </option>
               {availableAssets.map((a) => (
                 <option key={a} value={a}>
                   {a}
@@ -348,7 +419,7 @@ export function SignalFeedFilters({
         )}
       </div>
 
-      {/* Active filter summary */}
+      {/* Active filter summary — polite live region */}
       {isActive && (
         <p className="text-[11px] text-gray-500" aria-live="polite">
           Showing:{" "}
