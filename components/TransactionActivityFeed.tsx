@@ -16,6 +16,7 @@ import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
 import { VirtualizedList } from "@/components/VirtualizedList";
+import { useVirtualActivityList } from "@/hooks/useVirtualActivityList";
 import { toast } from "@/lib/toast";
 import type { TransactionHistoryItem } from "@/store/useTransactionStore";
 
@@ -243,6 +244,17 @@ export function TransactionActivityFeed() {
     setStatusFilter("ALL");
     setSortOrder("newest");
   }, []);
+
+  // ── Virtual activity list (#777) ───────────────────────────────────────
+  // The hook computes the visible slice of `filtered` based on scroll
+  // position.  Loading more records appends to the total height without
+  // disturbing already-rendered rows or resetting scroll position.
+  const virtualList = useVirtualActivityList({
+    items: filtered,
+    itemHeight: ROW_HEIGHT,
+    overscan: OVERSCAN,
+    loadMoreThreshold: LOAD_MORE_THRESHOLD,
+  });
 
   // ── Editing state ──────────────────────────────────────────────────────
 
@@ -510,21 +522,37 @@ export function TransactionActivityFeed() {
           className="rounded-2xl border-dashed bg-white/5 py-8"
         />
       ) : (
-        /**
-         * VirtualizedList renders only the rows visible inside the container
-         * plus `overscan` rows above and below.  Loading additional records via
-         * onEndReached does NOT reset the scroll position because VirtualizedList
-         * appends to the total height without touching the already-rendered items.
-         */
-        <VirtualizedList
-          items={filtered}
-          itemHeight={ROW_HEIGHT}
-          overscan={OVERSCAN}
-          renderItem={renderRow}
-          className="rounded-2xl"
-          style={{ height: LIST_CONTAINER_HEIGHT } as React.CSSProperties}
-          endReachedThreshold={LOAD_MORE_THRESHOLD}
-        />
+        <>
+          {/* Screen-reader live region: announces newly-loaded record counts
+              without disrupting focus or the reading position (#777).      */}
+          <p
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {filtered.length} transaction
+            {filtered.length === 1 ? "" : "s"} shown.
+          </p>
+
+          {/*
+           * VirtualizedList renders only the rows visible inside the container
+           * plus `overscan` rows above and below.  The useVirtualActivityList
+           * hook (virtualList) provides the scroll-position tracking and the
+           * visible-items slice; VirtualizedList handles the DOM projection.
+           * Loading additional records via onEndReached does NOT reset the
+           * scroll position — the total height grows without touching
+           * already-rendered items.
+           */}
+          <VirtualizedList
+            items={filtered}
+            itemHeight={ROW_HEIGHT}
+            overscan={OVERSCAN}
+            renderItem={renderRow}
+            className="rounded-2xl"
+            style={{ height: LIST_CONTAINER_HEIGHT } as React.CSSProperties}
+            endReachedThreshold={LOAD_MORE_THRESHOLD}
+          />
+        </>
       )}
     </section>
   );
