@@ -2,12 +2,14 @@
 
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { usePrivacyStore, PRIVACY_MASK } from "@/store/usePrivacyStore";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
 
 export function PnLWidget() {
   const { totalRealizedPnL, totalUnrealizedPnL, totalValue, isLoading, assets } = usePortfolio();
+  const { privacyMode } = usePrivacyStore();
 
   const totalPnL = totalRealizedPnL + totalUnrealizedPnL;
   const portfolioReturn =
@@ -19,6 +21,9 @@ export function PnLWidget() {
   const fmtCurrency = (n: number) =>
     n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const sign = (n: number) => (n >= 0 ? "+" : "");
+
+  /** Mask a string if privacy mode is on. */
+  const mask = (v: string) => (privacyMode ? PRIVACY_MASK : v);
 
   if (isLoading) {
     return (
@@ -63,19 +68,19 @@ export function PnLWidget() {
           <tbody>
             <tr>
               <th scope="row">Total P&L</th>
-              <td>{sign(totalPnL)}{fmtCurrency(totalPnL)}</td>
+              <td>{mask(`${sign(totalPnL)}${fmtCurrency(totalPnL)}`)}</td>
             </tr>
             <tr>
               <th scope="row">Portfolio return</th>
-              <td>{sign(portfolioReturn)}{portfolioReturn.toFixed(2)}%</td>
+              <td>{mask(`${sign(portfolioReturn)}${portfolioReturn.toFixed(2)}%`)}</td>
             </tr>
             <tr>
               <th scope="row">Realized P&L</th>
-              <td>{sign(totalRealizedPnL)}{totalRealizedPnL.toLocaleString()}</td>
+              <td>{mask(`${sign(totalRealizedPnL)}${totalRealizedPnL.toLocaleString()}`)}</td>
             </tr>
             <tr>
               <th scope="row">Unrealized P&L</th>
-              <td>{sign(totalUnrealizedPnL)}{totalUnrealizedPnL.toLocaleString()}</td>
+              <td>{mask(`${sign(totalUnrealizedPnL)}${totalUnrealizedPnL.toLocaleString()}`)}</td>
             </tr>
           </tbody>
         </table>
@@ -101,11 +106,10 @@ export function PnLWidget() {
               isPositive ? "text-green-600" : "text-red-600"
             )}
           >
-            {isPositive ? "+" : ""}
-            {totalPnL.toLocaleString("en-US", {
+            {mask(`${isPositive ? "+" : ""}${totalPnL.toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })}
+            })}`)}
           </p>
         </div>
 
@@ -123,8 +127,7 @@ export function PnLWidget() {
               isPositive ? "text-green-600" : "text-red-600"
             )}
           >
-            {isPositive ? "+" : ""}
-            {portfolioReturn.toFixed(2)}%
+            {mask(`${isPositive ? "+" : ""}${portfolioReturn.toFixed(2)}%`)}
           </p>
         </div>
 
@@ -143,8 +146,7 @@ export function PnLWidget() {
                 isPositiveRealized ? "text-green-600" : "text-red-600"
               )}
             >
-              {isPositiveRealized ? "+" : ""}
-              {totalRealizedPnL.toLocaleString()}
+              {mask(`${isPositiveRealized ? "+" : ""}${totalRealizedPnL.toLocaleString()}`)}
             </p>
           </div>
           <div
@@ -160,8 +162,7 @@ export function PnLWidget() {
                 isPositiveUnrealized ? "text-green-600" : "text-red-600"
               )}
             >
-              {isPositiveUnrealized ? "+" : ""}
-              {totalUnrealizedPnL.toLocaleString()}
+              {mask(`${isPositiveUnrealized ? "+" : ""}${totalUnrealizedPnL.toLocaleString()}`)}
             </p>
           </div>
         </div>

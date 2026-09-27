@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { usePageTransitionStore } from "@/store/usePageTransitionStore";
+import { useFocusAfterNavigation } from "@/hooks/useFocusAfterNavigation";
 
 /**
  * RouteAnnouncer
@@ -21,6 +22,12 @@ import { usePageTransitionStore } from "@/store/usePageTransitionStore";
  *   only ever announces the final destination C).
  * - Uses document.title, which pages set via metadata/generateMetadata, as
  *   the human-readable destination name.
+ *
+ * Focus management (#790)
+ * ────────────────────────
+ * Also moves keyboard focus to the new page's heading (or #main-content)
+ * after each completed transition via useFocusAfterNavigation, so keyboard
+ * and screen-reader users are not left stranded on the previous page's DOM.
  */
 export function RouteAnnouncer() {
   const pathname = usePathname();
@@ -31,6 +38,9 @@ export function RouteAnnouncer() {
   // reader already announces the document title on load.
   const announcedPath = useRef<string | null>(pathname);
   const pendingPath = useRef<string | null>(null);
+
+  // Restore focus to the new page's heading after each navigation (#790).
+  useFocusAfterNavigation();
 
   useEffect(() => {
     if (isTransitioning) {
