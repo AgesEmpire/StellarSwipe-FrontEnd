@@ -16,6 +16,7 @@ import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { MobileNav } from "@/components/MobileNav";
 import { ToastViewport } from "@/components/ToastViewport";
+import { DesktopNavRail } from "@/components/DesktopNavRail";
 
 // Dev-only overlays (~950 lines combined) render null in production but were
 // previously statically imported into every page's root layout bundle. They
@@ -116,8 +117,10 @@ export default function RootLayout({
           <MobileNav />
           <PageTransitionPlaceholder />
           {/* id="main-content" is the skip-link target; pages provide the <main> landmark */}
-          <div id="main-content" tabIndex={-1} className="outline-none">
-            <div className="pb-20 md:pb-0">{children}</div>
+          {/* #757 — Collapsible desktop navigation rail sits alongside page content */}
+          <div id="main-content" tabIndex={-1} className="outline-none flex">
+            <DesktopNavRail />
+            <div className="min-w-0 flex-1 pb-20 md:pb-0">{children}</div>
           </div>
           <TradeStatusBanner />
           <DevPerfOverlay />

@@ -12,10 +12,16 @@ export type DashboardWidgetId = (typeof DEFAULT_WIDGET_ORDER)[number];
 
 interface DashboardLayoutState {
   order: DashboardWidgetId[];
+  /** IDs currently visible (subset of order). Default: all visible. */
+  visible: DashboardWidgetId[];
   moveBefore: (id: DashboardWidgetId) => void;
   moveAfter: (id: DashboardWidgetId) => void;
   moveToStart: (id: DashboardWidgetId) => void;
   moveToEnd: (id: DashboardWidgetId) => void;
+  /** Add a widget at the end of the visible list (no-op if already added). */
+  addWidget: (id: DashboardWidgetId) => void;
+  /** Remove a widget from the visible list. */
+  removeWidget: (id: DashboardWidgetId) => void;
 }
 
 function swap<T>(arr: T[], i: number, j: number): T[] {
@@ -28,6 +34,7 @@ export const useDashboardLayoutStore = create<DashboardLayoutState>()(
   persist(
     (set) => ({
       order: [...DEFAULT_WIDGET_ORDER],
+      visible: [...DEFAULT_WIDGET_ORDER],
       moveBefore: (id) =>
         set((state) => {
           const i = state.order.indexOf(id);
@@ -58,6 +65,20 @@ export const useDashboardLayoutStore = create<DashboardLayoutState>()(
           next.push(id);
           return { order: next };
         }),
+      addWidget: (id) =>
+        set((state) => {
+          if (state.visible.includes(id)) return state;
+          // Append at end of visible list; also ensure it's in order.
+          const newVisible = [...state.visible, id];
+          const newOrder = state.order.includes(id)
+            ? state.order
+            : [...state.order, id];
+          return { visible: newVisible, order: newOrder };
+        }),
+      removeWidget: (id) =>
+        set((state) => ({
+          visible: state.visible.filter((v) => v !== id),
+        })),
     }),
     { name: "dashboard-layout-store" }
   )
