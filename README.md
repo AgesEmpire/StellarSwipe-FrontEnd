@@ -206,3 +206,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-708 -->
 - #708: Improve comparison view on narrow screens
+
+<!-- handsoff-issue-818 -->
+- #818: Add keyboard inspection for individual comparison chart points
