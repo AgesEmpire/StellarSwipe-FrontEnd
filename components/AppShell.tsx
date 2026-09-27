@@ -20,6 +20,7 @@ import { usePortfolio } from "@/hooks/usePortfolio";
 import { PortfolioErrorBoundary } from "@/components/PortfolioErrorBoundary";
 import { SignalFeedErrorBoundary } from "@/components/signal/SignalFeedErrorBoundary";
 import { useFocusReturn } from "@/hooks/useFocusReturn";
+import { PrivacyToggle } from "@/components/PrivacyToggle";
 
 // Heavy/optional panels deferred out of the initial /app bundle — they're
 // not needed for first paint (modals only open on interaction, charts and
@@ -167,6 +168,7 @@ export function AppShell({ children }: AppShellProps) {
             <p className="hidden text-sm font-mono text-foreground-muted sm:block">
               {publicKey?.slice(0, 8)}...{publicKey?.slice(-8)}
             </p>
+            <PrivacyToggle size="sm" />
             <WalletDropdown />
           </div>
         </header>

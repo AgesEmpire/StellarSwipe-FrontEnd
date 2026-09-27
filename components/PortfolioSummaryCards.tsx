@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
+import { usePrivacyStore, PRIVACY_MASK } from "@/store/usePrivacyStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
@@ -9,6 +10,7 @@ import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
 export function PortfolioSummaryCards() {
   const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL, isLoading } =
     usePortfolioStore();
+  const { privacyMode } = usePrivacyStore();
 
   // Empty state: no assets and not mid-load
   if (!isLoading && assets.length === 0) {
@@ -27,24 +29,27 @@ export function PortfolioSummaryCards() {
   const activePositions = assets.filter((a) => a.value > 0).length;
   const isPositive = totalPnL >= 0;
 
+  /** Mask a numeric string if privacy mode is on. */
+  const mask = (v: string) => (privacyMode ? PRIVACY_MASK : v);
+
   const stats = [
     {
       label: "Balance",
-      value: formatCurrency(totalValue),
+      value: mask(formatCurrency(totalValue)),
       icon: Wallet,
       className: "text-accent-sky",
     },
     {
       label: "Total P/L",
-      value: `${isPositive ? "+" : ""}$${Math.abs(totalPnL).toFixed(2)}`,
-      sub: `${isPositive ? "+" : ""}${pnlPercent.toFixed(2)}%`,
+      value: mask(`${isPositive ? "+" : ""}$${Math.abs(totalPnL).toFixed(2)}`),
+      sub: mask(`${isPositive ? "+" : ""}${pnlPercent.toFixed(2)}%`),
       icon: isPositive ? TrendingUp : TrendingDown,
       className: isPositive ? "text-accent-success" : "text-accent-danger",
     },
     {
       label: "Positions",
       value: String(activePositions),
-      sub: t("portfolio.assets_count", { count: assets.length }),
+      sub: `${assets.length} asset${assets.length !== 1 ? "s" : ""}`,
       icon: BarChart2,
       className: "text-accent-market",
     },
@@ -63,7 +68,12 @@ export function PortfolioSummaryCards() {
                 <Icon size={13} className={cn("shrink-0", className)} aria-hidden="true" />
                 <span className="text-[11px] text-muted-foreground">{label}</span>
               </div>
-              <p className={cn("text-sm font-semibold leading-tight", className)}>{value}</p>
+              <p
+                className={cn("text-sm font-semibold leading-tight", className)}
+                aria-label={privacyMode ? `${label} hidden` : undefined}
+              >
+                {value}
+              </p>
               {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
             </div>
           ))}
@@ -71,4 +81,11 @@ export function PortfolioSummaryCards() {
       </CardContent>
     </Card>
   );
+}
+
+function formatCurrency(value: number): string {
+  return `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }

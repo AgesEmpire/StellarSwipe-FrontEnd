@@ -4,12 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PnLShareCardGenerator } from "@/components/analytics/PnLShareCardGenerator";
+import { SavedViewTabs } from "@/components/analytics/SavedViewTabs";
 import { PeriodComparisonWidget } from "@/components/comparison/PeriodComparisonWidget";
 import { usePeriodComparison } from "@/hooks/usePeriodComparison";
 import { type ComparisonGranularity } from "@/lib/comparison";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { DateRangePicker, type DateRange } from "@/components/DateRangePicker";
 import { parseAnalyticsRange, serializeAnalyticsRange } from "@/lib/analyticsDateRange";
+import {
+  useSavedAnalyticsViewStore,
+  snapshotToDateRange,
+  type AnalyticsViewSnapshot,
+} from "@/store/useSavedAnalyticsViewStore";
 
 const PortfolioAllocationChart = dynamic(
   () =>
@@ -212,6 +218,26 @@ function AnalyticsPageInner() {
     router.replace(`${pathname}${serializeAnalyticsRange(range)}`, { scroll: false });
   };
 
+  // ── Saved view tabs (#791) ──────────────────────────────────────────────
+  const { activeViewId } = useSavedAnalyticsViewStore();
+
+  /** Build the snapshot of the current live view state for saving. */
+  const currentSnapshot = useMemo<AnalyticsViewSnapshot>(() => ({
+    rangeStart: customRange.start.toISOString(),
+    rangeEnd: customRange.end.toISOString(),
+    showPeriodComparison,
+    granularity,
+  }), [customRange, showPeriodComparison, granularity]);
+
+  /** Apply a saved view: hydrate local state from the snapshot. */
+  const handleApplyView = useCallback((snapshot: AnalyticsViewSnapshot) => {
+    const range = snapshotToDateRange(snapshot);
+    setCustomRange(range);
+    setShowPeriodComparison(snapshot.showPeriodComparison);
+    setGranularity(snapshot.granularity);
+    router.replace(`${pathname}${serializeAnalyticsRange(range)}`, { scroll: false });
+  }, [pathname, router]);
+
   // Refresh preserves filters, scroll position, and selected tabs by only
   // re-fetching data (router.refresh) without navigating or resetting state.
   const handleRefresh = useCallback(async () => {
@@ -264,7 +290,7 @@ function AnalyticsPageInner() {
     <div className="p-6">
       {/* Header row with toggle */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <h1 className="text-2xl font-bold">Portfolio Analytics</h1>
+        <h1 className="text-2xl font-bold" data-focus-target>Portfolio Analytics</h1>
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Stale-data badge — informational, not an error (#773) */}
@@ -334,6 +360,13 @@ function AnalyticsPageInner() {
           </button>
         </div>
       </div>
+
+      {/* Saved view tabs — workspace management (#791) */}
+      <SavedViewTabs
+        currentSnapshot={currentSnapshot}
+        onApply={handleApplyView}
+        className="mb-4"
+      />
 
       {/* Period Comparison Widget — additive, not replacing benchmark chart */}
       {showPeriodComparison && (

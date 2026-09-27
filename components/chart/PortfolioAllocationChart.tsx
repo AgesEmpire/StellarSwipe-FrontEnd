@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePortfolioStore } from "@/store/usePortfolioStore";
+import { usePrivacyStore, PRIVACY_MASK } from "@/store/usePrivacyStore";
 import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { PortfolioAllocationChartSkeleton } from "@/components/DashboardWidgetSkeletons";
 import { useChartColors } from "@/lib/chartPalette";
+import { ChartPatternDefs } from "@/components/chart/ChartPatternDefs";
 
 interface PortfolioAllocationChartProps {
   className?: string;
@@ -22,7 +24,9 @@ export function PortfolioAllocationChart({
   height = 200,
 }: PortfolioAllocationChartProps) {
   const { assets, totalValue, isLoading } = usePortfolioStore();
+  const { privacyMode } = usePrivacyStore();
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const mask = (v: string) => (privacyMode ? PRIVACY_MASK : v);
 
   // Keep the selection in sync when the underlying data updates — clear it if
   // the selected asset disappears, otherwise the panel always reflects the
@@ -40,6 +44,7 @@ export function PortfolioAllocationChart({
       ...asset,
       color: chartColors.series(index, asset.color),
       percentage: asset.percentage,
+      pattern: chartColors.pattern(index),
     }));
   }, [assets, chartColors]);
 
@@ -117,6 +122,7 @@ export function PortfolioAllocationChart({
         symbol: asset.symbol,
         name: asset.name,
         value: asset.value,
+        pattern: asset.pattern,
         labelX,
         labelY,
       };
@@ -151,7 +157,7 @@ export function PortfolioAllocationChart({
           Portfolio Allocation
         </h2>
         <p className="text-xs text-muted-foreground">
-          Total value: ${totalValue.toLocaleString()}
+          Total value: {mask(`$${totalValue.toLocaleString()}`)}
         </p>
       </CardHeader>
       <CardContent className="p-4">
@@ -161,8 +167,9 @@ export function PortfolioAllocationChart({
             height="100%"
             viewBox={`0 0 ${width} ${height}`}
             role="img"
-            aria-label={`Portfolio allocation donut chart. ${arcs.map((a) => `${a.name} ${a.percentage.toFixed(1)}%`).join(", ")}`}
+            aria-label={`Portfolio allocation donut chart. ${arcs.map((a) => `${a.name} ${a.percentage.toFixed(1)}% (${a.pattern.label})`).join(", ")}`}
           >
+            <ChartPatternDefs />
             {arcs.map((arc) => {
               const isSelected = selectedSymbol === arc.symbol;
               const isActive = activeSegment === arc.symbol;
@@ -172,7 +179,7 @@ export function PortfolioAllocationChart({
                   role="button"
                   tabIndex={0}
                   aria-pressed={isSelected}
-                  aria-label={`${arc.name}, ${arc.percentage.toFixed(1)} percent. ${
+                  aria-label={`${arc.name}, ${arc.percentage.toFixed(1)} percent, ${arc.pattern.label}. ${
                     isSelected ? "Selected. Press to deselect." : "Press to inspect."
                   }`}
                   onClick={() => toggleSelection(arc.symbol)}
@@ -191,6 +198,7 @@ export function PortfolioAllocationChart({
                   className="cursor-pointer outline-none focus-visible:opacity-90"
                   style={{ outline: "none" }}
                 >
+                  {/* Base color fill */}
                   <path
                     d={arc.path}
                     fill={arc.color}
@@ -200,6 +208,16 @@ export function PortfolioAllocationChart({
                     opacity={activeSegment === null || isActive ? 1 : 0.5}
                     style={isActive ? { filter: "brightness(1.15)" } : undefined}
                   />
+                  {/* Pattern overlay for non-color differentiation */}
+                  {arc.pattern.patternId && (
+                    <path
+                      d={arc.path}
+                      fill={`url(#${arc.pattern.patternId})`}
+                      stroke="none"
+                      pointerEvents="none"
+                      opacity={activeSegment === null || isActive ? 1 : 0.5}
+                    />
+                  )}
                   {arc.percentage > 5 && (
                     <text
                       x={arc.labelX}
@@ -228,7 +246,7 @@ export function PortfolioAllocationChart({
                 <p className="text-xs font-semibold text-white">{activeArc.name}</p>
                 <p className="text-xs text-slate-300">{activeArc.percentage.toFixed(1)}%</p>
                 {activeArc.value !== undefined && (
-                  <p className="text-xs text-slate-400">${activeArc.value.toLocaleString()}</p>
+                  <p className="text-xs text-slate-400">{mask(`$${activeArc.value.toLocaleString()}`)}</p>
                 )}
               </div>
             </div>
@@ -272,7 +290,7 @@ export function PortfolioAllocationChart({
               </dd>
               <dt className="text-muted-foreground">Value</dt>
               <dd className="text-right font-mono text-foreground">
-                ${selectedAsset.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {mask(`$${selectedAsset.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)}
               </dd>
               {typeof selectedAsset.unrealizedPnL === "number" && (
                 <>
@@ -283,8 +301,7 @@ export function PortfolioAllocationChart({
                       selectedAsset.unrealizedPnL >= 0 ? "text-green-500" : "text-red-500"
                     )}
                   >
-                    {selectedAsset.unrealizedPnL >= 0 ? "+" : ""}
-                    {selectedAsset.unrealizedPnL.toFixed(2)}
+                    {mask(`${selectedAsset.unrealizedPnL >= 0 ? "+" : ""}${selectedAsset.unrealizedPnL.toFixed(2)}`)}
                   </dd>
                 </>
               )}
@@ -311,6 +328,7 @@ export function PortfolioAllocationChart({
                     aria-hidden="true"
                   />
                   <span className="text-foreground">{asset.name}</span>
+                  <span className="sr-only">({asset.pattern.label})</span>
                 </div>
                 <span className="font-mono text-foreground-muted">
                   {asset.percentage.toFixed(1)}%
