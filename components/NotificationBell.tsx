@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Check } from "lucide-react";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useFocusReturn } from "@/hooks/useFocusReturn";
+import { cn } from "@/lib/utils";
 
 export function NotificationBell() {
-  const { t } = useI18n();
   const notifications = useNotificationStore((s) => s.notifications);
   const isMarkingAllRead = useNotificationStore((s) => s.isMarkingAllRead);
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
+  const markAsRead = useNotificationStore((s) => s.markAsRead);
   const clearAll = useNotificationStore((s) => s.clearAll);
   const unreadCount = useNotificationStore((s) => s.unreadCount());
 
@@ -34,8 +36,8 @@ export function NotificationBell() {
       <button
         aria-label={
           hasUnread
-            ? t("notifications.unread_count", { count: unreadCount })
-            : t("notifications.none_unread")
+            ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+            : "No unread notifications"
         }
         onClick={() => setOpen((v) => !v)}
         className="relative p-2 rounded-full hover:bg-accent transition-colors"
@@ -87,10 +89,21 @@ export function NotificationBell() {
               transition={{ duration: 0.15 }}
               role="dialog"
               aria-label="Notifications"
-              className="absolute right-0 z-20 mt-2 w-72 rounded-xl border bg-card shadow-lg overflow-hidden"
+              className="absolute right-0 z-20 mt-2 w-80 rounded-xl border bg-card shadow-lg overflow-hidden"
             >
+              {/* Header */}
               <div className="flex items-center justify-between px-4 py-2 border-b">
-                <span className="text-sm font-semibold">Notifications</span>
+                <span className="text-sm font-semibold">
+                  Notifications
+                  {hasUnread && (
+                    <span
+                      className="ml-2 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+                      aria-hidden="true"
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </span>
 
                 <div className="flex items-center gap-2">
                   {/* Mark all as read — visible only when at least one unread exists */}
@@ -101,13 +114,14 @@ export function NotificationBell() {
                       aria-label="Mark all notifications as read"
                       className="text-xs text-blue-500 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      {isMarkingAllRead ? "Marking…" : "Mark all as read"}
+                      {isMarkingAllRead ? "Marking…" : "Mark all read"}
                     </button>
                   )}
 
                   {notifications.length > 0 && (
                     <button
                       onClick={clearAll}
+                      aria-label="Clear all notifications"
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
                       Clear all
@@ -116,7 +130,12 @@ export function NotificationBell() {
                 </div>
               </div>
 
-              <ul className="max-h-64 overflow-y-auto divide-y" role="list">
+              {/* Notification list */}
+              <ul
+                className="max-h-72 overflow-y-auto divide-y"
+                role="list"
+                aria-label="Notifications list"
+              >
                 {notifications.length === 0 ? (
                   <li className="p-3">
                     <EmptyState
@@ -128,23 +147,63 @@ export function NotificationBell() {
                   </li>
                 ) : (
                   notifications.map((n) => (
-                    <li key={n.id} className="flex gap-3 px-4 py-3">
-                      {!n.read && (
-                        <span
-                          className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-red-500"
-                          aria-hidden="true"
-                        />
+                    <li
+                      key={n.id}
+                      className={cn(
+                        "group flex items-start gap-3 px-4 py-3 transition-colors",
+                        !n.read && "bg-blue-500/5"
                       )}
-                      <div className={n.read ? "pl-5" : ""}>
-                        <p className="text-sm font-medium">{n.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {n.message}
-                        </p>
+                    >
+                      {/* Unread dot */}
+                      <span
+                        className={cn(
+                          "mt-1.5 h-2 w-2 flex-shrink-0 rounded-full transition-colors",
+                          n.read ? "bg-transparent" : "bg-red-500"
+                        )}
+                        aria-hidden="true"
+                      />
+
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium leading-snug">{n.title}</p>
+                        <p className="text-xs text-muted-foreground">{n.message}</p>
+                        {/* Read-state label for screen readers */}
+                        {!n.read && (
+                          <span className="sr-only">(unread)</span>
+                        )}
                       </div>
+
+                      {/* Per-notification mark-as-read button */}
+                      {!n.read && (
+                        <button
+                          type="button"
+                          onClick={() => markAsRead(n.id)}
+                          aria-label={`Mark "${n.title}" as read`}
+                          title="Mark as read"
+                          className="mt-0.5 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Check size={12} aria-hidden="true" />
+                        </button>
+                      )}
                     </li>
                   ))
                 )}
               </ul>
+
+              {/* Footer hint */}
+              {notifications.length > 0 && (
+                <div className="border-t px-4 py-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Hover a notification and click{" "}
+                    <Check
+                      size={10}
+                      className="inline"
+                      aria-hidden="true"
+                    />{" "}
+                    to mark it as read individually.
+                  </p>
+                </div>
+              )}
             </motion.div>
           </>
         )}
