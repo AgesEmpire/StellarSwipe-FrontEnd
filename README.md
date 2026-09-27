@@ -209,3 +209,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-821 -->
 - #821: Link journal entries to transaction receipts
+
+<!-- handsoff-issue-835 -->
+- #835: Add a participant detail panel to the leaderboard
