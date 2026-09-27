@@ -17,6 +17,7 @@ import {
   fileMatchesDraft,
   type CSVImportDraft,
 } from "@/lib/csvImportDraft";
+import { DuplicateResolutionStep, type DuplicateGroup, type DuplicateResolution } from "@/components/DuplicateResolutionStep";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type Step = "upload" | "mapping" | "preview" | "summary";
+type Step = "upload" | "mapping" | "preview" | "duplicates" | "summary";
 
 interface ValidationResult {
   row: Record<string, any>;
@@ -64,6 +65,11 @@ export function CSVImportModal() {
   const [resumableDraft, setResumableDraft] = useState<CSVImportDraft | null>(
     null
   );
+  // #780 — duplicate resolution state
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [duplicateResolutions, setDuplicateResolutions] = useState<
+    Record<string, DuplicateResolution>
+  >({});
 
   const bulkAddTransactions = useTransactionStore(
     (state) => state.bulkAddTransactions
@@ -79,6 +85,8 @@ export function CSVImportModal() {
     setMapping({} as any);
     setValidationResults([]);
     setSummary({ imported: 0, skipped: 0 });
+    setDuplicateGroups([]);
+    setDuplicateResolutions({});
   }, []);
 
   // Look for a resumable draft each time the modal opens.
@@ -205,12 +213,60 @@ export function CSVImportModal() {
 
     setValidationResults(results);
     setIsProcessing(false);
-    setStep("preview");
+
+    // ── Duplicate detection (#780) ─────────────────────────────────────
+    // Build a fingerprint for each valid row: date + assetPair.
+    // Group rows that share the same fingerprint to surface them as
+    // duplicates the user should resolve before committing.
+    const fingerprintCounts: Record<string, number> = {};
+    results.forEach((r) => {
+      if (!r.isValid || !r.data) return;
+      const key = `${r.data.date}__${r.data.assetPair}`;
+      fingerprintCounts[key] = (fingerprintCounts[key] ?? 0) + 1;
+    });
+
+    const detectedGroups: DuplicateGroup[] = Object.entries(fingerprintCounts)
+      .filter(([, count]) => count > 1)
+      .map(([key, count]) => {
+        const [date, pair] = key.split("__");
+        return {
+          key,
+          description: `${pair} — ${date}`,
+          incomingCount: count,
+          existingCount: 0, // could cross-check against store; 0 for now
+        };
+      });
+
+    setDuplicateGroups(detectedGroups);
+
+    // Seed resolutions with the default ("skip") for each detected group.
+    const seedResolutions: Record<string, DuplicateResolution> = {};
+    detectedGroups.forEach((g) => {
+      seedResolutions[g.key] = "skip";
+    });
+    setDuplicateResolutions(seedResolutions);
+
+    // Route to duplicates step if any were found, otherwise go straight to preview.
+    setStep(detectedGroups.length > 0 ? "duplicates" : "preview");
   }, [csvData, mapping]);
 
   const handleImport = () => {
     const validRows = validationResults.filter((r) => r.isValid && r.data);
-    const transactions = validRows.map((r) => ({
+
+    // Apply duplicate resolutions (#780): exclude rows whose fingerprint maps
+    // to "skip". Rows with "update" or "keep" (or no duplicate group) pass through.
+    const acceptedRows = validRows.filter((r) => {
+      if (!r.data) return false;
+      const key = `${r.data.date}__${r.data.assetPair}`;
+      const resolution = duplicateResolutions[key];
+      // If the row belongs to a duplicate group with resolution "skip", exclude it.
+      if (resolution === "skip" && duplicateGroups.some((g) => g.key === key)) {
+        return false;
+      }
+      return true;
+    });
+
+    const transactions = acceptedRows.map((r) => ({
       id: `tx-csv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       hash: `csv-${Date.now().toString(16)}`,
       assetPair: r.data!.assetPair,
@@ -278,8 +334,12 @@ export function CSVImportModal() {
               3. Preview
             </span>
             <ChevronRight size={12} />
+            <span className={cn(step === "duplicates" && "text-blue-400")}>
+              4. Duplicates
+            </span>
+            <ChevronRight size={12} />
             <span className={cn(step === "summary" && "text-blue-400")}>
-              4. Summary
+              5. Summary
             </span>
           </div>
         </DialogHeader>
@@ -483,6 +543,17 @@ export function CSVImportModal() {
             </div>
           )}
 
+          {/* ── Duplicates step (#780) ─────────────────────────────── */}
+          {step === "duplicates" && (
+            <DuplicateResolutionStep
+              groups={duplicateGroups}
+              resolutions={duplicateResolutions}
+              onChange={(key, resolution) =>
+                setDuplicateResolutions((prev) => ({ ...prev, [key]: resolution }))
+              }
+            />
+          )}
+
           {step === "summary" && (
             <div className="flex flex-col items-center justify-center py-12 text-center animate-in zoom-in-95 duration-500">
               <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
@@ -513,7 +584,11 @@ export function CSVImportModal() {
           <div className="border-t border-white/10 p-6 flex justify-between">
             <Button
               variant="ghost"
-              onClick={() => setStep(step === "mapping" ? "upload" : "mapping")}
+              onClick={() => {
+                if (step === "mapping") setStep("upload");
+                else if (step === "preview") setStep("mapping");
+                else if (step === "duplicates") setStep("preview");
+              }}
               className="gap-2"
             >
               <ChevronLeft size={16} className="rtl-flip" /> Back
@@ -537,10 +612,35 @@ export function CSVImportModal() {
               </Button>
             )}
 
+            {/* From preview, proceed to duplicates step if groups exist, else import */}
             {step === "preview" && (
               <Button
-                onClick={handleImport}
+                onClick={() => {
+                  if (duplicateGroups.length > 0) {
+                    setStep("duplicates");
+                  } else {
+                    handleImport();
+                  }
+                }}
                 disabled={validationResults.every((r) => !r.isValid)}
+                className="gap-2 bg-emerald-500 hover:bg-emerald-600"
+              >
+                {duplicateGroups.length > 0 ? (
+                  <>
+                    Resolve Duplicates <ChevronRight size={16} />
+                  </>
+                ) : (
+                  <>
+                    Confirm Import <ArrowRight size={16} />
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* From duplicates, proceed to import */}
+            {step === "duplicates" && (
+              <Button
+                onClick={handleImport}
                 className="gap-2 bg-emerald-500 hover:bg-emerald-600"
               >
                 Confirm Import <ArrowRight size={16} />
