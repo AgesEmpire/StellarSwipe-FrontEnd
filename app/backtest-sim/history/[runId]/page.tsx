@@ -20,6 +20,8 @@ export default function BacktestRunDetailPage() {
     )
   }
 
+  const assumptions = run.assumptions
+
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-4">
@@ -48,9 +50,31 @@ export default function BacktestRunDetailPage() {
         </div>
       </div>
 
+      <div className="mb-6 rounded border border-white/10 bg-white/5 p-3">
+        <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
+          Backtest Assumptions (read-only)
+        </p>
+        {assumptions ? (
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Fee</p>
+              <p className="font-semibold">{assumptions.feeBps} bps</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Slippage</p>
+              <p className="font-semibold">{assumptions.slippageBps} bps</p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Assumptions unavailable for this run.</p>
+        )}
+        <p className="text-xs text-gray-500 mt-2">
+          These are the execution costs applied to this backtest run and are not live trading settings.
+        </p>
+      </div>
+
       <div className="mb-4 text-sm text-gray-400 space-y-1">
         <p>Signals: {run.params.signals.length > 0 ? run.params.signals.join(", ") : "none"}</p>
-        <p>Slippage: {run.params.slippageBps ?? 0} bps · Fee: {run.params.feeBps ?? 0} bps</p>
       </div>
 
       {run.result.trades.length > 0 && (
