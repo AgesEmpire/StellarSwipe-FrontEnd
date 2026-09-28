@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useBacktestHistoryStore } from "@/store/useBacktestHistoryStore"
 import { Button } from "@/components/ui/button"
@@ -26,9 +26,122 @@ const METRICS = [
   },
 ] as const
 
+type LedgerTrade = {
+  id?: string
+  entry?: number | null
+  exit?: number | null
+  outcome?: string | null
+  timestamp?: string | number | null
+}
+
+const LEDGER_PAGE_SIZE = 50
+
+function tradeTime(trade: LedgerTrade): number {
+  if (trade.timestamp == null) return Number.NaN
+  const t = typeof trade.timestamp === "number" ? trade.timestamp : Date.parse(trade.timestamp)
+  return Number.isNaN(t) ? Number.NaN : t
+}
+
+function formatTradeTime(trade: LedgerTrade): string {
+  const t = tradeTime(trade)
+  return Number.isNaN(t) ? "—" : new Date(t).toLocaleString()
+}
+
+function formatPrice(value: number | null | undefined): string {
+  return typeof value === "number" && !Number.isNaN(value) ? value.toFixed(2) : "—"
+}
+
+function TradeLedger({ trades }: { trades: LedgerTrade[] }) {
+  const [sortAsc, setSortAsc] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(LEDGER_PAGE_SIZE)
+
+  const sortedTrades = useMemo(() => {
+    const copy = [...trades]
+    copy.sort((a, b) => {
+      const ta = tradeTime(a)
+      const tb = tradeTime(b)
+      const na = Number.isNaN(ta)
+      const nb = Number.isNaN(tb)
+      if (na && nb) return 0
+      if (na) return 1
+      if (nb) return -1
+      return sortAsc ? ta - tb : tb - ta
+    })
+    return copy
+  }, [trades, sortAsc])
+
+  const visibleTrades = sortedTrades.slice(0, visibleCount)
+
+  if (trades.length === 0) {
+    return (
+      <p className="text-sm text-gray-400" data-testid="trade-ledger-empty">
+        No simulated trades were recorded for this run.
+      </p>
+    )
+  }
+
+  return (
+    <div data-testid="trade-ledger">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-gray-400">
+          {trades.length} trade{trades.length === 1 ? "" : "s"}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setSortAsc((prev) => !prev)}
+          data-testid="trade-ledger-sort"
+        >
+          Sort by time: {sortAsc ? "Oldest first" : "Newest first"}
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm border border-border rounded-lg">
+          <caption className="sr-only">Per-trade ledger for this backtest run</caption>
+          <thead>
+            <tr className="border-b border-border">
+              <th scope="col" className="text-left p-3 text-xs text-gray-400 font-medium">Entry</th>
+              <th scope="col" className="text-left p-3 text-xs text-gray-400 font-medium">Exit</th>
+              <th scope="col" className="text-left p-3 text-xs text-gray-400 font-medium">Outcome</th>
+              <th scope="col" className="text-left p-3 text-xs text-gray-400 font-medium">Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleTrades.map((trade, index) => (
+              <tr
+                key={trade.id ?? index}
+                className="border-b border-border last:border-b-0"
+                data-testid={`trade-ledger-row-${index}`}
+              >
+                <td className="p-3">{formatPrice(trade.entry)}</td>
+                <td className="p-3">{formatPrice(trade.exit)}</td>
+                <td className="p-3">{trade.outcome ?? "—"}</td>
+                <td className="p-3 text-gray-400">{formatTradeTime(trade)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {visibleCount < sortedTrades.length && (
+        <div className="mt-3 flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVisibleCount((prev) => prev + LEDGER_PAGE_SIZE)}
+            data-testid="trade-ledger-show-more"
+          >
+            Show more ({sortedTrades.length - visibleCount} remaining)
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BacktestHistoryPage() {
   const { runs, clearHistory } = useBacktestHistoryStore()
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [openLedgerIds, setOpenLedgerIds] = useState<string[]>([])
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) =>
@@ -38,6 +151,12 @@ export default function BacktestHistoryPage() {
 
   const removeSelected = (id: string) => {
     setSelectedIds((prev) => prev.filter((x) => x !== id))
+  }
+
+  const toggleLedger = (id: string) => {
+    setOpenLedgerIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
   }
 
   const selectedRuns = runs.filter((run) => selectedIds.includes(run.id))
@@ -65,6 +184,10 @@ export default function BacktestHistoryPage() {
           {runs.map((run) => {
             const assumptions = run.assumptions
             const isSelected = selectedIds.includes(run.id)
+            const ledgerOpen = openLedgerIds.includes(run.id)
+            const trades: LedgerTrade[] = Array.isArray(run.result?.trades)
+              ? (run.result.trades as LedgerTrade[])
+              : []
             return (
               <div
                 key={run.id}
@@ -125,6 +248,22 @@ export default function BacktestHistoryPage() {
                     </div>
                   </div>
                 </div>
+                <div className="mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleLedger(run.id)}
+                    aria-expanded={ledgerOpen}
+                    data-testid={`history-run-ledger-toggle-${run.id}`}
+                  >
+                    {ledgerOpen ? "Hide trade ledger" : "View trade ledger"}
+                  </Button>
+                </div>
+                {ledgerOpen && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <TradeLedger trades={trades} />
+                  </div>
+                )}
               </div>
             )
           })}
@@ -196,9 +335,11 @@ export default function BacktestHistoryPage() {
                           data-testid={`history-comparison-${run.id}-${metric.key}`}
                         >
                           {missing ? (
-                            <span className="text-gray-500 italic">N/A</span>
+                            <span className="text-gray-500">—</span>
                           ) : (
-                            <span className={metric.color(value)}>{metric.format(value)}</span>
+                            <span className={metric.color(value as number)}>
+                              {metric.format(value as number)}
+                            </span>
                           )}
                         </td>
                       )
