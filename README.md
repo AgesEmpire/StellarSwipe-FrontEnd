@@ -230,3 +230,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-835 -->
 - #835: Add a participant detail panel to the leaderboard
+
+<!-- handsoff-issue-822 -->
+- #822: Add suggested tags while editing journal entries
