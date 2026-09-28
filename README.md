@@ -230,3 +230,12 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-835 -->
 - #835: Add a participant detail panel to the leaderboard
+
+<!-- handsoff-issue-826 -->
+- #826: Run a tax-report preflight for missing transaction data
+
+<!-- handsoff-issue-827 -->
+- #827: Add a transaction line-item review to tax report previews
+
+<!-- handsoff-issue-828 -->
+- #828: Set an expiration date when creating an API key
