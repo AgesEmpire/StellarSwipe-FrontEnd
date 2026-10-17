@@ -3,6 +3,7 @@
 import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
 import { CSVImportModal } from "@/components/CSVImportModal";
+import { JournalTagSummary } from "@/components/JournalTagSummary";
 import { BookMarked, TrendingUp, History } from "lucide-react";
 
 export function JournalPage() {
@@ -66,6 +67,8 @@ export function JournalPage() {
           <p className="text-xs text-blue-400/60 mt-1">0.52% avg / trade</p>
         </div>
       </div>
+
+      <JournalTagSummary />
 
       {/* Main activity feed - reusing existing component */}
       <div className="space-y-4">

@@ -19,6 +19,10 @@ export interface TransactionHistoryItem extends TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   outcome: TransactionOutcome;
+  /** Strategy tags attached to the journal entry. */
+  tags?: string[];
+  /** Realized profit/loss in quote currency, when known. */
+  pnl?: number;
 }
 
 export interface TransactionError {
