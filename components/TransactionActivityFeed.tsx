@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
+import { TradeFilterPresets } from "@/components/TradeFilterPresets";
 import { VirtualizedList } from "@/components/VirtualizedList";
 import { useVirtualActivityList } from "@/hooks/useVirtualActivityList";
 import { toast } from "@/lib/toast";
@@ -479,6 +480,15 @@ export function TransactionActivityFeed() {
           )}
         </div>
       </div>
+
+      <TradeFilterPresets
+        current={{ typeFilter, statusFilter, sortOrder }}
+        onApply={(filter) => {
+          setTypeFilter(filter.typeFilter);
+          setStatusFilter(filter.statusFilter);
+          setSortOrder(filter.sortOrder);
+        }}
+      />
 
       {/* ── Inline edit form (rendered outside the virtualizer so its variable
            height does not disturb the layout calculation) ──────────────── */}
