@@ -9,6 +9,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { isTopOverlay } from "@/hooks/overlayManager";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { usePositionLimitStore } from "@/store/usePositionLimitStore";
+import { useWalletStore } from "@/store/useWalletStore";
 import { FeeDisclosurePanel } from "@/components/FeeDisclosurePanel";
 import { SlippageWarning } from "@/components/SlippageWarning";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
@@ -63,6 +64,8 @@ export function TradeModal({
   // Stores the failure message when on-chain confirmation fails after optimistic success
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const { isDemoMode } = useDemoModeStore();
+  const walletPublicKey = useWalletStore((s) => s.publicKey);
+  const walletNetwork = useWalletStore((s) => s.network);
   const { enabled: positionLimitEnabled, percentage: positionLimitPercentage } =
     usePositionLimitStore();
   const {
@@ -208,6 +211,23 @@ export function TradeModal({
     setStep("optimistic");
     setSubmitting(true);
     try {
+      // Server revalidates balance, network, amount and slippage before submission
+      const res = await fetch("/api/trades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: walletPublicKey,
+          network: walletNetwork,
+          orderType: type,
+          amount,
+          price,
+          slippagePercent: estimatedSlippage,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message ?? "Trade was rejected by the server.");
+      }
       await mockBuildTx({ type, price, amount, stopLoss, positionLimit });
       setSubmitting(false);
       confirmInFlightRef.current = false;
@@ -231,6 +251,9 @@ export function TradeModal({
     onClose,
     onConfirm,
     disabled,
+    walletPublicKey,
+    walletNetwork,
+    estimatedSlippage,
   ]);
 
   // Announce order-type changes to screen readers via live region
