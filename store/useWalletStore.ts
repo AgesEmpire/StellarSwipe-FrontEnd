@@ -16,6 +16,11 @@ interface WalletState {
   setActiveWallet: (key: string) => void;
   removeWallet: (key: string) => void;
   disconnectAll: () => void;
+  /**
+   * Updates the app's active network. Call only after the wallet has
+   * confirmed the change — see NetworkSwitchDialog (#800).
+   */
+  setNetwork: (network: string) => void;
   // Backward-compat setters
   setPublicKey: (key: string | null) => void;
   setConnected: (connected: boolean) => void;
@@ -73,6 +78,8 @@ export const useWalletStore = create<WalletState>()(
           publicKey: null,
           isConnected: false,
         }),
+
+      setNetwork: (network) => set({ network: network.toUpperCase() }),
 
       // Backward compat: setPublicKey adds wallet and makes it active
       setPublicKey: (key) => {
