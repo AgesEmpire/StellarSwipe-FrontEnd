@@ -9,6 +9,8 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { isTopOverlay } from "@/hooks/overlayManager";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { usePositionLimitStore } from "@/store/usePositionLimitStore";
+import { useTradePresetsStore } from "@/store/useTradePresetsStore";
+import { TradePresetEditor } from "@/components/TradePresetEditor";
 import { FeeDisclosurePanel } from "@/components/FeeDisclosurePanel";
 import { SlippageWarning } from "@/components/SlippageWarning";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
@@ -62,6 +64,8 @@ export function TradeModal({
   const [slippageAcknowledged, setSlippageAcknowledged] = useState(false);
   // Stores the failure message when on-chain confirmation fails after optimistic success
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [editingPresets, setEditingPresets] = useState(false);
+  const { presets: sizePresets } = useTradePresetsStore();
   const { isDemoMode } = useDemoModeStore();
   const { enabled: positionLimitEnabled, percentage: positionLimitPercentage } =
     usePositionLimitStore();
@@ -477,7 +481,7 @@ export function TradeModal({
                       role="group"
                       aria-label="Quick size presets"
                     >
-                      {([25, 50, 75, 100] as const).map((pct) => (
+                      {sizePresets.map((pct) => (
                         <button
                           key={pct}
                           type="button"
@@ -498,6 +502,17 @@ export function TradeModal({
                         </button>
                       ))}
                     </div>
+                    {editingPresets ? (
+                      <TradePresetEditor onDone={() => setEditingPresets(false)} />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingPresets(true)}
+                        className="mt-1 text-xs text-foreground-muted hover:text-foreground underline-offset-2 hover:underline"
+                      >
+                        Edit presets
+                      </button>
+                    )}
                   </div>
 
                   {/* Total (read-only) */}
