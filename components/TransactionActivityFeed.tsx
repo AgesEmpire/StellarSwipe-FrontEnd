@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ArrowRight,
+  Archive,
+  ArchiveRestore,
   Clock3,
   Pencil,
   Trash2,
@@ -10,11 +12,19 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useTransactionStore } from "@/store/useTransactionStore";
-import { deleteJournalEntry } from "@/lib/journalApi";
+import { deleteJournalEntry, updateJournalEntry } from "@/lib/journalApi";
 import { cn } from "@/lib/utils";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { VirtualizedList } from "@/components/VirtualizedList";
 import { useVirtualActivityList } from "@/hooks/useVirtualActivityList";
 import { toast } from "@/lib/toast";
@@ -142,6 +152,9 @@ export function TransactionActivityFeed() {
   const markFailed = useTransactionStore((state) => state.markFailed);
   const clearFailed = useTransactionStore((state) => state.clearFailed);
   const addTransaction = useTransactionStore((state) => state.addTransaction);
+  const updateTransaction = useTransactionStore(
+    (state) => state.updateTransaction
+  );
 
   const [typeFilter, setTypeFilter] =
     useState<(typeof TYPE_OPTIONS)[number]["value"]>("ALL");
@@ -150,6 +163,10 @@ export function TransactionActivityFeed() {
   const [sortOrder, setSortOrder] = useState<JournalSortOrder>("newest");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Track the filtered list length so we can detect when new records are
   // appended without resetting scroll position.
@@ -188,6 +205,7 @@ export function TransactionActivityFeed() {
     async (entry: TransactionHistoryItem) => {
       setDeletingId(entry.id);
       removeTransaction(entry.id);
+      setSelectedIds((prev) => prev.filter((id) => id !== entry.id));
 
       try {
         await deleteJournalEntry(entry.id);
@@ -226,6 +244,7 @@ export function TransactionActivityFeed() {
 
   const filtered = useMemo(() => {
     const matches = history
+      .filter((item) => (item.archivedAt !== undefined) === showArchived)
       .filter((item) => typeFilter === "ALL" || item.type === typeFilter)
       .filter((item) => statusFilter === "ALL" || item.status === statusFilter);
     return [...matches].sort((a, b) => {
@@ -234,7 +253,7 @@ export function TransactionActivityFeed() {
         return parseFloat(b.amount) - parseFloat(a.amount);
       return b.timestamp - a.timestamp;
     });
-  }, [history, typeFilter, statusFilter, sortOrder]);
+  }, [history, showArchived, typeFilter, statusFilter, sortOrder]);
 
   const hasActiveFilters =
     typeFilter !== "ALL" || statusFilter !== "ALL" || sortOrder !== "newest";
@@ -244,6 +263,101 @@ export function TransactionActivityFeed() {
     setStatusFilter("ALL");
     setSortOrder("newest");
   }, []);
+
+  // ── Selection + bulk archive / restore ─────────────────────────────────
+
+  const archivedCount = history.filter(
+    (item) => item.archivedAt !== undefined
+  ).length;
+
+  const allVisibleSelected =
+    filtered.length > 0 &&
+    filtered.every((item) => selectedIds.includes(item.id));
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(allVisibleSelected ? [] : filtered.map((item) => item.id));
+  }, [allVisibleSelected, filtered]);
+
+  const toggleArchivedView = useCallback(() => {
+    setShowArchived((prev) => !prev);
+    setSelectedIds([]);
+  }, []);
+
+  // Optimistically archives (or restores) the given entries, then confirms each
+  // with the API. Entries whose request fails are rolled back to their previous
+  // state so the user can retry them.
+  const runBulkArchive = useCallback(
+    async (ids: string[], archive: boolean) => {
+      const archivedAt = archive ? Date.now() : undefined;
+      const previous = new Map(
+        history
+          .filter((item) => ids.includes(item.id))
+          .map((item): [string, number | undefined] => [
+            item.id,
+            item.archivedAt,
+          ])
+      );
+
+      setIsBulkUpdating(true);
+      ids.forEach((id) => updateTransaction(id, { archivedAt }));
+
+      const results = await Promise.allSettled(
+        ids.map((id) => updateJournalEntry(id, { archivedAt }))
+      );
+      const failed = ids.filter(
+        (_, index) => results[index].status === "rejected"
+      );
+      failed.forEach((id) =>
+        updateTransaction(id, { archivedAt: previous.get(id) })
+      );
+
+      setIsBulkUpdating(false);
+      setIsArchiveConfirmOpen(false);
+      setSelectedIds([]);
+
+      const succeededCount = ids.length - failed.length;
+      const noun = (count: number) => (count === 1 ? "entry" : "entries");
+
+      if (succeededCount > 0) {
+        toast.success(
+          `${succeededCount} ${noun(succeededCount)} ${
+            archive ? "archived" : "restored"
+          }`,
+          {
+            description: archive
+              ? "Archived entries are kept and can be restored any time."
+              : undefined,
+            duration: 4000,
+            action: archive
+              ? {
+                  label: "View archived",
+                  onClick: () => setShowArchived(true),
+                }
+              : undefined,
+          }
+        );
+      }
+
+      if (failed.length > 0) {
+        toast.error(
+          `${failed.length} ${noun(failed.length)} failed to ${
+            archive ? "archive" : "restore"
+          }`,
+          {
+            description: "Changes were rolled back. Select them to retry.",
+            duration: 4000,
+          }
+        );
+      }
+    },
+    [history, updateTransaction]
+  );
 
   // ── Virtual activity list (#777) ───────────────────────────────────────
   // The hook computes the visible slice of `filtered` based on scroll
@@ -281,6 +395,14 @@ export function TransactionActivityFeed() {
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(item.id)}
+                onChange={() => toggleSelected(item.id)}
+                disabled={isDeleting}
+                aria-label={`Select ${item.assetPair} entry`}
+                className="h-4 w-4 accent-blue-500"
+              />
               <div>
                 <p className="text-sm font-semibold text-foreground">
                   {item.assetPair}
@@ -389,7 +511,15 @@ export function TransactionActivityFeed() {
         </article>
       );
     },
-    [pendingIds, failedIds, deletingId, editingId, handleDelete]
+    [
+      pendingIds,
+      failedIds,
+      deletingId,
+      editingId,
+      selectedIds,
+      handleDelete,
+      toggleSelected,
+    ]
   );
 
   return (
@@ -480,6 +610,51 @@ export function TransactionActivityFeed() {
         </div>
       </div>
 
+      {/* ── Bulk actions: selection, archive / restore, archived view ───── */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm">
+        <label className="inline-flex items-center gap-2 text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={allVisibleSelected}
+            onChange={toggleSelectAll}
+            disabled={filtered.length === 0}
+            aria-label="Select all visible entries"
+            className="h-4 w-4 accent-blue-500"
+          />
+          {selectedIds.length} selected
+        </label>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={toggleArchivedView}
+            aria-pressed={showArchived}
+            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-foreground transition hover:border-white/20 hover:bg-white/10"
+          >
+            <Archive size={12} />
+            {showArchived ? "Back to journal" : `View archived (${archivedCount})`}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              showArchived
+                ? runBulkArchive(selectedIds, false)
+                : setIsArchiveConfirmOpen(true)
+            }
+            disabled={selectedIds.length === 0 || isBulkUpdating}
+            className="inline-flex items-center gap-1 rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1 text-blue-300 transition hover:border-blue-400/50 hover:bg-blue-400/20 disabled:opacity-50"
+          >
+            {isBulkUpdating ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : showArchived ? (
+              <ArchiveRestore size={12} />
+            ) : (
+              <Archive size={12} />
+            )}
+            {showArchived ? "Restore selected" : "Archive selected"}
+          </button>
+        </div>
+      </div>
+
       {/* ── Inline edit form (rendered outside the virtualizer so its variable
            height does not disturb the layout calculation) ──────────────── */}
       {editEntry && (
@@ -554,6 +729,46 @@ export function TransactionActivityFeed() {
           />
         </>
       )}
+
+      {/* ── Archive confirmation ────────────────────────────────────────── */}
+      <Dialog
+        open={isArchiveConfirmOpen}
+        onOpenChange={(open) => {
+          if (!isBulkUpdating) setIsArchiveConfirmOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl border-white/10 bg-slate-950 text-white">
+          <DialogHeader>
+            <DialogTitle>
+              Archive {selectedIds.length}{" "}
+              {selectedIds.length === 1 ? "entry" : "entries"}?
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Archived entries are hidden from your journal but kept intact.
+              You can restore them any time from the archived view.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <button
+              type="button"
+              onClick={() => setIsArchiveConfirmOpen(false)}
+              disabled={isBulkUpdating}
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-foreground transition hover:bg-white/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => runBulkArchive(selectedIds, true)}
+              disabled={isBulkUpdating}
+              className="inline-flex items-center gap-1 rounded-full border border-blue-400/30 bg-blue-400/10 px-4 py-2 text-sm text-blue-300 transition hover:bg-blue-400/20 disabled:opacity-50"
+            >
+              {isBulkUpdating && <Loader2 size={12} className="animate-spin" />}
+              Archive
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -19,6 +19,8 @@ export interface TransactionHistoryItem extends TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   outcome: TransactionOutcome;
+  /** Set when the entry is archived; cleared when it is restored. */
+  archivedAt?: number;
 }
 
 export interface TransactionError {
