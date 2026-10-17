@@ -6,17 +6,19 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 
-type EmptyStateVariant = "no-signals" | "no-results";
+type EmptyStateVariant = "no-signals" | "no-results" | "no-followed";
 
 interface SignalEmptyStateProps {
   /** Controls which copy and icon are shown.
    *  - "no-signals"  — initial load / no signals published yet (default)
    *  - "no-results"  — active filters returned zero matches
+   *  - "no-followed" — followed-providers filter is on but nothing is followed
    */
   variant?: EmptyStateVariant;
   onRefresh: () => void;
   /**
-   * Called when the user clicks "Clear filters" in the no-results variant.
+   * Called when the user clicks "Clear filters" in the no-results variant,
+   * or "Show all signals" in the no-followed variant.
    * If omitted the button still appears but only calls `onRefresh`.
    */
   onClearFilters?: () => void;
@@ -42,6 +44,12 @@ const VARIANTS: Record<
     heading: "No signals match your filters",
     body: "Try adjusting or clearing your filters to see more signals.",
     ariaLabel: "No signals match the current filters",
+  },
+  "no-followed": {
+    Icon: Users,
+    heading: "You aren't following any providers yet",
+    body: "Follow a provider to see only their signals here, or switch back to all signals.",
+    ariaLabel: "No followed providers",
   },
 };
 
@@ -81,6 +89,17 @@ export function SignalEmptyState({
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               Clear filters
             </Button>
+          ) : variant === "no-followed" ? (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => onClearFilters?.()}
+              className="gap-2 bg-sky-500 hover:bg-sky-400 text-white"
+              aria-label="Show signals from all providers"
+            >
+              <RadioTower className="h-3.5 w-3.5" aria-hidden="true" />
+              Show all signals
+            </Button>
           ) : (
             <Button
               size="sm"
@@ -94,7 +113,14 @@ export function SignalEmptyState({
           )
         }
         secondaryAction={
-          variant === "no-signals" ? (
+          variant === "no-followed" ? (
+            <Button size="sm" variant="outline" asChild className="gap-2">
+              <Link href="/providers">
+                <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                Find Providers
+              </Link>
+            </Button>
+          ) : variant === "no-signals" ? (
             <>
               <Button size="sm" asChild className="gap-2">
                 <Link href="/providers">

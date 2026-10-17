@@ -25,6 +25,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { PageTransition } from "@/components/PageTransition";
 import { UnfollowDialog } from "@/components/UnfollowDialog";
 import { useUnfollowDialog } from "@/hooks/useUnfollowDialog";
+import { useFollowedProvidersStore } from "@/store/useFollowedProvidersStore";
 import { usePaginationClamp } from "@/hooks/usePaginationClamp";
 
 const SIGNALS_PER_PAGE = 5;
@@ -92,8 +93,14 @@ export default function ProviderProfilePage() {
   const { data: signals = [], isFetching: signalsFetching } =
     useProviderSignals(providerId);
 
-  // Follow state — in a real app this comes from a query/store
-  const [isFollowing, setIsFollowing] = useState(true);
+  // Follow state is shared with the signal feed's "Followed" filter.
+  // Feed signals identify their provider by name, so follows are keyed the same way.
+  const followKey = provider?.name ?? provider?.address;
+  const isFollowing = useFollowedProvidersStore(
+    (s) => followKey !== undefined && s.followedProviders.includes(followKey)
+  );
+  const followProvider = useFollowedProvidersStore((s) => s.follow);
+  const unfollowProvider = useFollowedProvidersStore((s) => s.unfollow);
 
   // Open positions copied from this provider — in a real app fetched from portfolio store
   const openCopiedPositions = signals.filter(
@@ -101,8 +108,8 @@ export default function ProviderProfilePage() {
   ).length;
 
   const handleUnfollow = useCallback(() => {
-    setIsFollowing(false);
-  }, []);
+    if (followKey) unfollowProvider(followKey);
+  }, [followKey, unfollowProvider]);
 
   const { dialogState, requestUnfollow, handleConfirm, handleCancel } =
     useUnfollowDialog(handleUnfollow);
@@ -307,7 +314,7 @@ export default function ProviderProfilePage() {
               ) : (
                 <Button
                   size="sm"
-                  onClick={() => setIsFollowing(true)}
+                  onClick={() => followKey && followProvider(followKey)}
                   aria-label={`Follow ${provider.name ?? "this provider"}`}
                 >
                   Follow

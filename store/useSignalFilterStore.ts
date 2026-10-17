@@ -26,6 +26,7 @@ interface SignalFilterState {
   asset: string;
   provider: string;
   bookmarkedOnly: boolean;
+  followedOnly: boolean;
   sortOrder: FeedSortOrder;
   presets: FilterPreset[];
   _hasHydrated: boolean;
@@ -34,6 +35,7 @@ interface SignalFilterState {
   setAsset: (a: string) => void;
   setProvider: (p: string) => void;
   setBookmarkedOnly: (selected: boolean) => void;
+  setFollowedOnly: (selected: boolean) => void;
   setSortOrder: (o: FeedSortOrder) => void;
   savePreset: (name: string) => void;
   applyPreset: (name: string) => void;
@@ -48,6 +50,7 @@ export const useSignalFilterStore = create<SignalFilterState>()(
       asset: "",
       provider: "",
       bookmarkedOnly: false,
+      followedOnly: false,
       sortOrder: "latest",
       presets: [],
       _hasHydrated: false,
@@ -56,6 +59,7 @@ export const useSignalFilterStore = create<SignalFilterState>()(
       setAsset: (asset) => set({ asset }),
       setProvider: (provider) => set({ provider }),
       setBookmarkedOnly: (selected) => set({ bookmarkedOnly: selected }),
+      setFollowedOnly: (selected) => set({ followedOnly: selected }),
       setSortOrder: (sortOrder) => set({ sortOrder }),
       savePreset: (name) => {
         const {
@@ -103,6 +107,7 @@ export const useSignalFilterStore = create<SignalFilterState>()(
           asset: "",
           provider: "",
           bookmarkedOnly: false,
+          followedOnly: false,
           sortOrder: "latest",
         }),
     }),

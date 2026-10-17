@@ -15,6 +15,7 @@ import { FeedDensityToggle } from "@/components/FeedDensityToggle";
 import { useFeedDensityStore } from "@/store/useFeedDensityStore";
 import { ExpiredSignalBanner } from "@/components/ExpiredSignalBanner";
 import { useSignalFilterStore } from "@/store/useSignalFilterStore";
+import { useFollowedProvidersStore } from "@/store/useFollowedProvidersStore";
 import { useRecentlyViewedStore } from "@/store/useRecentlyViewedStore";
 import { useSnoozeStore } from "@/store/useSnoozeStore";
 import { RecentlyViewedStrip } from "@/components/RecentlyViewedStrip";
@@ -67,8 +68,16 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
   // #727: keep filters in sync with shareable URL parameters
   useFilterUrlSync();
 
-  const { direction, asset, provider, bookmarkedOnly, reset: resetFilters } =
-    useSignalFilterStore();
+  const {
+    direction,
+    asset,
+    provider,
+    bookmarkedOnly,
+    followedOnly,
+    setFollowedOnly,
+    reset: resetFilters,
+  } = useSignalFilterStore();
+  const followedProviders = useFollowedProvidersStore((s) => s.followedProviders);
   const density = useFeedDensityStore((s) => s.density);
   const pruneExpiredSnoozes = useSnoozeStore((state) => state.pruneExpired);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -515,6 +524,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                     asset !== "",
                     provider !== "",
                     bookmarkedOnly,
+                    followedOnly,
                     providerSearch.trim() !== "",
                   ].filter(Boolean).length
                 } active filters`}
@@ -525,6 +535,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                     asset !== "",
                     provider !== "",
                     bookmarkedOnly,
+                    followedOnly,
                     providerSearch.trim() !== "",
                   ].filter(Boolean).length
                 }
@@ -616,11 +627,19 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                 onRetry={() => refetch()}
               />
             ) : !isError && signals.length === 0 ? (
-              <SignalEmptyState
-                variant={hasActiveFilters ? "no-results" : "no-signals"}
-                onRefresh={() => refetch()}
-                onClearFilters={hasActiveFilters ? resetFilters : undefined}
-              />
+              followedOnly && followedProviders.length === 0 ? (
+                <SignalEmptyState
+                  variant="no-followed"
+                  onRefresh={() => refetch()}
+                  onClearFilters={() => setFollowedOnly(false)}
+                />
+              ) : (
+                <SignalEmptyState
+                  variant={hasActiveFilters ? "no-results" : "no-signals"}
+                  onRefresh={() => refetch()}
+                  onClearFilters={hasActiveFilters ? resetFilters : undefined}
+                />
+              )
             ) : (
               <div
                 style={{

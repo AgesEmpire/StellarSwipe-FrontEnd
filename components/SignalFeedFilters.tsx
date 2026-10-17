@@ -7,6 +7,7 @@ import {
   Save,
   SlidersHorizontal,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -97,11 +98,13 @@ export function SignalFeedFilters({
     asset,
     provider,
     bookmarkedOnly,
+    followedOnly,
     presets,
     setDirection,
     setAsset,
     setProvider,
     setBookmarkedOnly,
+    setFollowedOnly,
     savePreset,
     applyPreset,
     deletePreset,
@@ -172,7 +175,11 @@ export function SignalFeedFilters({
   }
 
   const isActive =
-    direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
+    direction !== "ALL" ||
+    asset !== "" ||
+    provider !== "" ||
+    bookmarkedOnly ||
+    followedOnly;
 
   /** Count of individual active criteria — used in the active-filter summary badge */
   const activeFilterCount = [
@@ -180,6 +187,7 @@ export function SignalFeedFilters({
     asset !== "",
     provider !== "",
     bookmarkedOnly,
+    followedOnly,
   ].filter(Boolean).length;
 
   const quickAssets = availableAssets.slice(0, MAX_QUICK_FILTERS);
@@ -250,7 +258,7 @@ export function SignalFeedFilters({
         </div>
       )}
 
-      {/* Quick-filter pills — bookmarked + asset + provider shortcuts */}
+      {/* Quick-filter pills — bookmarked + followed + asset + provider shortcuts */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -265,6 +273,22 @@ export function SignalFeedFilters({
         >
           <Bookmark size={12} aria-hidden="true" />
           Bookmarked
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFollowedOnly(!followedOnly)}
+          aria-pressed={followedOnly}
+          aria-label="Show followed providers only"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+            followedOnly
+              ? "bg-sky-500/20 text-sky-300 border border-sky-500/50 shadow-[0_0_0_1px] shadow-sky-500/20"
+              : "bg-white/5 text-gray-300 border border-white/10 hover:border-white/20 hover:text-gray-200 hover:bg-white/8"
+          )}
+        >
+          <Users size={12} aria-hidden="true" />
+          Followed
         </button>
 
         {quickAssets.map((assetLabel) => {
@@ -428,6 +452,7 @@ export function SignalFeedFilters({
             asset && `Asset: ${asset}`,
             provider && `Provider: ${provider}`,
             bookmarkedOnly && `Bookmarked only`,
+            followedOnly && `Followed providers only`,
           ]
             .filter(Boolean)
             .join(" · ")}
