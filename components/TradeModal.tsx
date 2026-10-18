@@ -16,6 +16,11 @@ import { usePriceFormat } from "@/hooks/usePriceFormat";
 import { validateTradeField } from "@/lib/tradeSchemas";
 import { useNetworkMismatch } from "@/components/NetworkMismatchBanner";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
+import { useWalletStore } from "@/store/useWalletStore";
+
+function truncateKey(key: string) {
+  return `${key.slice(0, 6)}...${key.slice(-4)}`;
+}
 
 type ModalStep = "input" | "review" | "optimistic";
 
@@ -72,7 +77,16 @@ export function TradeModal({
     isMismatch: networkMismatch,
     walletNetwork,
     appNetwork,
+    state: networkState,
   } = useNetworkMismatch();
+  const walletKey = useWalletStore((s) => s.publicKey);
+  const walletConnected = useWalletStore((s) => s.isConnected);
+  const walletReady = walletConnected && !!walletKey;
+  const networkLabel = networkMismatch
+    ? walletNetwork
+    : networkState.status === "match"
+    ? appNetwork
+    : "Unverified";
   const fmt = usePriceFormat();
 
   // Live-region ref for announcing order-type changes to screen readers
@@ -135,7 +149,8 @@ export function TradeModal({
     submitting ||
     hasErrors ||
     showSlippageWarning ||
-    networkMismatch;
+    networkMismatch ||
+    !walletReady;
 
   // Reset form state when modal opens
   useEffect(() => {
@@ -146,6 +161,18 @@ export function TradeModal({
       setConfirmError(null);
     }
   }, [open]);
+
+  // Switching or disconnecting the wallet invalidates the review: the order was
+  // reviewed against the previous account, so send the user back to the input step.
+  // Skipped while submitting so an in-flight confirm is not interrupted.
+  const walletKeyRef = useRef(walletKey);
+  useEffect(() => {
+    if (walletKeyRef.current === walletKey) return;
+    walletKeyRef.current = walletKey;
+    setStep((s) => (s === "review" ? "input" : s));
+    setSlippageAcknowledged(false);
+    setConfirmError(null);
+  }, [walletKey]);
 
   // Keyboard shortcuts: Escape → close, Enter (outside interactive elements) → confirm
   useEffect(() => {
@@ -774,6 +801,41 @@ export function TradeModal({
                     Review your order before confirming. Use Back to edit.
                   </p>
 
+                  {/* Signing wallet and network — the order is submitted from this account */}
+                  <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-foreground-muted">Wallet</span>
+                      <span className="font-mono font-medium text-foreground">
+                        {walletReady && walletKey
+                          ? truncateKey(walletKey)
+                          : "Not connected"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-foreground-muted">Network</span>
+                      <span
+                        className={`font-mono font-medium ${
+                          networkMismatch
+                            ? "text-accent-danger"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {networkLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!walletReady && (
+                    <p role="alert" className="text-xs text-accent-danger">
+                      Connect a wallet to place this order.
+                    </p>
+                  )}
+                  {networkMismatch && (
+                    <p role="alert" className="text-xs text-accent-danger">
+                      Switch your wallet to {appNetwork} to place this order.
+                    </p>
+                  )}
+
                   {/* Summary rows */}
                   <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
                     <div className="flex items-center justify-between px-3 py-2">
@@ -855,14 +917,14 @@ export function TradeModal({
 
                   <button
                     onClick={handleConfirm}
-                    disabled={submitting}
-                    aria-disabled={submitting}
+                    disabled={disabled}
+                    aria-disabled={disabled}
                     aria-busy={submitting}
                     aria-describedby="confirm-button-help"
                     className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-all
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface
                       ${
-                        submitting
+                        disabled
                           ? "bg-foreground/10 text-foreground-subtle cursor-not-allowed"
                           : type === "MARKET"
                           ? "bg-accent-market hover:opacity-90 text-foreground"
