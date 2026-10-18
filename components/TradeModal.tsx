@@ -4,7 +4,14 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 // Ref-based in-flight flag ensures only one confirm request is sent per user
 // action — covers both the button click and the Enter-key shortcut paths.
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Info, AlertCircle, ArrowLeft, CheckCircle } from "lucide-react";
+import {
+  X,
+  Info,
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle,
+  RefreshCw,
+} from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { isTopOverlay } from "@/hooks/overlayManager";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
@@ -32,6 +39,12 @@ export interface PositionDetails {
   orderType: OrderType;
 }
 
+/** Market price snapshot. `expiresAt` is epoch ms; omit when validity is unknown. */
+export interface TradeQuote {
+  price: number;
+  expiresAt?: number;
+}
+
 interface TradeModalProps {
   open: boolean;
   onClose: () => void;
@@ -39,6 +52,10 @@ interface TradeModalProps {
   walletBalance?: number;
   marketPrice?: number;
   portfolioBalance?: number;
+  /** Current quote; its price overrides `marketPrice` and its expiry gates confirmation. */
+  quote?: TradeQuote;
+  /** Fetches a fresh quote. On rejection the draft is kept and the error is shown. */
+  onRefreshQuote?: () => Promise<TradeQuote>;
 }
 
 const mockBuildTx = (_order: object) =>
@@ -53,8 +70,10 @@ export function TradeModal({
   onClose,
   onConfirm,
   walletBalance = 250,
-  marketPrice = 0.4821,
+  marketPrice: marketPriceProp = 0.4821,
   portfolioBalance = 0,
+  quote,
+  onRefreshQuote,
 }: TradeModalProps) {
   const [step, setStep] = useState<ModalStep>("input");
   const [type, setType] = useState<OrderType>("LIMIT");
@@ -68,6 +87,12 @@ export function TradeModal({
   const [slippageAcknowledged, setSlippageAcknowledged] = useState(false);
   // Stores the failure message when on-chain confirmation fails after optimistic success
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  // Quote fetched via onRefreshQuote; takes precedence over the `quote` prop
+  const [refreshedQuote, setRefreshedQuote] = useState<TradeQuote | null>(null);
+  const [quoteRefreshing, setQuoteRefreshing] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  // Clock for the quote countdown; only ticks while a quote with expiry is shown
+  const [now, setNow] = useState(() => Date.now());
   const { isDemoMode } = useDemoModeStore();
   const walletPublicKey = useWalletStore((s) => s.publicKey);
   const walletNetwork = useWalletStore((s) => s.network);
@@ -120,6 +145,15 @@ export function TradeModal({
     initialFocus: 'button[data-order-type="LIMIT"]',
   });
 
+  const activeQuote = refreshedQuote ?? quote;
+  const marketPrice = activeQuote?.price ?? marketPriceProp;
+  const quoteExpiresAt = activeQuote?.expiresAt;
+  const quoteSecondsLeft =
+    quoteExpiresAt !== undefined
+      ? Math.max(0, Math.ceil((quoteExpiresAt - now) / 1000))
+      : null;
+  const quoteExpired = quoteSecondsLeft === 0;
+
   const price = type === "MARKET" ? marketPrice : parseFloat(limitPrice) || 0;
   const total = price * (parseFloat(amount) || 0);
   const insufficient = total > walletBalance;
@@ -159,8 +193,18 @@ export function TradeModal({
       setTouched({ limitPrice: false, amount: false });
       setSlippageAcknowledged(false);
       setConfirmError(null);
+      setRefreshedQuote(null);
+      setQuoteError(null);
     }
   }, [open]);
+
+  // Tick the quote countdown once a second while an expiring quote is shown
+  useEffect(() => {
+    if (!open || quoteExpiresAt === undefined) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [open, quoteExpiresAt]);
 
   // Switching or disconnecting the wallet invalidates the review: the order was
   // reviewed against the previous account, so send the user back to the input step.
@@ -194,7 +238,13 @@ export function TradeModal({
       // intentionally does NOT trigger from the input step so users must
       // explicitly reach the review step before confirming.
       // Also guarded by `disabled` and `submitting` to prevent double-fire.
-      if (e.key === "Enter" && step === "review" && !disabled && !submitting) {
+      if (
+        e.key === "Enter" &&
+        step === "review" &&
+        !disabled &&
+        !submitting &&
+        !quoteExpired
+      ) {
         const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
         const role = (e.target as HTMLElement)?.getAttribute("role");
         const isInteractive =
@@ -215,7 +265,7 @@ export function TradeModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, step, disabled, submitting, onClose]);
+  }, [open, step, disabled, submitting, quoteExpired, onClose]);
 
   // Preset buttons: set amount to N% of wallet balance divided by current price
   const applyPreset = useCallback(
@@ -228,8 +278,25 @@ export function TradeModal({
     [price, walletBalance]
   );
 
+  // Refresh the quote; on failure the draft (inputs and step) is left untouched
+  const handleRefreshQuote = useCallback(async () => {
+    if (!onRefreshQuote || quoteRefreshing || submitting) return;
+    setQuoteRefreshing(true);
+    setQuoteError(null);
+    try {
+      setRefreshedQuote(await onRefreshQuote());
+    } catch (err) {
+      setQuoteError(
+        (err as Error).message ||
+          "Could not refresh the quote. Your order details are unchanged."
+      );
+    } finally {
+      setQuoteRefreshing(false);
+    }
+  }, [onRefreshQuote, quoteRefreshing, submitting]);
+
   const handleConfirm = useCallback(async () => {
-    if (disabled) return;
+    if (disabled || quoteExpired) return;
     // Guard: ignore if a confirmation is already in-flight
     if (confirmInFlightRef.current) return;
     confirmInFlightRef.current = true;
@@ -278,6 +345,7 @@ export function TradeModal({
     onClose,
     onConfirm,
     disabled,
+    quoteExpired,
     walletPublicKey,
     walletNetwork,
     estimatedSlippage,
@@ -801,6 +869,64 @@ export function TradeModal({
                     Review your order before confirming. Use Back to edit.
                   </p>
 
+                  {/* Quote validity — shown only when the quote carries an expiry */}
+                  {quoteSecondsLeft !== null && (
+                    <div
+                      role={quoteExpired ? "alert" : undefined}
+                      className={`rounded-lg border px-3 py-2 text-sm ${
+                        quoteExpired
+                          ? "border-accent-danger/40 bg-accent-danger/10"
+                          : "border-border bg-input"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground-muted">Quote</span>
+                        <span
+                          className={`font-mono font-medium ${
+                            quoteExpired
+                              ? "text-accent-danger"
+                              : "text-foreground"
+                          }`}
+                        >
+                          {quoteExpired
+                            ? "Expired"
+                            : `Expires in ${quoteSecondsLeft}s`}
+                        </span>
+                      </div>
+                      {quoteExpired && (
+                        <p className="mt-1 text-xs text-foreground-muted">
+                          This quote has expired. Refresh it to confirm your
+                          order.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {onRefreshQuote && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={handleRefreshQuote}
+                        disabled={quoteRefreshing || submitting}
+                        aria-busy={quoteRefreshing}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                      >
+                        <RefreshCw
+                          size={14}
+                          aria-hidden="true"
+                          className={quoteRefreshing ? "animate-spin" : ""}
+                        />
+                        {quoteRefreshing ? "Refreshing quote…" : "Refresh quote"}
+                      </button>
+                      {quoteError && (
+                        <p role="alert" className="text-xs text-accent-danger">
+                          {quoteError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Signing wallet and network — the order is submitted from this account */}
                   <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
                     <div className="flex items-center justify-between px-3 py-2">
@@ -917,14 +1043,15 @@ export function TradeModal({
 
                   <button
                     onClick={handleConfirm}
-                    disabled={disabled}
-                    aria-disabled={disabled}
+                    disabled={submitting || quoteExpired || disabled}
+                    aria-disabled={submitting || quoteExpired || disabled}
                     aria-busy={submitting}
                     aria-describedby="confirm-button-help"
                     className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-all
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface
                       ${
-                        disabled
+                        disabled={disabled || submitting || quoteExpired}
+                        aria-disabled={disabled || submitting || quoteExpired}
                           ? "bg-foreground/10 text-foreground-subtle cursor-not-allowed"
                           : type === "MARKET"
                           ? "bg-accent-market hover:opacity-90 text-foreground"
