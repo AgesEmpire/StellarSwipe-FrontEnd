@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useId, useState } from "react";
-import { Bell, Globe2, LayoutGrid, Moon, Palette, Search, Wallet2, X } from "lucide-react";
+import { Bell, Globe2, History, LayoutGrid, Moon, Network, Palette, Search, Wallet2, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AccentColorPicker } from "@/components/AccentColorPicker";
 import { HighContrastPreview } from "@/components/HighContrastPreview";
@@ -12,6 +12,8 @@ import { DataSaverToggle } from "@/components/DataSaverToggle";
 import { SwipeSettings } from "@/components/SwipeSettings";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NotificationManageMenu } from "@/components/NotificationManageMenu";
+import { NetworkSwitcher } from "@/components/NetworkSwitcher";
+import { SettingsHistory } from "@/components/SettingsHistory";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useFeedDensityStore } from "@/store/useFeedDensityStore";
 import { useThemeStore } from "@/store/useThemeStore";
@@ -186,7 +188,26 @@ export function PreferencesHub() {
       </PreferencesSection>
 
       <PreferencesSection
-        id="prefs-language"
+        icon={<Network size={16} aria-hidden="true" />}
+        title="Network"
+        description="Preview what a network change affects before switching."
+      >
+        <NetworkSwitcher />
+      </PreferencesSection>
+
+      <PreferencesSection
+        icon={<Globe2 size={16} aria-hidden="true" />}
+        title="Language"
+        description="Set your preferred display language."
+      >
+        <div
+          id="setting-language"
+          tabIndex={-1}
+          className="flex scroll-mt-20 items-center justify-between gap-4 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <div>
+            <p className="text-xs font-medium text-foreground">App language</p>
+            <p className="text-xs
         icon={<Globe2 size={16} aria-hidden="true" />}
         title="Language"
         description="Set your preferred display language."
@@ -226,6 +247,14 @@ export function PreferencesHub() {
         <SettingAnchor id="setting-guided-tour">
           <ReplayOnboardingRow />
         </SettingAnchor>
+      </PreferencesSection>
+
+      <PreferencesSection
+        icon={<History size={16} aria-hidden="true" />}
+        title="Change history"
+        description="Review recent preference changes and restore an earlier value."
+      >
+        <SettingsHistory />
       </PreferencesSection>
     </div>
   );

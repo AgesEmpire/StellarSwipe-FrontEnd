@@ -242,3 +242,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-828 -->
 - #828: Set an expiration date when creating an API key
+
+<!-- handsoff-issue-803 -->
+- #803: Filter transaction activity by asset, direction, and status
