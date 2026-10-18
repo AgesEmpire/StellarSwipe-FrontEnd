@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server";
 import { buildSignalPage, buildActivitySummary } from "@/lib/signals";
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
-
-const DISMISSAL_REASONS = ["irrelevant", "too_risky", "already_acted_on"] as const;
-
-type DismissalReason = (typeof DISMISSAL_REASONS)[number];
-
-function isDismissalReason(value: unknown): value is DismissalReason {
-  return (
-    typeof value === "string" &&
-    (DISMISSAL_REASONS as readonly string[]).includes(value)
-  );
-}
+import { getRequestUserId } from "@/lib/providerFollows";
+import { dismissSignal, isSignalDismissalReason } from "@/lib/signalState";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -72,6 +63,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const userId = getRequestUserId(request);
+
+  if (!userId) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   let body: unknown;
 
   try {
@@ -99,15 +96,20 @@ export async function POST(request: Request) {
   }
 
   // Feedback is optional: skipping the reason must not block dismissal.
-  const reason = isDismissalReason(payload.reason) ? payload.reason : null;
+  const reason = isSignalDismissalReason(payload.reason) ? payload.reason : null;
 
+  // Idempotent: re-dismissing returns the original dismissal record.
   const dismissal = await traceWorker(
     "worker:signals:dismiss",
-    async () => ({
-      signalId,
-      dismissed: true,
-      reason,
-    }),
+    async () => {
+      const stored = dismissSignal(userId, signalId, reason);
+
+      return {
+        signalId,
+        dismissed: true,
+        reason: stored.reason,
+      };
+    },
     { signalId, reason }
   );
 
