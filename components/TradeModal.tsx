@@ -274,6 +274,10 @@ export function TradeModal({
   const parsedNetworkFeeXLM = parseFloat(networkFee.split(" ")[0]) || 0;
   const networkFeeUSDC = parsedNetworkFeeXLM * (marketPrice || price || 0);
   const netAmount = Math.max(0, total - tradeFee - networkFeeUSDC);
+  // Estimates need a quote and an amount; without them show "—", not "$0.0000"
+  const feeEstimateAvailable = total > 0;
+  const formatEstimate = (value: number) =>
+    feeEstimateAvailable ? `$${value.toFixed(4)}` : "—";
 
   return (
     <AnimatePresence>
@@ -548,6 +552,34 @@ export function TradeModal({
                     </div>
                   </div>
 
+                  {/* Estimated fees and net amount, recalculated as amount or quote changes */}
+                  <div className="rounded-lg border border-border bg-input px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-foreground-subtle">
+                        Est. trade fee ({(tradeFeePercent * 100).toFixed(2)}%)
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(tradeFee)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-foreground-subtle">
+                        Est. network fee
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(networkFeeUSDC)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 border-t border-border pt-1">
+                      <span className="text-foreground-subtle">
+                        Est. net amount
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(netAmount)}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Low balance alert */}
                   {insufficient && (
                     <div
@@ -787,7 +819,7 @@ export function TradeModal({
                         Trade fee ({(tradeFeePercent * 100).toFixed(2)}%)
                       </span>
                       <span className="font-mono font-medium">
-                        ${tradeFee.toFixed(4)}
+                        {formatEstimate(tradeFee)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-2">
@@ -795,13 +827,15 @@ export function TradeModal({
                         Network fee
                       </span>
                       <span className="font-mono font-medium">
-                        {networkFee} (~${networkFeeUSDC.toFixed(6)})
+                        {feeEstimateAvailable
+                          ? `${networkFee} (~$${networkFeeUSDC.toFixed(6)})`
+                          : networkFee}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-2 border-t pt-2">
                       <span className="text-foreground-subtle">Net amount</span>
                       <span className="font-mono font-medium">
-                        ${netAmount.toFixed(4)}
+                        {formatEstimate(netAmount)}
                       </span>
                     </div>
                   </div>
