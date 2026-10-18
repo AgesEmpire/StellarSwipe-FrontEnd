@@ -19,6 +19,8 @@ export interface TransactionHistoryItem extends TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   outcome: TransactionOutcome;
+  /** Set when the entry is archived; cleared when it is restored. */
+  archivedAt?: number;
   /** Server revision the entry was last saved at; used to detect conflicting edits. */
   revision?: number;
   /** Normalized strategy/setup labels, e.g. "breakout", "dca". */
