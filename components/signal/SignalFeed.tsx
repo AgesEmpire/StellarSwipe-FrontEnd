@@ -176,6 +176,20 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     [signals, selectedSignalId]
   );
 
+  // Other active signals for the same asset, drawn from the loaded feed pages
+  const relatedSignals = useMemo<Signal[]>(
+    () =>
+      selectedSignal
+        ? allSignals.filter(
+            (signal) =>
+              signal.ticker === selectedSignal.ticker &&
+              signal.id !== selectedSignal.id &&
+              signal.status === "Active"
+          )
+        : [],
+    [allSignals, selectedSignal]
+  );
+
   const feedLoadingState = useMemo(
     () =>
       deriveSignalFeedLoading({
@@ -870,6 +884,50 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                     />
                     .
                   </p>
+                  <section
+                    aria-label="Related active signals"
+                    className="space-y-2 border-t border-white/10 pt-4"
+                  >
+                    <h4 className="text-xs uppercase tracking-[0.3em] text-sky-400/80">
+                      Related active signals
+                    </h4>
+                    {isLoading ? (
+                      <p role="status" className="text-xs text-foreground-muted">
+                        Loading related signals...
+                      </p>
+                    ) : isError ? (
+                      <p role="alert" className="text-xs text-red-400">
+                        Could not load related signals.
+                      </p>
+                    ) : relatedSignals.length === 0 ? (
+                      <p className="text-xs text-foreground-muted">
+                        No other active signals for {selectedSignal.ticker}.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {relatedSignals.map((related) => (
+                          <li key={related.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSignalId(related.id)}
+                              aria-label={`View ${related.ticker} ${related.action} from ${related.provider ?? "unknown provider"}`}
+                              className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs hover:border-sky-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                            >
+                              <span className="font-semibold text-white">
+                                {related.ticker} • {related.action}
+                              </span>
+                              <span className="text-foreground-muted">
+                                Provider: {related.provider ?? "Unknown"}
+                              </span>
+                              <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-sky-300">
+                                Status: {related.status}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
                 </div>
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-foreground-muted">
