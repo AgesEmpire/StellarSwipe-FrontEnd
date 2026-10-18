@@ -11,10 +11,12 @@ import {
 } from "lucide-react";
 import { useTransactionStore } from "@/store/useTransactionStore";
 import { deleteJournalEntry } from "@/lib/journalApi";
+import { normalizeJournalTags } from "@/lib/journalSchema";
 import { cn } from "@/lib/utils";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
+import { TradeFilterPresets } from "@/components/TradeFilterPresets";
 import { VirtualizedList } from "@/components/VirtualizedList";
 import { useVirtualActivityList } from "@/hooks/useVirtualActivityList";
 import { toast } from "@/lib/toast";
@@ -48,12 +50,14 @@ interface PersistedJournalFilters {
   typeFilter: (typeof TYPE_OPTIONS)[number]["value"];
   statusFilter: (typeof OUTCOME_OPTIONS)[number]["value"];
   sortOrder: JournalSortOrder;
+  tagFilters: string[];
 }
 
 const DEFAULT_JOURNAL_FILTERS: PersistedJournalFilters = {
   typeFilter: "ALL",
   statusFilter: "ALL",
   sortOrder: "newest",
+  tagFilters: [],
 };
 
 function readPersistedJournalFilters(): PersistedJournalFilters {
@@ -66,6 +70,9 @@ function readPersistedJournalFilters(): PersistedJournalFilters {
       typeFilter: parsed.typeFilter ?? DEFAULT_JOURNAL_FILTERS.typeFilter,
       statusFilter: parsed.statusFilter ?? DEFAULT_JOURNAL_FILTERS.statusFilter,
       sortOrder: parsed.sortOrder ?? DEFAULT_JOURNAL_FILTERS.sortOrder,
+      tagFilters: Array.isArray(parsed.tagFilters)
+        ? normalizeJournalTags(parsed.tagFilters)
+        : DEFAULT_JOURNAL_FILTERS.tagFilters,
     };
   } catch {
     return DEFAULT_JOURNAL_FILTERS;
@@ -148,6 +155,8 @@ export function TransactionActivityFeed() {
   const [statusFilter, setStatusFilter] =
     useState<(typeof OUTCOME_OPTIONS)[number]["value"]>("ALL");
   const [sortOrder, setSortOrder] = useState<JournalSortOrder>("newest");
+  // Entries must carry every selected tag (AND) so each tag narrows the list.
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -160,12 +169,13 @@ export function TransactionActivityFeed() {
     setTypeFilter(persisted.typeFilter);
     setStatusFilter(persisted.statusFilter);
     setSortOrder(persisted.sortOrder);
+    setTagFilters(persisted.tagFilters);
   }, []);
 
   // Persist whenever the user changes a filter or sort control.
   useEffect(() => {
-    persistJournalFilters({ typeFilter, statusFilter, sortOrder });
-  }, [typeFilter, statusFilter, sortOrder]);
+    persistJournalFilters({ typeFilter, statusFilter, sortOrder, tagFilters });
+  }, [typeFilter, statusFilter, sortOrder, tagFilters]);
 
   // Simulate pending→success/failure transitions (existing behaviour preserved).
   useEffect(() => {
@@ -224,26 +234,47 @@ export function TransactionActivityFeed() {
     [removeTransaction, addTransaction]
   );
 
+  const allTags = useMemo(
+    () => Array.from(new Set(history.flatMap((item) => item.tags ?? []))).sort(),
+    [history]
+  );
+
   const filtered = useMemo(() => {
     const matches = history
       .filter((item) => typeFilter === "ALL" || item.type === typeFilter)
-      .filter((item) => statusFilter === "ALL" || item.status === statusFilter);
+      .filter((item) => statusFilter === "ALL" || item.status === statusFilter)
+      .filter((item) =>
+        tagFilters.every((tag) => (item.tags ?? []).includes(tag))
+      );
     return [...matches].sort((a, b) => {
       if (sortOrder === "oldest") return a.timestamp - b.timestamp;
       if (sortOrder === "amount")
         return parseFloat(b.amount) - parseFloat(a.amount);
       return b.timestamp - a.timestamp;
     });
-  }, [history, typeFilter, statusFilter, sortOrder]);
+  }, [history, typeFilter, statusFilter, sortOrder, tagFilters]);
 
   const hasActiveFilters =
-    typeFilter !== "ALL" || statusFilter !== "ALL" || sortOrder !== "newest";
+    typeFilter !== "ALL" ||
+    statusFilter !== "ALL" ||
+    sortOrder !== "newest" ||
+    tagFilters.length > 0;
 
   const clearFilters = useCallback(() => {
     setTypeFilter("ALL");
     setStatusFilter("ALL");
     setSortOrder("newest");
+    setTagFilters([]);
   }, []);
+
+  const toggleTagFilter = useCallback((tag: string) => {
+    setTagFilters((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  }, []);
+
+  // Clears only the tag selection so type, status and sort stay as they are.
+  const clearTagFilters = useCallback(() => setTagFilters([]), []);
 
   // ── Virtual activity list (#777) ───────────────────────────────────────
   // The hook computes the visible slice of `filtered` based on scroll
@@ -288,6 +319,18 @@ export function TransactionActivityFeed() {
                 <p className="text-xs text-muted-foreground">
                   {item.type.replace("_", " ")}
                 </p>
+                {item.tags && item.tags.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {item.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2 py-0.5 text-[10px] text-blue-300"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               {isPending && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400">
@@ -479,6 +522,56 @@ export function TransactionActivityFeed() {
           )}
         </div>
       </div>
+
+      <TradeFilterPresets
+        current={{ typeFilter, statusFilter, sortOrder }}
+        onApply={(filter) => {
+          setTypeFilter(filter.typeFilter);
+          setStatusFilter(filter.statusFilter);
+          setSortOrder(filter.sortOrder);
+        }}
+      />
+
+      {/* ── Tag filter (multi-select, entries must match every selected tag) ── */}
+      {allTags.length > 0 && (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label="Filter by tag"
+        >
+          <span className="mr-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            Tags
+          </span>
+          {allTags.map((tag) => {
+            const selected = tagFilters.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTagFilter(tag)}
+                aria-pressed={selected}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  selected
+                    ? "border-blue-400/40 bg-blue-400/10 text-blue-300"
+                    : "border-white/10 bg-background/80 text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                )}
+              >
+                #{tag}
+              </button>
+            );
+          })}
+          {tagFilters.length > 0 && (
+            <button
+              type="button"
+              onClick={clearTagFilters}
+              className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              Clear tags
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Inline edit form (rendered outside the virtualizer so its variable
            height does not disturb the layout calculation) ──────────────── */}
