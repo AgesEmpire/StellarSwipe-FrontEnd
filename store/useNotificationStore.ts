@@ -5,6 +5,14 @@ export interface Notification {
   title: string;
   message: string;
   read: boolean;
+  /** Related signal — notifications sharing it are grouped (#898). */
+  signalId?: string;
+  signalLabel?: string;
+  /** Related provider — used for grouping when no signal is set. */
+  providerId?: string;
+  providerName?: string;
+  /** Destination opened when the notification is selected. */
+  href?: string;
 }
 
 interface NotificationState {

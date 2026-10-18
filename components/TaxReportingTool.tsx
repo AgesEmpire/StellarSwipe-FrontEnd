@@ -43,6 +43,14 @@ import {
   formatForTaxAct,
   triggerDownload,
 } from "@/lib/taxUtils";
+import { TaxReviewQueue } from "@/components/TaxReviewQueue";
+import {
+  TAX_CATEGORY_LABELS,
+  assignCategory,
+  resolveCategory,
+  type CategoryAssignments,
+} from "@/lib/taxCategorization";
+import { validateTaxExport } from "@/lib/taxExportValidation";
 
 const JURISDICTIONS: TaxJurisdiction[] = ["US", "UK", "EU", "CA"];
 
@@ -77,6 +85,7 @@ function deriveTransactions(
         acquisitionDate: tx.timestamp - 90 * 24 * 60 * 60 * 1000,
         foreignCurrency: hasForeignCurrency ? "USDC" : undefined,
         conversionRate: hasForeignCurrency ? 1.0 : undefined,
+        source: { hash: tx.hash, type: tx.type },
       };
     });
 }
@@ -228,6 +237,8 @@ export function TaxReportingTool() {
   // dialog to edit filters.
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfOptions, setPdfOptions] = useState<PdfReportOptions>(DEFAULT_PDF_REPORT_OPTIONS);
+  // #894 Manual categories for records that couldn't be auto-categorized.
+  const [categoryAssignments, setCategoryAssignments] = useState<CategoryAssignments>({});
   // Synchronous guard so a double click can't start two generations
   const generatingRef = useRef(false);
   const isGenerating = exportState === "generating";
@@ -253,6 +264,34 @@ export function TaxReportingTool() {
         jurisdiction
       ),
     [transactions, selectedYears, jurisdiction]
+  );
+
+  const transactionsById = useMemo(
+    () => new Map(transactions.map((tx) => [tx.id, tx])),
+    [transactions]
+  );
+
+  const yearTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (tx) => new Date(tx.timestamp).getFullYear() === selectedYear
+      ),
+    [transactions, selectedYear]
+  );
+
+  // #893 Validate the export the user is previewing.
+  const exportValidation = useMemo(
+    () =>
+      pendingExport
+        ? validateTaxExport({
+            transactions,
+            years: pendingExport === "multi-csv" ? selectedYears : [selectedYear],
+            jurisdiction,
+            format: pendingExport,
+            assignments: categoryAssignments,
+          })
+        : null,
+    [pendingExport, transactions, selectedYears, selectedYear, jurisdiction, categoryAssignments]
   );
 
   const rates = TAX_RATES[jurisdiction];
@@ -371,6 +410,16 @@ export function TaxReportingTool() {
 
   async function startExport(kind: ExportKind) {
     if (generatingRef.current) return;
+    const validation = validateTaxExport({
+      transactions,
+      years: kind === "multi-csv" ? selectedYears : [selectedYear],
+      jurisdiction,
+      format: kind,
+      assignments: categoryAssignments,
+    });
+    if (!validation.canDownload) {
+      throw new Error("Resolve the blocking issues before downloading.");
+    }
     generatingRef.current = true;
     setLastExport(kind);
     setExportState("generating");
@@ -776,6 +825,14 @@ export function TaxReportingTool() {
             </Card>
           )}
 
+          <TaxReviewQueue
+            transactions={yearTransactions}
+            assignments={categoryAssignments}
+            onAssign={(id, assignment) =>
+              setCategoryAssignments((prev) => assignCategory(prev, id, assignment))
+            }
+          />
+
           {/* Trade-level breakdown */}
           <Card>
             <CardHeader>
@@ -817,7 +874,8 @@ export function TaxReportingTool() {
                         <th className="pb-2 text-left font-medium pr-4">
                           Term
                         </th>
-                        <th className="pb-2 text-left font-medium">FX</th>
+                        <th className="pb-2 text-left font-medium pr-4">FX</th>
+                        <th className="pb-2 text-left font-medium">Category</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -864,10 +922,23 @@ export function TaxReportingTool() {
                               {entry.isLongTerm ? "Long" : "Short"}
                             </span>
                           </td>
-                          <td className="py-2 text-foreground-muted font-mono">
+                          <td className="py-2 pr-4 text-foreground-muted font-mono">
                             {entry.foreignCurrency
                               ? `${entry.foreignCurrency} @${entry.conversionRate?.toFixed(4)}`
                               : "—"}
+                          </td>
+                          <td className="py-2 text-foreground-muted">
+                            {(() => {
+                              const tx = transactionsById.get(entry.id);
+                              const category = tx
+                                ? resolveCategory(tx, categoryAssignments)
+                                : null;
+                              return category ? (
+                                TAX_CATEGORY_LABELS[category]
+                              ) : (
+                                <span className="text-amber-400">Uncategorized</span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}
@@ -1009,7 +1080,9 @@ export function TaxReportingTool() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => void startExport(lastExport)}
+              onClick={() =>
+                startExport(lastExport).catch(() => setExportState("failed"))
+              }
             >
               Retry
             </Button>
@@ -1043,9 +1116,23 @@ export function TaxReportingTool() {
           }}
           title={exportPreviewConfig[pendingExport].title}
           description={exportPreviewConfig[pendingExport].description}
-          items={exportPreviewConfig[pendingExport].items}
+          items={
+            exportValidation
+              ? [
+                  { label: "Period", value: exportValidation.period.label },
+                  {
+                    label: "Transactions",
+                    value: String(exportValidation.transactionCount),
+                  },
+                  ...exportPreviewConfig[pendingExport].items,
+                ]
+              : exportPreviewConfig[pendingExport].items
+          }
+          warnings={exportValidation?.warnings}
+          blockingErrors={exportValidation?.errors}
+          cancelLabel="Back to review"
           confirmLabel={exportPreviewConfig[pendingExport].confirmLabel}
-          onConfirm={() => void startExport(pendingExport)}
+          onConfirm={() => startExport(pendingExport)}
         />
       )}
     </section>
