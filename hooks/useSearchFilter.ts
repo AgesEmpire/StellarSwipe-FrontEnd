@@ -7,6 +7,7 @@ import {
   useSignalFilterHydrated,
 } from "@/store/useSignalFilterStore";
 import { useBookmarkStore } from "@/store/useBookmarkStore";
+import { useFollowedProvidersStore } from "@/store/useFollowedProvidersStore";
 import { useSnoozeStore, selectVisibleSignals } from "@/store/useSnoozeStore";
 
 /** Default debounce delay in ms — short enough to feel instant, long enough to skip mid-keystroke renders */
@@ -55,11 +56,19 @@ export function useSearchFilter({
   debounceMs = DEBOUNCE_MS,
   snoozeTick = 0,
 }: UseSearchFilterOptions): UseSearchFilterResult {
-  const { direction, asset, provider, sortOrder, bookmarkedOnly, setProvider } =
-    useSignalFilterStore();
+  const {
+    direction,
+    asset,
+    provider,
+    sortOrder,
+    bookmarkedOnly,
+    followedOnly,
+    setProvider,
+  } = useSignalFilterStore();
   const isHydrated = useSignalFilterHydrated();
 
   const bookmarkedIds = useBookmarkStore((s) => s.bookmarks);
+  const followedProviders = useFollowedProvidersStore((s) => s.followedProviders);
   const snoozedMap = useSnoozeStore((s) => s.snoozed);
 
   // searchValue is the immediate, unthrottled input state
@@ -134,6 +143,12 @@ export function useSearchFilter({
       filtered = filtered.filter((s) => bookmarkedIds.includes(s.id));
     }
 
+    if (followedOnly) {
+      filtered = filtered.filter(
+        (s) => s.provider !== undefined && followedProviders.includes(s.provider)
+      );
+    }
+
     // Hide snoozed signals; snoozeTick causes this to re-run once snoozes expire
     filtered = selectVisibleSignals(filtered, snoozedMap);
 
@@ -171,6 +186,8 @@ export function useSearchFilter({
     debouncedSearch,
     bookmarkedOnly,
     bookmarkedIds,
+    followedOnly,
+    followedProviders,
     snoozedMap,
     snoozeTick,
     sortOrder,
@@ -181,6 +198,7 @@ export function useSearchFilter({
     asset !== "" ||
     provider !== "" ||
     bookmarkedOnly ||
+    followedOnly ||
     searchValue.trim() !== "";
 
   return {

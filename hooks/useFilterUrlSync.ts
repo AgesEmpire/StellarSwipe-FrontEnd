@@ -13,6 +13,7 @@ export const FILTER_PARAMS = {
   asset: "asset",
   provider: "q",
   bookmarkedOnly: "saved",
+  followedOnly: "followed",
   sortOrder: "sort",
 } as const;
 
@@ -29,6 +30,7 @@ type FilterValues = {
   asset: string;
   provider: string;
   bookmarkedOnly: boolean;
+  followedOnly: boolean;
   sortOrder: FeedSortOrder;
 };
 
@@ -37,6 +39,7 @@ const DEFAULTS: FilterValues = {
   asset: "",
   provider: "",
   bookmarkedOnly: false,
+  followedOnly: false,
   sortOrder: "latest",
 };
 
@@ -52,6 +55,7 @@ export function parseFilterParams(search: string): FilterValues {
     asset: params.get(FILTER_PARAMS.asset) ?? DEFAULTS.asset,
     provider: params.get(FILTER_PARAMS.provider) ?? DEFAULTS.provider,
     bookmarkedOnly: params.get(FILTER_PARAMS.bookmarkedOnly) === "1",
+    followedOnly: params.get(FILTER_PARAMS.followedOnly) === "1",
     sortOrder: SORT_ORDERS.includes(sort as FeedSortOrder)
       ? (sort as FeedSortOrder)
       : DEFAULTS.sortOrder,
@@ -88,8 +92,9 @@ export function serializeFilterParams(
 }
 
 function pickFilters(state: FilterValues): FilterValues {
-  const { direction, asset, provider, bookmarkedOnly, sortOrder } = state;
-  return { direction, asset, provider, bookmarkedOnly, sortOrder };
+  const { direction, asset, provider, bookmarkedOnly, followedOnly, sortOrder } =
+    state;
+  return { direction, asset, provider, bookmarkedOnly, followedOnly, sortOrder };
 }
 
 /**
