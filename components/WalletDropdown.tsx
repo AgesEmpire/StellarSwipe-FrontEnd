@@ -154,14 +154,35 @@ export function WalletDropdown() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={publicKey ? `Wallet menu for ${truncated}` : "Wallet menu"}
+        aria-label={
+          switchingTo
+            ? "Switching wallet account…"
+            : publicKey
+            ? `Wallet menu for ${truncated}`
+            : "Wallet menu"
+        }
         className="font-mono gap-2"
       >
         <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+          <span
+            className={cn(
+              "absolute inline-flex h-full w-full animate-ping rounded-full opacity-60",
+              switchingTo ? "bg-yellow-400" : "bg-green-400"
+            )}
+          />
+          <span
+            className={cn(
+              "relative inline-flex h-2 w-2 rounded-full",
+              switchingTo ? "bg-yellow-500" : "bg-green-500"
+            )}
+          />
         </span>
-        <span className="hidden xs:inline">{truncated}</span>
+        <span className="max-w-[9rem] truncate sm:max-w-none">{truncated}</span>
+        {switchingTo && (
+          <span className="hidden text-[10px] font-sans text-yellow-600 dark:text-yellow-300 sm:inline">
+            Switching…
+          </span>
+        )}
         {wallets.length > 1 && (
           <span className="rounded-full bg-blue-500/20 px-1.5 text-[10px] text-blue-400 font-semibold">
             {wallets.length}

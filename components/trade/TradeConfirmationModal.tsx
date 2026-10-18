@@ -5,6 +5,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { AssetIssuerDetails } from "@/components/trade/AssetIssuerDetails";
+import { useWalletStore } from "@/store/useWalletStore";
+import { useRegisterActiveFlow } from "@/hooks/useActiveFlow";
+import type { TradeAssetInfo } from "@/lib/assetIssuer";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +28,12 @@ export interface TradeConfirmationDetails {
   platformFee?: string;
   /** Limit only: expiry label e.g. "24h", "7 days" */
   expiry?: string;
+  /** Issuer metadata for the asset being sold. Omit for native XLM or when unknown. */
+  fromAsset?: Omit<TradeAssetInfo, "code">;
+  /** Issuer metadata for the asset being bought. Omit for native XLM or when unknown. */
+  toAsset?: Omit<TradeAssetInfo, "code">;
+  /** Network the order will be submitted to. Defaults to the wallet store's network. */
+  network?: string;
   /** Used to simulate a deliberate visual regression for testing */
   _visualRegressionTest?: boolean;
 }
@@ -57,8 +67,23 @@ export function TradeConfirmationModal({
     networkFee = "~0.00001 XLM",
     platformFee = "0.1%",
     expiry,
+    fromAsset,
+    toAsset,
+    network,
     _visualRegressionTest = false,
   } = details;
+  const walletNetwork = useWalletStore((s) => s.network);
+
+  // An open review is bound to the current network; let a network switch
+  // identify it and close it first (#800). Once submitting, it can't be
+  // safely abandoned from here, so it's listed without a cancel action.
+  useRegisterActiveFlow(open, {
+    kind: isSubmitting ? "signing" : "trade",
+    label: `${fromSymbol} → ${toSymbol} ${orderType} order${
+      isSubmitting ? " (submitting)" : ""
+    }`,
+    cancel: isSubmitting ? undefined : () => onOpenChange(false),
+  });
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -123,6 +148,15 @@ export function TradeConfirmationModal({
                 </span>
               </div>
             </div>
+
+            {/* Asset identity — code, issuer and network for both sides (#806) */}
+            <AssetIssuerDetails
+              network={network ?? walletNetwork}
+              sides={[
+                { label: "You pay", asset: { ...fromAsset, code: fromSymbol } },
+                { label: "You receive", asset: { ...toAsset, code: toSymbol } },
+              ]}
+            />
 
             {/* Order details */}
             <section aria-labelledby="order-details-heading">

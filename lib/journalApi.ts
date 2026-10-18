@@ -68,23 +68,35 @@ export async function createJournalEntry(
   }
 
   const id = `tx-srv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const created: TransactionHistoryItem = { ...entry, id };
+  const created: TransactionHistoryItem = { ...entry, id, revision: 1 };
   entries.set(id, created);
   return created;
 }
 
 /**
  * Update an existing journal entry.
+ *
+ * When `expectedRevision` is given, the update is rejected with a CONFLICT
+ * error if the server copy has moved on since that revision, so a newer
+ * version is never overwritten silently.
  */
 export async function updateJournalEntry(
   id: string,
-  patch: Partial<TransactionHistoryItem>
+  patch: Partial<TransactionHistoryItem>,
+  expectedRevision?: number
 ): Promise<TransactionHistoryItem> {
   await delay(300);
 
   const existing = entries.get(id);
   if (!existing) {
     throw new JournalApiError("Journal entry not found.", "NOT_FOUND");
+  }
+
+  if (expectedRevision !== undefined && existing.revision !== expectedRevision) {
+    throw new JournalApiError(
+      "This entry was changed elsewhere. Your edits are kept here — overwrite the newer version or cancel.",
+      "CONFLICT"
+    );
   }
 
   if (Math.random() < 0.03) {
@@ -94,7 +106,11 @@ export async function updateJournalEntry(
     );
   }
 
-  const updated: TransactionHistoryItem = { ...existing, ...patch };
+  const updated: TransactionHistoryItem = {
+    ...existing,
+    ...patch,
+    revision: (existing.revision ?? 0) + 1,
+  };
   entries.set(id, updated);
   return updated;
 }

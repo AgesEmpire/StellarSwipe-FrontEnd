@@ -12,6 +12,7 @@
 
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QRPairingPanel } from "@/components/QRPairingPanel";
+import { renderQRCode } from "@/lib/qrcode";
 import { useQRPairing } from "@/hooks/useQRPairing";
 import type { QRPairingStatus } from "@/hooks/useQRPairing";
 
@@ -24,6 +25,7 @@ jest.mock("@/lib/qrcode", () => ({
 }));
 
 jest.mock("@/hooks/useQRPairing", () => ({
+  ...jest.requireActual("@/hooks/useQRPairing"),
   useQRPairing: jest.fn(),
 }));
 
@@ -163,5 +165,107 @@ describe("QRPairingPanel", () => {
 
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+  describe("expiry countdown and renewal (#801)", () => {
+    it("exposes a readable countdown to assistive tech", () => {
+      mockHookState({ status: "pending", secondsLeft: 65 });
+
+      render(<QRPairingPanel onSuccess={jest.fn()} onCancel={jest.fn()} />);
+
+      expect(screen.getByText("1:05")).toBeInTheDocument();
+      expect(
+        screen.getByRole("timer", {
+          name: "Pairing code expires in 1 minute 5 seconds",
+        })
+      ).toBeInTheDocument();
+    });
+
+    it("announces the remaining time at thresholds only", () => {
+      mockHookState({ status: "pending", secondsLeft: 30 });
+      const { rerender } = render(
+        <QRPairingPanel onSuccess={jest.fn()} onCancel={jest.fn()} />
+      );
+      expect(
+        screen.getByText("30 seconds left to scan the pairing code")
+      ).toBeInTheDocument();
+
+      mockHookState({ status: "pending", secondsLeft: 29 });
+      rerender(<QRPairingPanel onSuccess={jest.fn()} onCancel={jest.fn()} />);
+      expect(
+        screen.queryByText(/left to scan the pairing code/)
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows an explicit expired state and hides the countdown", () => {
+      mockHookState({
+        status: "expired",
+        secondsLeft: 0,
+        errorMessage: "Pairing code expired. Generate a new one.",
+      });
+
+      render(<QRPairingPanel onSuccess={jest.fn()} onCancel={jest.fn()} />);
+
+      expect(screen.getByTestId("qr-expired-state")).toHaveTextContent(
+        "This pairing code has expired"
+      );
+      expect(screen.getByTestId("qr-expired-state")).toHaveTextContent(
+        "valid for 2 minutes"
+      );
+      expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+      expect(screen.queryByText("0:00")).not.toBeInTheDocument();
+      // Cancel remains available alongside renewal.
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    });
+
+    it("replaces the expired code with the renewed one without restarting the flow", () => {
+      const { regenerate, startSession } = mockHookState({
+        status: "expired",
+        secondsLeft: 0,
+        errorMessage: "Pairing code expired. Generate a new one.",
+        uri: "stellarswipe://pair?s=old&o=x",
+      });
+      const onCancel = jest.fn();
+
+      const { rerender } = render(
+        <QRPairingPanel onSuccess={jest.fn()} onCancel={onCancel} />
+      );
+      expect(startSession).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /generate a new pairing code/i })
+      );
+      expect(regenerate).toHaveBeenCalledTimes(1);
+
+      // Hook now reports the fresh code.
+      const renewed = mockHookState({
+        status: "pending",
+        secondsLeft: 120,
+        uri: "stellarswipe://pair?s=new&o=x",
+      });
+      rerender(<QRPairingPanel onSuccess={jest.fn()} onCancel={onCancel} />);
+
+      expect(renderQRCode).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "stellarswipe://pair?s=new&o=x",
+        expect.anything()
+      );
+      expect(screen.queryByTestId("qr-expired-state")).not.toBeInTheDocument();
+      expect(screen.getByText("2:00")).toBeInTheDocument();
+      expect(
+        screen.getByText("New code ready — the previous code no longer works.")
+      ).toBeInTheDocument();
+      // The panel stayed mounted: no remount-driven session start, no cancel.
+      expect(renewed.startSession).not.toHaveBeenCalled();
+      expect(renewed.cancel).not.toHaveBeenCalled();
+      expect(onCancel).not.toHaveBeenCalled();
+    });
+
+    it("does not show the renewal notice for the first code", () => {
+      mockHookState({ status: "pending" });
+
+      render(<QRPairingPanel onSuccess={jest.fn()} onCancel={jest.fn()} />);
+
+      expect(screen.queryByText(/new code ready/i)).not.toBeInTheDocument();
+    });
   });
 });

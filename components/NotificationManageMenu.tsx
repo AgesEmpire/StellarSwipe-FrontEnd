@@ -19,6 +19,7 @@ import {
   type NotificationCategory,
   type CategoryPreferences,
 } from "@/hooks/useNotificationPreference";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
@@ -174,6 +175,12 @@ export function NotificationManageMenu() {
   const [showPreview, setShowPreview] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
+  // Warn before leaving the page with pending preference edits
+  const { markSaved } = useUnsavedChanges({
+    isDirty: hasUnsaved,
+    message: "You have unsaved notification preferences. Leave anyway?",
+  });
+
   const meta = statusMeta(permissionStatus);
   const StatusIcon = meta.icon;
 
@@ -216,6 +223,7 @@ export function NotificationManageMenu() {
       (Object.keys(draftCategories) as NotificationCategory[]).forEach((cat) => {
         toggleCategory(cat, draftCategories[cat]);
       });
+      markSaved();
       setHasUnsaved(false);
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);

@@ -1,3 +1,6 @@
+import { isPriceStale } from "./priceRefreshStatus";
+import type { Quote, QuoteFreshness } from "./api-types.generated";
+
 export type SignalAction = "BUY" | "SELL" | "HOLD";
 export type SignalStatus = "Active" | "Waiting" | "Closed";
 
@@ -14,6 +17,8 @@ export interface Signal {
   provider?: string;
   /** Current execution state of the signal */
   status?: SignalStatus;
+  /** Price quote metadata; missing values are null, never zero */
+  quote: Quote;
 }
 
 export interface SignalFeedPage {
@@ -68,6 +73,41 @@ const TOTAL_SIGNALS = 50;
 // Signals older than this are considered expired (30 minutes)
 const SIGNAL_TTL_MS = 30 * 60 * 1000;
 
+/** Freshness of a quote observed at `observedAt` (epoch ms), using the price staleness threshold. */
+export function classifyQuoteFreshness(
+  observedAt: number | null,
+  now: number = Date.now()
+): QuoteFreshness {
+  if (observedAt === null) return "unavailable";
+  return isPriceStale(observedAt, now) ? "stale" : "fresh";
+}
+
+/**
+ * Builds quote metadata. A missing price, observation time or source yields
+ * `unavailable` with explicit nulls rather than a zero price.
+ */
+export function buildQuote(
+  price: number | null,
+  observedAt: number | null,
+  source: string | null,
+  now: number = Date.now()
+): Quote {
+  if (price === null || observedAt === null || source === null) {
+    return {
+      price: null,
+      observedAt: null,
+      source: null,
+      freshness: "unavailable",
+    };
+  }
+  return {
+    price,
+    observedAt: new Date(observedAt).toISOString(),
+    source,
+    freshness: classifyQuoteFreshness(observedAt, now),
+  };
+}
+
 export function buildSignalPage(page = 1, pageSize = 10): SignalFeedPage {
   const allSignals: Signal[] = Array.from(
     { length: TOTAL_SIGNALS },
@@ -93,6 +133,8 @@ export function buildSignalPage(page = 1, pageSize = 10): SignalFeedPage {
         expiresAt,
         provider: signalProviders[index % signalProviders.length],
         status: signalStatuses[index % signalStatuses.length],
+        // The feed does not carry a price source yet, so quotes stay unavailable
+        quote: buildQuote(null, null, null),
       };
     }
   );
