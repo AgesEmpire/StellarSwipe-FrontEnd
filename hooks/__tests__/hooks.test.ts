@@ -93,6 +93,7 @@ import type { TradeRequest } from "@/services/tradeExecutionService";
 
 const MOCK_REQUEST: TradeRequest = {
   id: "req-1",
+  userId: "user-1",
   signalId: "sig-1",
   asset: "XLM",
   direction: "BUY",

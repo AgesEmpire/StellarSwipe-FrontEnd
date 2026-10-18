@@ -16,12 +16,18 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { isTopOverlay } from "@/hooks/overlayManager";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { usePositionLimitStore } from "@/store/usePositionLimitStore";
+import { useWalletStore } from "@/store/useWalletStore";
 import { FeeDisclosurePanel } from "@/components/FeeDisclosurePanel";
 import { SlippageWarning } from "@/components/SlippageWarning";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
 import { validateTradeField } from "@/lib/tradeSchemas";
 import { useNetworkMismatch } from "@/components/NetworkMismatchBanner";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
+import { useWalletStore } from "@/store/useWalletStore";
+
+function truncateKey(key: string) {
+  return `${key.slice(0, 6)}...${key.slice(-4)}`;
+}
 
 type ModalStep = "input" | "review" | "optimistic";
 
@@ -88,13 +94,24 @@ export function TradeModal({
   // Clock for the quote countdown; only ticks while a quote with expiry is shown
   const [now, setNow] = useState(() => Date.now());
   const { isDemoMode } = useDemoModeStore();
+  const walletPublicKey = useWalletStore((s) => s.publicKey);
+  const walletNetwork = useWalletStore((s) => s.network);
   const { enabled: positionLimitEnabled, percentage: positionLimitPercentage } =
     usePositionLimitStore();
   const {
     isMismatch: networkMismatch,
     walletNetwork,
     appNetwork,
+    state: networkState,
   } = useNetworkMismatch();
+  const walletKey = useWalletStore((s) => s.publicKey);
+  const walletConnected = useWalletStore((s) => s.isConnected);
+  const walletReady = walletConnected && !!walletKey;
+  const networkLabel = networkMismatch
+    ? walletNetwork
+    : networkState.status === "match"
+    ? appNetwork
+    : "Unverified";
   const fmt = usePriceFormat();
 
   // Live-region ref for announcing order-type changes to screen readers
@@ -166,7 +183,8 @@ export function TradeModal({
     submitting ||
     hasErrors ||
     showSlippageWarning ||
-    networkMismatch;
+    networkMismatch ||
+    !walletReady;
 
   // Reset form state when modal opens
   useEffect(() => {
@@ -187,6 +205,18 @@ export function TradeModal({
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [open, quoteExpiresAt]);
+
+  // Switching or disconnecting the wallet invalidates the review: the order was
+  // reviewed against the previous account, so send the user back to the input step.
+  // Skipped while submitting so an in-flight confirm is not interrupted.
+  const walletKeyRef = useRef(walletKey);
+  useEffect(() => {
+    if (walletKeyRef.current === walletKey) return;
+    walletKeyRef.current = walletKey;
+    setStep((s) => (s === "review" ? "input" : s));
+    setSlippageAcknowledged(false);
+    setConfirmError(null);
+  }, [walletKey]);
 
   // Keyboard shortcuts: Escape → close, Enter (outside interactive elements) → confirm
   useEffect(() => {
@@ -275,6 +305,23 @@ export function TradeModal({
     setStep("optimistic");
     setSubmitting(true);
     try {
+      // Server revalidates balance, network, amount and slippage before submission
+      const res = await fetch("/api/trades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: walletPublicKey,
+          network: walletNetwork,
+          orderType: type,
+          amount,
+          price,
+          slippagePercent: estimatedSlippage,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message ?? "Trade was rejected by the server.");
+      }
       await mockBuildTx({ type, price, amount, stopLoss, positionLimit });
       setSubmitting(false);
       confirmInFlightRef.current = false;
@@ -299,6 +346,9 @@ export function TradeModal({
     onConfirm,
     disabled,
     quoteExpired,
+    walletPublicKey,
+    walletNetwork,
+    estimatedSlippage,
   ]);
 
   // Announce order-type changes to screen readers via live region
@@ -319,6 +369,10 @@ export function TradeModal({
   const parsedNetworkFeeXLM = parseFloat(networkFee.split(" ")[0]) || 0;
   const networkFeeUSDC = parsedNetworkFeeXLM * (marketPrice || price || 0);
   const netAmount = Math.max(0, total - tradeFee - networkFeeUSDC);
+  // Estimates need a quote and an amount; without them show "—", not "$0.0000"
+  const feeEstimateAvailable = total > 0;
+  const formatEstimate = (value: number) =>
+    feeEstimateAvailable ? `$${value.toFixed(4)}` : "—";
 
   return (
     <AnimatePresence>
@@ -593,6 +647,34 @@ export function TradeModal({
                     </div>
                   </div>
 
+                  {/* Estimated fees and net amount, recalculated as amount or quote changes */}
+                  <div className="rounded-lg border border-border bg-input px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-foreground-subtle">
+                        Est. trade fee ({(tradeFeePercent * 100).toFixed(2)}%)
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(tradeFee)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-foreground-subtle">
+                        Est. network fee
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(networkFeeUSDC)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 border-t border-border pt-1">
+                      <span className="text-foreground-subtle">
+                        Est. net amount
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(netAmount)}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Low balance alert */}
                   {insufficient && (
                     <div
@@ -845,6 +927,41 @@ export function TradeModal({
                     </div>
                   )}
 
+                  {/* Signing wallet and network — the order is submitted from this account */}
+                  <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-foreground-muted">Wallet</span>
+                      <span className="font-mono font-medium text-foreground">
+                        {walletReady && walletKey
+                          ? truncateKey(walletKey)
+                          : "Not connected"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-foreground-muted">Network</span>
+                      <span
+                        className={`font-mono font-medium ${
+                          networkMismatch
+                            ? "text-accent-danger"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {networkLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!walletReady && (
+                    <p role="alert" className="text-xs text-accent-danger">
+                      Connect a wallet to place this order.
+                    </p>
+                  )}
+                  {networkMismatch && (
+                    <p role="alert" className="text-xs text-accent-danger">
+                      Switch your wallet to {appNetwork} to place this order.
+                    </p>
+                  )}
+
                   {/* Summary rows */}
                   <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
                     <div className="flex items-center justify-between px-3 py-2">
@@ -890,7 +1007,7 @@ export function TradeModal({
                         Trade fee ({(tradeFeePercent * 100).toFixed(2)}%)
                       </span>
                       <span className="font-mono font-medium">
-                        ${tradeFee.toFixed(4)}
+                        {formatEstimate(tradeFee)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-2">
@@ -898,13 +1015,15 @@ export function TradeModal({
                         Network fee
                       </span>
                       <span className="font-mono font-medium">
-                        {networkFee} (~${networkFeeUSDC.toFixed(6)})
+                        {feeEstimateAvailable
+                          ? `${networkFee} (~$${networkFeeUSDC.toFixed(6)})`
+                          : networkFee}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-2 border-t pt-2">
                       <span className="text-foreground-subtle">Net amount</span>
                       <span className="font-mono font-medium">
-                        ${netAmount.toFixed(4)}
+                        {formatEstimate(netAmount)}
                       </span>
                     </div>
                   </div>
@@ -924,14 +1043,15 @@ export function TradeModal({
 
                   <button
                     onClick={handleConfirm}
-                    disabled={submitting || quoteExpired}
-                    aria-disabled={submitting || quoteExpired}
+                    disabled={submitting || quoteExpired || disabled}
+                    aria-disabled={submitting || quoteExpired || disabled}
                     aria-busy={submitting}
                     aria-describedby="confirm-button-help"
                     className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-all
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface
                       ${
-                        submitting || quoteExpired
+                        disabled={disabled || submitting || quoteExpired}
+                        aria-disabled={disabled || submitting || quoteExpired}
                           ? "bg-foreground/10 text-foreground-subtle cursor-not-allowed"
                           : type === "MARKET"
                           ? "bg-accent-market hover:opacity-90 text-foreground"

@@ -72,7 +72,7 @@ components:
 
     Signal:
       type: object
-      required: [id, ticker, action, confidence, details, timestamp]
+      required: [id, ticker, action, confidence, details, timestamp, quote]
       properties:
         id:
           type: string
@@ -96,6 +96,30 @@ components:
           type: string
         status:
           $ref: "#/components/schemas/SignalStatus"
+        quote:
+          $ref: "#/components/schemas/Quote"
+
+    QuoteFreshness:
+      type: string
+      enum: [fresh, stale, unavailable]
+
+    Quote:
+      type: object
+      description: Price quote metadata. Missing values are null, never zero.
+      required: [price, observedAt, source, freshness]
+      properties:
+        price:
+          type: number
+          nullable: true
+        observedAt:
+          type: string
+          format: date-time
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        freshness:
+          $ref: "#/components/schemas/QuoteFreshness"
 
     SignalFeedPage:
       type: object

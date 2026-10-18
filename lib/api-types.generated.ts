@@ -8,6 +8,17 @@ export type SignalAction = "BUY" | "SELL" | "HOLD";
 
 export type SignalStatus = "Active" | "Waiting" | "Closed";
 
+export type QuoteFreshness = "fresh" | "stale" | "unavailable";
+
+/** Price quote metadata. Missing values are null, never zero. */
+export interface Quote {
+  price: number | null;
+  /** ISO 8601 date-time — when the price was observed */
+  observedAt: string | null;
+  source: string | null;
+  freshness: QuoteFreshness;
+}
+
 export interface Signal {
   id: string;
   ticker: string;
@@ -21,6 +32,7 @@ export interface Signal {
   expiresAt?: string;
   provider?: string;
   status?: SignalStatus;
+  quote: Quote;
 }
 
 export interface SignalFeedPage {
