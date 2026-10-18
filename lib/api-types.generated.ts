@@ -44,6 +44,16 @@ export interface SignalFeedPage {
   hasMore: boolean;
 }
 
+export interface SignalCursorPage {
+  items: Signal[];
+  pageSize: number;
+  /** Number of signals matching the filters, across all pages. */
+  total: number;
+  /** Pass as `cursor` to fetch the next page; null on the last page. */
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export type SubscriptionStatus =
   | "active"
   | "inactive"
@@ -68,6 +78,11 @@ export interface ErrorResponse {
 export interface GetSignalsParams {
   page?: number;
   pageSize?: number;
+  cursor?: string;
+  action?: SignalAction;
+  status?: SignalStatus;
+  ticker?: string;
+  provider?: string;
 }
 
 /** Query parameters accepted by GET /api/subscriptions */

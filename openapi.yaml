@@ -9,9 +9,15 @@ paths:
     get:
       operationId: getSignals
       summary: List paginated signals
+      description: >
+        Feed order is newest first (`timestamp` descending), with `id` ascending as the
+        tie-breaker. Use either offset pagination (`page`) or cursor pagination (`cursor`).
+        Passing `cursor` at all selects cursor mode; send an empty value for the first page.
+        Filters apply in both modes; `total` reflects the filtered set.
       parameters:
         - name: page
           in: query
+          description: Offset mode only. Cannot be combined with `cursor`.
           schema:
             type: integer
             minimum: 1
@@ -22,15 +28,48 @@ paths:
             type: integer
             minimum: 1
             default: 10
+        - name: cursor
+          in: query
+          description: >
+            Cursor mode. Opaque value from the previous response's `nextCursor`.
+            An empty value returns the first page.
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Only return signals with this action.
+          schema:
+            $ref: "#/components/schemas/SignalAction"
+        - name: status
+          in: query
+          description: Only return signals with this status.
+          schema:
+            $ref: "#/components/schemas/SignalStatus"
+        - name: ticker
+          in: query
+          description: Only return signals for this ticker (exact match).
+          schema:
+            type: string
+        - name: provider
+          in: query
+          description: Only return signals from this provider (exact match).
+          schema:
+            type: string
       responses:
         "200":
-          description: Paginated signal feed
+          description: >
+            Signal feed. Offset mode returns `SignalFeedPage`; cursor mode returns
+            `SignalCursorPage`.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SignalFeedPage"
+                oneOf:
+                  - $ref: "#/components/schemas/SignalFeedPage"
+                  - $ref: "#/components/schemas/SignalCursorPage"
         "400":
-          description: Invalid pagination parameters
+          description: >
+            Invalid pagination parameters, invalid cursor, unknown `action` or `status`,
+            or `cursor` combined with `page`
           content:
             application/json:
               schema:
@@ -138,6 +177,26 @@ components:
         nextPage:
           type: integer
           nullable: true
+        hasMore:
+          type: boolean
+
+    SignalCursorPage:
+      type: object
+      required: [items, pageSize, total, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signal"
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          description: Number of signals matching the filters, across all pages.
+        nextCursor:
+          type: string
+          nullable: true
+          description: Pass as `cursor` to fetch the next page; null on the last page.
         hasMore:
           type: boolean
 
