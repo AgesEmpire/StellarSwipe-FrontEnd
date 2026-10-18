@@ -101,6 +101,13 @@ function persistJournalFilters(filters: PersistedJournalFilters) {
   }
 }
 
+/** Local calendar day of a timestamp as YYYY-MM-DD, matching `<input type="date">` values. */
+function toDateKey(timestamp: number) {
+  const d = new Date(timestamp);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 const statusStyles = {
   PENDING: "bg-yellow-500/10 text-yellow-300 border-yellow-500/20",
   SUCCEEDED: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
@@ -170,6 +177,11 @@ export function TransactionActivityFeed() {
   const [sortOrder, setSortOrder] = useState<JournalSortOrder>("newest");
   // Entries must carry every selected tag (AND) so each tag narrows the list.
   const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [assetFilter, setAssetFilter] = useState("ALL");
+  const [walletFilter, setWalletFilter] = useState("ALL");
+  // Inclusive local calendar days (YYYY-MM-DD); empty means unbounded.
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -257,11 +269,37 @@ export function TransactionActivityFeed() {
     [history]
   );
 
+  const allAssets = useMemo(
+    () => Array.from(new Set(history.map((item) => item.assetPair))).sort(),
+    [history]
+  );
+
+  const allWallets = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          history
+            .map((item) => item.walletAddress)
+            .filter((address): address is string => !!address)
+        )
+      ).sort(),
+    [history]
+  );
+
   const filtered = useMemo(() => {
     const matches = history
       .filter((item) => (item.archivedAt !== undefined) === showArchived)
       .filter((item) => typeFilter === "ALL" || item.type === typeFilter)
       .filter((item) => statusFilter === "ALL" || item.status === statusFilter)
+      .filter((item) => assetFilter === "ALL" || item.assetPair === assetFilter)
+      .filter(
+        (item) => walletFilter === "ALL" || item.walletAddress === walletFilter
+      )
+      .filter((item) => {
+        if (!dateFrom && !dateTo) return true;
+        const day = toDateKey(item.timestamp);
+        return (!dateFrom || day >= dateFrom) && (!dateTo || day <= dateTo);
+      })
       .filter((item) =>
         tagFilters.every((tag) => (item.tags ?? []).includes(tag))
       );
@@ -271,20 +309,63 @@ export function TransactionActivityFeed() {
         return parseFloat(b.amount) - parseFloat(a.amount);
       return b.timestamp - a.timestamp;
     });
-  }, [history, showArchived, typeFilter, statusFilter, sortOrder, tagFilters]);
+  }, [
+    history,
+    showArchived,
+    typeFilter,
+    statusFilter,
+    assetFilter,
+    walletFilter,
+    dateFrom,
+    dateTo,
+    sortOrder,
+    tagFilters,
+  ]);
+
+  // Drop selections that are no longer visible so bulk actions never touch
+  // rows the user cannot see.
+  useEffect(() => {
+    const visibleIds = new Set(filtered.map((item) => item.id));
+    setSelectedIds((prev) => {
+      const next = prev.filter((id) => visibleIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [filtered]);
 
   const hasActiveFilters =
     typeFilter !== "ALL" ||
     statusFilter !== "ALL" ||
+    assetFilter !== "ALL" ||
+    walletFilter !== "ALL" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
     sortOrder !== "newest" ||
     tagFilters.length > 0;
 
   const clearFilters = useCallback(() => {
     setTypeFilter("ALL");
     setStatusFilter("ALL");
+    setAssetFilter("ALL");
+    setWalletFilter("ALL");
+    setDateFrom("");
+    setDateTo("");
     setSortOrder("newest");
     setTagFilters([]);
   }, []);
+
+  // Changing any filter remounts the list so scroll position resets to the top
+  // instead of pointing past the end of a narrowed result set.
+  const listKey = JSON.stringify([
+    showArchived,
+    typeFilter,
+    statusFilter,
+    assetFilter,
+    walletFilter,
+    dateFrom,
+    dateTo,
+    sortOrder,
+    tagFilters,
+  ]);
 
   // ── Selection + bulk archive / restore ─────────────────────────────────
 
@@ -662,6 +743,90 @@ export function TransactionActivityFeed() {
         }}
       />
 
+      {/* ── Asset, wallet and date filters ─────────────────────────────── */}
+      <div
+        className="mb-4 flex flex-wrap items-end gap-3"
+        role="group"
+        aria-label="Filter by asset, wallet, and date"
+      >
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="journal-filter-asset"
+            className="text-xs uppercase tracking-[0.2em] text-muted-foreground"
+          >
+            Asset
+          </label>
+          <select
+            id="journal-filter-asset"
+            value={assetFilter}
+            onChange={(e) => setAssetFilter(e.target.value)}
+            className="rounded-full border border-white/10 bg-background/80 px-3 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="ALL">All assets</option>
+            {allAssets.map((asset) => (
+              <option key={asset} value={asset}>
+                {asset}
+              </option>
+            ))}
+          </select>
+        </div>
+        {allWallets.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="journal-filter-wallet"
+              className="text-xs uppercase tracking-[0.2em] text-muted-foreground"
+            >
+              Wallet
+            </label>
+            <select
+              id="journal-filter-wallet"
+              value={walletFilter}
+              onChange={(e) => setWalletFilter(e.target.value)}
+              className="rounded-full border border-white/10 bg-background/80 px-3 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">All wallets</option>
+              {allWallets.map((wallet) => (
+                <option key={wallet} value={wallet}>
+                  {wallet}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="journal-filter-date-from"
+            className="text-xs uppercase tracking-[0.2em] text-muted-foreground"
+          >
+            From
+          </label>
+          <input
+            id="journal-filter-date-from"
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="rounded-full border border-white/10 bg-background/80 px-3 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="journal-filter-date-to"
+            className="text-xs uppercase tracking-[0.2em] text-muted-foreground"
+          >
+            To
+          </label>
+          <input
+            id="journal-filter-date-to"
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="rounded-full border border-white/10 bg-background/80 px-3 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
       {/* ── Tag filter (multi-select, entries must match every selected tag) ── */}
       {allTags.length > 0 && (
         <div
@@ -786,7 +951,7 @@ export function TransactionActivityFeed() {
       {filtered.length === 0 ? (
         <EmptyState
           title="No activity for these filters"
-          description="Try a different type or status to see matching transactions."
+          description="Try adjusting or clearing the filters to see matching transactions."
           className="rounded-2xl border-dashed bg-white/5 py-8"
         />
       ) : (
@@ -812,6 +977,7 @@ export function TransactionActivityFeed() {
            * already-rendered items.
            */}
           <VirtualizedList
+            key={listKey}
             items={filtered}
             itemHeight={ROW_HEIGHT}
             overscan={OVERSCAN}

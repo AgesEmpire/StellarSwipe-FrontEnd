@@ -36,6 +36,8 @@ export interface TransactionHistoryItem extends TransactionDetails {
   tags?: string[];
   /** Realized profit/loss in quote currency, when known. */
   pnl?: number;
+  /** Stellar account the entry was made from, when known. */
+  walletAddress?: string;
 }
 
 export interface TransactionError {
