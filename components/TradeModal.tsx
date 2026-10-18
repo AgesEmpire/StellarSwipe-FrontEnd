@@ -9,7 +9,7 @@ import {
   Info,
   AlertCircle,
   ArrowLeft,
-  CheckCircle,
+  Loader2,
   RefreshCw,
 } from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -447,12 +447,10 @@ export function TradeModal({
         throw new Error(body?.message ?? "Trade was rejected by the server.");
       }
       await mockBuildTx({ type, price, amount, stopLoss, positionLimit });
-      setSubmitting(false);
-      confirmInFlightRef.current = false;
-      clearTradeDraft(draftKey);
-      onConfirm ? onConfirm({ amount, price, orderType: type }) : onClose();
     } catch (err) {
-      // Rollback: revert to review step and surface a distinct failure message
+      // Rollback: revert to review step and surface a distinct failure message.
+      // Only submission errors land here; once the order is placed, a failure
+      // in the caller's onConfirm must not send the user back to resubmit it.
       setSubmitting(false);
       confirmInFlightRef.current = false;
       setStep("review");
@@ -460,7 +458,12 @@ export function TradeModal({
         (err as Error).message ||
           "Transaction confirmation failed. Your order was not placed."
       );
+      return;
     }
+    setSubmitting(false);
+    confirmInFlightRef.current = false;
+    clearTradeDraft(draftKey);
+    onConfirm ? onConfirm({ amount, price, orderType: type }) : onClose();
   }, [
     type,
     price,
@@ -616,18 +619,22 @@ export function TradeModal({
             </div>
 
             {step === "optimistic" ? (
-              <div className="flex flex-col items-center gap-4 py-6 text-center">
-                <CheckCircle
+              <div
+                className="flex flex-col items-center gap-4 py-6 text-center"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2
                   size={48}
-                  className="text-accent-market"
+                  className="animate-spin text-foreground-muted"
                   aria-hidden="true"
                 />
                 <div>
                   <p className="text-base font-semibold text-foreground">
-                    Order submitted!
+                    Submitting order…
                   </p>
                   <p className="mt-1 text-sm text-foreground-muted">
-                    Waiting for on-chain confirmation…
+                    Not placed until the network confirms it.
                   </p>
                 </div>
                 {submitting && (
