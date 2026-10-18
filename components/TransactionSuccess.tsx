@@ -32,6 +32,7 @@ export function TransactionSuccess() {
         body: `Your swap for ${success.token} at ${success.price} completed successfully`,
         icon: "✓",
         category: "systemUpdates",
+        critical: true,
       });
     }
     analyticsService.track("trade_confirmation_success", {

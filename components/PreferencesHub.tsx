@@ -12,6 +12,7 @@ import { DataSaverToggle } from "@/components/DataSaverToggle";
 import { SwipeSettings } from "@/components/SwipeSettings";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NotificationManageMenu } from "@/components/NotificationManageMenu";
+import { QuietHoursSettings } from "@/components/QuietHoursSettings";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 import { SettingsHistory } from "@/components/SettingsHistory";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
@@ -231,11 +232,14 @@ export function PreferencesHub() {
         id="prefs-notifications"
         icon={<Bell size={16} aria-hidden="true" />}
         title="Notifications"
-        description="Control push notification permission and categories."
+        description="Control push notification permission, categories, and quiet hours."
       >
         <SettingAnchor id="setting-notifications">
           <NotificationManageMenu />
         </SettingAnchor>
+        <div className="border-t border-border pt-4">
+          <QuietHoursSettings />
+        </div>
       </PreferencesSection>
 
       <PreferencesSection

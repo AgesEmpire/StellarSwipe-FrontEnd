@@ -39,6 +39,7 @@ export function TransactionFailure({ onRetry }: TransactionFailureProps) {
           error.message || "Something went wrong during the trade execution.",
         icon: "⚠️",
         category: "systemUpdates",
+        critical: true,
       });
     }
     analyticsService.track("trade_confirmation_failed", {
