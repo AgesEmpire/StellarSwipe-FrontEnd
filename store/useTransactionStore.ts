@@ -3,6 +3,11 @@ import { create } from "zustand";
 export type TransactionStatus = "PENDING" | "SUCCEEDED" | "FAILED";
 export type TransactionOutcome = "WIN" | "LOSS" | "PENDING";
 export type TransactionType = "COPY_TRADE" | "SWAP" | "MANUAL";
+/** Matches NEXT_PUBLIC_STELLAR_NETWORK values (see .env.example). */
+export type StellarNetwork = "TESTNET" | "PUBLIC";
+
+/** Terminal statuses never transition again; retries must not overwrite them. */
+const TERMINAL_STATUSES: TransactionStatus[] = ["SUCCEEDED", "FAILED"];
 
 export interface TransactionDetails {
   hash: string;
@@ -19,6 +24,8 @@ export interface TransactionHistoryItem extends TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   outcome: TransactionOutcome;
+  /** Stellar network the transaction was submitted to, when known. */
+  network?: StellarNetwork;
   /** Set when the entry is archived; cleared when it is restored. */
   archivedAt?: number;
   /** Server revision the entry was last saved at; used to detect conflicting edits. */
@@ -134,8 +141,16 @@ export const useTransactionStore = create<TransactionState>()((set, get) => ({
 
   setPreservedInput: (input) => set({ preservedInput: input }),
 
+  // Idempotent: a retried submission with the same id or hash is ignored.
   addTransaction: (transaction) =>
-    set((state) => ({ history: [transaction, ...state.history] })),
+    set((state) => {
+      const exists = state.history.some(
+        (item) =>
+          item.id === transaction.id ||
+          (!!transaction.hash && item.hash === transaction.hash)
+      );
+      return exists ? state : { history: [transaction, ...state.history] };
+    }),
 
   removeTransaction: (id) =>
     set((state) => ({
@@ -156,10 +171,11 @@ export const useTransactionStore = create<TransactionState>()((set, get) => ({
   bulkAddTransactions: (transactions) =>
     set((state) => ({ history: [...transactions, ...state.history] })),
 
+  // Idempotent: repeated updates are no-ops once an entry is terminal.
   updateTransactionStatus: (id, status, outcome) =>
     set((state) => ({
       history: state.history.map((item) =>
-        item.id !== id
+        item.id !== id || TERMINAL_STATUSES.includes(item.status)
           ? item
           : {
               ...item,
