@@ -67,6 +67,84 @@ const mockBuildTx = (_order: object) =>
     }, 800)
   );
 
+// The order form only trades XLM today; it is part of the draft context so a
+// draft can never be restored into a different asset.
+const ASSET_CODE = "XLM";
+const TRADE_DRAFT_PREFIX = "trade-draft:";
+
+interface TradeDraftFields {
+  type: OrderType;
+  limitPrice: string;
+  amount: string;
+  stopLoss: number;
+  positionLimit: boolean;
+}
+
+interface TradeDraft extends TradeDraftFields {
+  /** Asset, network and wallet the draft was entered under. */
+  context: string;
+}
+
+const DEFAULT_DRAFT: TradeDraftFields = {
+  type: "LIMIT",
+  limitPrice: "",
+  amount: "",
+  stopLoss: 10,
+  positionLimit: false,
+};
+
+function isDefaultDraft(fields: TradeDraftFields): boolean {
+  return (Object.keys(DEFAULT_DRAFT) as (keyof TradeDraftFields)[]).every(
+    (key) => fields[key] === DEFAULT_DRAFT[key]
+  );
+}
+
+function readTradeDraft(
+  key: string,
+  context: string
+): TradeDraftFields | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as TradeDraft;
+    if (!draft || draft.context !== context) return null;
+    return {
+      type: draft.type === "MARKET" ? "MARKET" : "LIMIT",
+      limitPrice: typeof draft.limitPrice === "string" ? draft.limitPrice : "",
+      amount: typeof draft.amount === "string" ? draft.amount : "",
+      stopLoss: typeof draft.stopLoss === "number" ? draft.stopLoss : 10,
+      positionLimit: draft.positionLimit === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTradeDraft(
+  key: string,
+  context: string,
+  fields: TradeDraftFields
+) {
+  try {
+    if (isDefaultDraft(fields)) {
+      localStorage.removeItem(key);
+      return;
+    }
+    const draft: TradeDraft = { context, ...fields };
+    localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // Storage unavailable — the draft is simply not kept.
+  }
+}
+
+function clearTradeDraft(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Storage unavailable — nothing to clear.
+  }
+}
+
 export function TradeModal({
   open,
   onClose,
@@ -100,6 +178,8 @@ export function TradeModal({
   const { isDemoMode } = useDemoModeStore();
   const walletPublicKey = useWalletStore((s) => s.publicKey);
   const walletNetwork = useWalletStore((s) => s.network);
+  const draftContext = `${ASSET_CODE}:${walletNetwork}:${walletPublicKey ?? ""}`;
+  const draftKey = `${TRADE_DRAFT_PREFIX}${draftContext}`;
   const { enabled: positionLimitEnabled, percentage: positionLimitPercentage } =
     usePositionLimitStore();
   const {
@@ -201,6 +281,46 @@ export function TradeModal({
       setQuoteError(null);
     }
   }, [open]);
+
+  // Restore the unfinished draft for this asset/network/wallet. A draft from
+  // another context is never applied, so the fields fall back to defaults.
+  // Skip the next save so the restored values aren't written back mid-load.
+  const skipDraftSaveRef = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    const draft = readTradeDraft(draftKey, draftContext) ?? DEFAULT_DRAFT;
+    skipDraftSaveRef.current = true;
+    setType(draft.type);
+    setLimitPrice(draft.limitPrice);
+    setAmount(draft.amount);
+    setStopLoss(draft.stopLoss);
+    setPositionLimit(draft.positionLimit);
+  }, [open, draftKey, draftContext]);
+
+  // Persist entry fields so leaving the trade flow doesn't lose them.
+  useEffect(() => {
+    if (!open) return;
+    if (skipDraftSaveRef.current) {
+      skipDraftSaveRef.current = false;
+      return;
+    }
+    writeTradeDraft(draftKey, draftContext, {
+      type,
+      limitPrice,
+      amount,
+      stopLoss,
+      positionLimit,
+    });
+  }, [
+    open,
+    draftKey,
+    draftContext,
+    type,
+    limitPrice,
+    amount,
+    stopLoss,
+    positionLimit,
+  ]);
 
   // Tick the quote countdown once a second while an expiring quote is shown
   useEffect(() => {
@@ -329,6 +449,7 @@ export function TradeModal({
       await mockBuildTx({ type, price, amount, stopLoss, positionLimit });
       setSubmitting(false);
       confirmInFlightRef.current = false;
+      clearTradeDraft(draftKey);
       onConfirm ? onConfirm({ amount, price, orderType: type }) : onClose();
     } catch (err) {
       // Rollback: revert to review step and surface a distinct failure message
@@ -349,11 +470,30 @@ export function TradeModal({
     onClose,
     onConfirm,
     disabled,
+    draftKey,
     quoteExpired,
     walletPublicKey,
     walletNetwork,
     estimatedSlippage,
   ]);
+
+  const discardDraft = useCallback(() => {
+    clearTradeDraft(draftKey);
+    setType(DEFAULT_DRAFT.type);
+    setLimitPrice(DEFAULT_DRAFT.limitPrice);
+    setAmount(DEFAULT_DRAFT.amount);
+    setStopLoss(DEFAULT_DRAFT.stopLoss);
+    setPositionLimit(DEFAULT_DRAFT.positionLimit);
+    setTouched({ limitPrice: false, amount: false });
+  }, [draftKey]);
+
+  const hasDraftFields = !isDefaultDraft({
+    type,
+    limitPrice,
+    amount,
+    stopLoss,
+    positionLimit,
+  });
 
   // Announce order-type changes to screen readers via live region
   const handleOrderTypeChange = (newType: OrderType) => {
@@ -842,6 +982,18 @@ export function TradeModal({
                 >
                   Review Order
                 </button>
+
+                {/* Explicit discard — clears the saved draft for this context */}
+                {hasDraftFields && (
+                  <button
+                    type="button"
+                    onClick={discardDraft}
+                    className="mt-2 w-full rounded-md py-1 text-xs text-foreground-muted hover:text-foreground transition-colors
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  >
+                    Discard draft
+                  </button>
+                )}
 
                 {/* Keyboard shortcut hint */}
                 <p
