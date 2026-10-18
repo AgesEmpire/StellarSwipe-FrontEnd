@@ -23,6 +23,8 @@ export interface TransactionHistoryItem extends TransactionDetails {
   revision?: number;
   /** Normalized strategy/setup labels, e.g. "breakout", "dca". */
   tags?: string[];
+  /** Realized profit/loss in quote currency, when known. */
+  pnl?: number;
 }
 
 export interface TransactionError {
