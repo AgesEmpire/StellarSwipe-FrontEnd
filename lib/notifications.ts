@@ -1,3 +1,11 @@
+import {
+  clearDeferredNotifications,
+  deferNotification,
+  getDeferredNotifications,
+  getQuietHoursSettings,
+  isWithinQuietHours,
+} from "@/lib/quietHours";
+
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (!("Notification" in window)) return "denied";
   if (Notification.permission !== "default") return Notification.permission;
@@ -13,9 +21,17 @@ export function canShowNotification(): boolean {
   return "Notification" in window && Notification.permission === "granted";
 }
 
+/**
+ * Shows a notification unless it's blocked by preferences. Non-critical
+ * notifications received during quiet hours are deferred and shown on the
+ * next call made outside the window; `critical: true` bypasses quiet hours.
+ */
 export function showNotification(
   title: string,
-  options?: NotificationOptions & { category?: NotificationCategory }
+  options?: NotificationOptions & {
+    category?: NotificationCategory;
+    critical?: boolean;
+  }
 ) {
   if (!canShowNotification()) return;
 
@@ -42,7 +58,22 @@ export function showNotification(
     }
   }
 
-  new Notification(title, options);
+  const { critical, ...notificationOptions } = options ?? {};
+
+  if (!critical && isWithinQuietHours(getQuietHoursSettings())) {
+    deferNotification(title, notificationOptions);
+    return;
+  }
+
+  flushDeferredNotifications();
+  new Notification(title, notificationOptions);
+}
+
+function flushDeferredNotifications() {
+  const deferred = getDeferredNotifications();
+  if (deferred.length === 0) return;
+  clearDeferredNotifications();
+  deferred.forEach((item) => new Notification(item.title, item.options));
 }
 
 // Web Push helpers
