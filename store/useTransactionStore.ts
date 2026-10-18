@@ -16,6 +16,8 @@ export interface TransactionDetails {
   fee: string;
   token: string;
   timestamp: number;
+  /** Stellar network the transaction was submitted to, when known. */
+  network?: StellarNetwork;
 }
 
 export interface TransactionHistoryItem extends TransactionDetails {
