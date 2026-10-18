@@ -30,6 +30,25 @@ export interface SignalFeedPage {
   hasMore: boolean;
 }
 
+export interface SignalCursorPage {
+  items: Signal[];
+  pageSize: number;
+  total: number;
+  /** Opaque cursor for the next page; null when this is the last page */
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface SignalFeedFilters {
+  action?: SignalAction;
+  ticker?: string;
+  provider?: string;
+  status?: SignalStatus;
+}
+
+/** Stable sort position of a signal: newest first, then id as tie-breaker */
+type SignalPosition = Pick<Signal, "id" | "timestamp">;
+
 const signalTickers = [
   "XLM",
   "BTC",
@@ -108,8 +127,79 @@ export function buildQuote(
   };
 }
 
-export function buildSignalPage(page = 1, pageSize = 10): SignalFeedPage {
-  const allSignals: Signal[] = Array.from(
+/** Newest first; id breaks ties so every signal has a unique, stable position. */
+function compareSignalPositions(a: SignalPosition, b: SignalPosition): number {
+  if (a.timestamp !== b.timestamp) return a.timestamp > b.timestamp ? -1 : 1;
+  if (a.id === b.id) return 0;
+  return a.id > b.id ? 1 : -1;
+}
+
+/**
+ * Reads the optional `action`, `ticker`, `provider` and `status` filters.
+ * Empty values are ignored; returns null when `action` or `status` is unknown.
+ */
+export function parseSignalFeedFilters(
+  params: URLSearchParams
+): SignalFeedFilters | null {
+  const action = params.get("action") || undefined;
+  const status = params.get("status") || undefined;
+
+  if (action !== undefined && !(signalActions as string[]).includes(action)) {
+    return null;
+  }
+  if (status !== undefined && !(signalStatuses as string[]).includes(status)) {
+    return null;
+  }
+
+  return {
+    action: action as SignalAction | undefined,
+    ticker: params.get("ticker") || undefined,
+    provider: params.get("provider") || undefined,
+    status: status as SignalStatus | undefined,
+  };
+}
+
+function matchesFilters(signal: Signal, filters: SignalFeedFilters): boolean {
+  return (
+    (filters.action === undefined || signal.action === filters.action) &&
+    (filters.ticker === undefined || signal.ticker === filters.ticker) &&
+    (filters.provider === undefined || signal.provider === filters.provider) &&
+    (filters.status === undefined || signal.status === filters.status)
+  );
+}
+
+/** Encodes a position as an opaque base64url cursor. */
+export function encodeSignalCursor({ id, timestamp }: SignalPosition): string {
+  return btoa(JSON.stringify({ id, timestamp }))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/** Decodes a cursor produced by `encodeSignalCursor`; null when it is malformed. */
+export function decodeSignalCursor(cursor: string): SignalPosition | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(cursor)) return null;
+
+  try {
+    const base64 = cursor.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const parsed = JSON.parse(atob(padded)) as Partial<SignalPosition>;
+
+    if (
+      typeof parsed.id !== "string" ||
+      typeof parsed.timestamp !== "string" ||
+      Number.isNaN(Date.parse(parsed.timestamp))
+    ) {
+      return null;
+    }
+    return { id: parsed.id, timestamp: parsed.timestamp };
+  } catch {
+    return null;
+  }
+}
+
+function generateSignals(): Signal[] {
+  return Array.from(
     { length: TOTAL_SIGNALS },
     (_, index) => {
       const ticker = signalTickers[index % signalTickers.length];
@@ -137,19 +227,57 @@ export function buildSignalPage(page = 1, pageSize = 10): SignalFeedPage {
         quote: buildQuote(null, null, null),
       };
     }
+  ).sort(compareSignalPositions);
+}
+
+export function buildSignalPage(
+  page = 1,
+  pageSize = 10,
+  filters: SignalFeedFilters = {}
+): SignalFeedPage {
+  const matching = generateSignals().filter((signal) =>
+    matchesFilters(signal, filters)
   );
 
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
-  const items = allSignals.slice(start, end);
-  const hasMore = end < TOTAL_SIGNALS;
+  const items = matching.slice(start, end);
+  const hasMore = end < matching.length;
 
   return {
     items,
     page,
     pageSize,
-    total: TOTAL_SIGNALS,
+    total: matching.length,
     nextPage: hasMore ? page + 1 : null,
+    hasMore,
+  };
+}
+
+/**
+ * Returns the signals strictly after `after` in feed order. Pass `null` for the first page.
+ * Filters narrow the feed before the boundary is applied.
+ */
+export function buildSignalCursorPage(
+  after: SignalPosition | null,
+  pageSize = 10,
+  filters: SignalFeedFilters = {}
+): SignalCursorPage {
+  const matching = generateSignals().filter((signal) =>
+    matchesFilters(signal, filters)
+  );
+  const remaining = after
+    ? matching.filter((signal) => compareSignalPositions(signal, after) > 0)
+    : matching;
+
+  const items = remaining.slice(0, pageSize);
+  const hasMore = remaining.length > pageSize;
+
+  return {
+    items,
+    pageSize,
+    total: matching.length,
+    nextCursor: hasMore ? encodeSignalCursor(items[items.length - 1]) : null,
     hasMore,
   };
 }

@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { buildSignalPage, buildActivitySummary } from "@/lib/signals";
+import {
+  buildSignalCursorPage,
+  buildSignalPage,
+  buildActivitySummary,
+  decodeSignalCursor,
+  parseSignalFeedFilters,
+} from "@/lib/signals";
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
 
 const DISMISSAL_REASONS = ["irrelevant", "too_risky", "already_acted_on"] as const;
@@ -62,10 +68,45 @@ export async function GET(request: Request) {
     return NextResponse.json(history, { status: 200 });
   }
 
+  const filters = parseSignalFeedFilters(url.searchParams);
+  if (!filters) {
+    return NextResponse.json(
+      { error: "Invalid filter parameters. action and status must be known values." },
+      { status: 400 }
+    );
+  }
+
+  // Presence of `cursor` selects cursor mode; an empty value requests the first page.
+  if (url.searchParams.has("cursor")) {
+    if (url.searchParams.has("page")) {
+      return NextResponse.json(
+        { error: "Use either cursor or page, not both." },
+        { status: 400 }
+      );
+    }
+
+    const cursor = url.searchParams.get("cursor") ?? "";
+    const after = cursor ? decodeSignalCursor(cursor) : null;
+    if (cursor && !after) {
+      return NextResponse.json(
+        { error: "Invalid cursor." },
+        { status: 400 }
+      );
+    }
+
+    const cursorFeed = await traceWorker(
+      "worker:signals:fetch",
+      async () => buildSignalCursorPage(after, pageSize, filters),
+      { pageSize, filters }
+    );
+
+    return NextResponse.json(cursorFeed, { status: 200 });
+  }
+
   const feed = await traceWorker(
     "worker:signals:fetch",
-    async () => buildSignalPage(page, pageSize),
-    { page, pageSize }
+    async () => buildSignalPage(page, pageSize, filters),
+    { page, pageSize, filters }
   );
 
   return NextResponse.json(feed, { status: 200 });
