@@ -19,6 +19,8 @@ export interface TransactionHistoryItem extends TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   outcome: TransactionOutcome;
+  /** Server revision the entry was last saved at; used to detect conflicting edits. */
+  revision?: number;
   /** Normalized strategy/setup labels, e.g. "breakout", "dca". */
   tags?: string[];
 }

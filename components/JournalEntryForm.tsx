@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
 import { journalEntrySchema, normalizeJournalTags, type JournalEntry } from "@/lib/journalSchema";
-import { createJournalEntry, updateJournalEntry } from "@/lib/journalApi";
+import { createJournalEntry, updateJournalEntry, JournalApiError } from "@/lib/journalApi";
 import { Button } from "@/components/ui/button";
 import { ValidationSummary } from "@/components/forms/ValidationSummary";
 import { Plus, AlertCircle, Loader2, X } from "lucide-react";
@@ -18,6 +18,8 @@ type AutosaveStatus = "idle" | "saving" | "saved" | "offline" | "failed";
 interface JournalDraft {
   data: Partial<JournalEntry>;
   savedAt: number;
+  /** Server revision the draft was edited from. */
+  baseRevision?: number;
 }
 
 const DRAFT_PREFIX = "journal-draft:";
@@ -107,6 +109,11 @@ export function JournalEntryForm({
   const [recoverableDraft, setRecoverableDraft] = useState<JournalDraft | null>(null);
   const [draftChecked, setDraftChecked] = useState(false);
   const initialDataRef = useRef<string | null>(null);
+  // Server revision the edits are based on. Saves are sent with it so the
+  // server rejects them if a newer version exists; a restored draft brings
+  // back the revision it was made against.
+  const baseRevisionRef = useRef<number | undefined>(editEntry?.revision);
+  const [hasConflict, setHasConflict] = useState(false);
   // True once the user has attempted to submit, so the validation summary
   // only appears after a failed submit — never on first render.
   const [submitted, setSubmitted] = useState(false);
@@ -176,7 +183,11 @@ export function JournalEntryForm({
     try {
       localStorage.setItem(
         draftKey,
-        JSON.stringify({ data: formDataRef.current, savedAt: Date.now() })
+        JSON.stringify({
+          data: formDataRef.current,
+          savedAt: Date.now(),
+          baseRevision: baseRevisionRef.current,
+        })
       );
       setAutosaveStatus(navigator.onLine ? "saved" : "offline");
     } catch {
@@ -202,6 +213,7 @@ export function JournalEntryForm({
   const restoreDraft = useCallback(() => {
     if (!recoverableDraft) return;
     setFormData(recoverableDraft.data);
+    baseRevisionRef.current = recoverableDraft.baseRevision ?? baseRevisionRef.current;
     setIsDirty(true);
     setRecoverableDraft(null);
     setAutosaveStatus("saved");
@@ -224,6 +236,7 @@ export function JournalEntryForm({
     setErrors({});
     setSubmitted(false);
     setSubmitError(null);
+    setHasConflict(false);
     setIsDirty(false);
     setAutosaveStatus("idle");
     setRecoverableDraft(null);
@@ -397,9 +410,13 @@ export function JournalEntryForm({
     [store, draftKey]
   );
 
-  /** Optimistic edit: update locally → call API → rollback on failure. */
+  /**
+   * Optimistic edit: update locally → call API → rollback on failure.
+   * `overwrite` saves without a revision check, for when the user has chosen
+   * to replace a newer server version with their edits.
+   */
   const submitEditEntry = useCallback(
-    async (data: JournalEntry, entry: TransactionHistoryItem) => {
+    async (data: JournalEntry, entry: TransactionHistoryItem, overwrite = false) => {
       const patch: Partial<TransactionHistoryItem> = {
         assetPair: data.assetPair,
         amount: data.amount,
@@ -418,7 +435,12 @@ export function JournalEntryForm({
       store.getState().markPending(entry.id);
 
       try {
-        await updateJournalEntry(entry.id, patch);
+        const updated = await updateJournalEntry(
+          entry.id,
+          patch,
+          overwrite ? undefined : baseRevisionRef.current
+        );
+        store.getState().updateTransaction(entry.id, updated);
         store.getState().clearPending(entry.id);
         clearDraft(draftKey);
         setAutosaveStatus("idle");
@@ -434,6 +456,11 @@ export function JournalEntryForm({
           err instanceof Error ? err.message : "Failed to save changes.";
         setSubmitError(message);
         setAutosaveStatus("failed");
+        if (err instanceof JournalApiError && err.code === "CONFLICT") {
+          // Edits stay in the form and draft; the user decides whether to overwrite.
+          setHasConflict(true);
+          throw err;
+        }
         toast.error("Update failed", {
           description: message,
           duration: 4000,
@@ -456,6 +483,7 @@ export function JournalEntryForm({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setSubmitError(null);
+      setHasConflict(false);
       if (autosaveStatus === "failed") setAutosaveStatus("saving");
       setSubmitted(true);
 
@@ -474,6 +502,17 @@ export function JournalEntryForm({
     },
     [validateCurrentForm, isEditing, editEntry, submitEditEntry, submitCreateEntry, resetForm, guard, autosaveStatus]
   );
+
+  /** Saves the edits over a newer server version, after the user has chosen to. */
+  const overwriteConflict = useCallback(async () => {
+    if (!editEntry) return;
+    setSubmitError(null);
+    setHasConflict(false);
+    const data = validateCurrentForm();
+    if (!data) return;
+
+    await guard(() => submitEditEntry(data, editEntry, true));
+  }, [editEntry, validateCurrentForm, submitEditEntry, guard]);
 
   // ── Render ──────────────────────────────────────────────────────────
 
@@ -526,7 +565,7 @@ export function JournalEntryForm({
         <span role="status" aria-live="polite" data-testid="journal-autosave-status">
           {AUTOSAVE_MESSAGES[autosaveStatus]}
         </span>
-        {autosaveStatus === "failed" && (
+        {autosaveStatus === "failed" && !hasConflict && (
           <Button
             type="button"
             variant="outline"
@@ -564,6 +603,15 @@ export function JournalEntryForm({
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>{submitError}</span>
+        </div>
+      )}
+
+      {hasConflict && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300" data-testid="journal-conflict">
+          <span className="flex-1">Keep your edits instead of the newer version?</span>
+          <Button type="button" size="sm" onClick={overwriteConflict} disabled={isSubmitting} data-testid="journal-conflict-overwrite">
+            Overwrite with my edits
+          </Button>
         </div>
       )}
 
