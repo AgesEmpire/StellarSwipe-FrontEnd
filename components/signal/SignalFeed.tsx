@@ -17,6 +17,9 @@ import { ExpiredSignalBanner } from "@/components/ExpiredSignalBanner";
 import { useSignalFilterStore } from "@/store/useSignalFilterStore";
 import { useRecentlyViewedStore } from "@/store/useRecentlyViewedStore";
 import { useSnoozeStore } from "@/store/useSnoozeStore";
+import { useSignalExpiryStore } from "@/store/useSignalExpiryStore";
+import { useSignalExpiryWorker } from "@/hooks/useSignalExpiryWorker";
+import { selectActiveSignals } from "@/lib/signalExpiry";
 import { RecentlyViewedStrip } from "@/components/RecentlyViewedStrip";
 import type { Signal } from "@/lib/signals";
 import { Search, SlidersHorizontal, X } from "lucide-react";
@@ -140,6 +143,14 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     [data]
   );
 
+  // Expiry runs on its own schedule; expired signals drop out of the active feed.
+  const expiredSignals = useSignalExpiryStore((state) => state.expired);
+  useSignalExpiryWorker(allSignals);
+  const activeSignals = useMemo(
+    () => selectActiveSignals(allSignals, expiredSignals),
+    [allSignals, expiredSignals]
+  );
+
   const availableProviders = useMemo(
     () => [...new Set(allSignals.map((s) => s.ticker))].sort(),
     [allSignals]
@@ -158,7 +169,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     filteredSignals: signals,
     filteredCount,
     hasActiveFilters,
-  } = useSearchFilter({ signals: allSignals, snoozeTick });
+  } = useSearchFilter({ signals: activeSignals, snoozeTick });
 
   const selectedSignal = useMemo(
     () => signals.find((signal) => signal.id === selectedSignalId) ?? null,
