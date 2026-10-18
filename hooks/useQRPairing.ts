@@ -8,6 +8,10 @@
  *  - Tracks expiry with a countdown
  *  - Polls for pairing completion (mobile wallet signals back via the /api/qr-pair endpoint)
  *  - Exposes helpers to regenerate the code and cancel the session
+ *  - Ignores late poll responses: a response is only applied while its session
+ *    is still the live one and has not expired (#801), so an expired code can
+ *    never be "restored" and a replaced session can never mark the wallet
+ *    connected
  *
  * The pairing URI is intentionally kept minimal so it encodes into a short
  * QR code (version 3-5). Real WalletConnect sessions would use a relay server;
@@ -34,6 +38,25 @@ export type QRPairingStatus =
   | "rejected" // mobile wallet explicitly rejected
   | "error"; // unexpected error
 
+/** "1:05" style countdown label. */
+export function formatCountdown(secondsLeft: number): string {
+  const s = Math.max(0, Math.floor(secondsLeft));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Spoken form of the countdown, e.g. "1 minute 5 seconds". */
+export function describeCountdown(secondsLeft: number): string {
+  const s = Math.max(0, Math.floor(secondsLeft));
+  const minutes = Math.floor(s / 60);
+  const seconds = s % 60;
+  const parts: string[] = [];
+  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
+  if (seconds > 0 || minutes === 0) {
+    parts.push(`${seconds} ${seconds === 1 ? "second" : "seconds"}`);
+  }
+  return parts.join(" ");
+}
+
 export interface QRPairingState {
   status: QRPairingStatus;
   uri: string | null; // the string encoded in the QR
@@ -41,6 +64,7 @@ export interface QRPairingState {
   secondsLeft: number; // countdown to expiry
   publicKey: string | null; // set on successful pairing
   errorMessage: string | null;
+  expiresAt: number | null; // epoch ms when the current code expires
 }
 
 function generateSessionId(): string {
@@ -70,7 +94,7 @@ function buildPairingURI(sessionId: string): string {
  */
 async function pollPairingStatus(
   sessionId: string
-): Promise<"pending" | "rejected" | "error" | string> {
+): Promise<"pending" | "scanning" | "rejected" | "error" | string> {
   try {
     const res = await fetch(
       `/api/qr-pair?session=${encodeURIComponent(sessionId)}`,
@@ -84,6 +108,7 @@ async function pollPairingStatus(
     };
     if (json.status === "paired" && json.publicKey) return json.publicKey;
     if (json.status === "rejected") return "rejected";
+    if (json.status === "scanning") return "scanning";
     return "pending";
   } catch {
     // API not implemented yet — keep showing the QR (demo mode)
@@ -101,10 +126,16 @@ export function useQRPairing() {
     secondsLeft: Math.ceil(QR_TTL_MS / 1000),
     publicKey: null,
     errorMessage: null,
+    expiresAt: null,
   });
 
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /**
+   * The session whose responses may still be applied. Cleared on expiry,
+   * cancel, and terminal results; replaced on regenerate. Any poll response
+   * for a session that is not live is discarded.
+   */
   const sessionIdRef = useRef<string | null>(null);
 
   const clearTimers = useCallback(() => {
@@ -123,6 +154,8 @@ export function useQRPairing() {
 
     const sessionId = generateSessionId();
     const uri = buildPairingURI(sessionId);
+    const startTime = Date.now();
+    const expiresAt = startTime + QR_TTL_MS;
     sessionIdRef.current = sessionId;
 
     setState({
@@ -132,46 +165,84 @@ export function useQRPairing() {
       secondsLeft: Math.ceil(QR_TTL_MS / 1000),
       publicKey: null,
       errorMessage: null,
+      expiresAt,
     });
 
     analyticsService.track("qr_pairing_started", { sessionId });
 
+    /** True while this session may still change state. */
+    const isLive = () =>
+      sessionIdRef.current === sessionId && Date.now() < expiresAt;
+
+    /** Apply an update only if state still belongs to this session. */
+    const updateOwn = (
+      updater: (prev: QRPairingState) => QRPairingState
+    ) =>
+      setState((prev) => (prev.sessionId === sessionId ? updater(prev) : prev));
+
+    const expire = () => {
+      if (sessionIdRef.current !== sessionId) return;
+      sessionIdRef.current = null;
+      clearTimers();
+      updateOwn((prev) =>
+        prev.status === "pending" || prev.status === "scanning"
+          ? {
+              ...prev,
+              secondsLeft: 0,
+              status: "expired",
+              errorMessage: "Pairing code expired. Generate a new one.",
+            }
+          : prev
+      );
+      analyticsService.track("qr_pairing_expired", { sessionId });
+    };
+
     // Countdown timer
-    const startTime = Date.now();
     countdownRef.current = setInterval(() => {
+      if (sessionIdRef.current !== sessionId) return; // stale session
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, Math.ceil((QR_TTL_MS - elapsed) / 1000));
-      setState((prev) => ({ ...prev, secondsLeft: remaining }));
-      if (remaining === 0) {
-        clearTimers();
-        setState((prev) =>
-          prev.status === "pending" || prev.status === "scanning"
-            ? {
-                ...prev,
-                status: "expired",
-                errorMessage: "Pairing code expired. Generate a new one.",
-              }
-            : prev
-        );
-        analyticsService.track("qr_pairing_expired", { sessionId });
-      }
+      updateOwn((prev) => ({ ...prev, secondsLeft: remaining }));
+      if (remaining === 0) expire();
     }, 1_000);
 
-    // Poll for pairing completion
+    // Poll for pairing completion. Only one request is in flight per session
+    // so a slow response can't race a newer one from the same session.
+    let inFlight = false;
     pollRef.current = setInterval(async () => {
-      if (sessionIdRef.current !== sessionId) return; // stale session
-      const result = await pollPairingStatus(sessionId);
+      if (!isLive() || inFlight) return;
+      inFlight = true;
+      const result = await pollPairingStatus(sessionId).finally(() => {
+        inFlight = false;
+      });
+
+      // Late response: the session was replaced, cancelled, or expired while
+      // the request was in flight. Never let it change the UI or the wallet.
+      if (!isLive()) {
+        if (sessionIdRef.current === sessionId) expire();
+        return;
+      }
+
       if (result === "pending") return;
+      if (result === "scanning") {
+        updateOwn((prev) =>
+          prev.status === "pending" ? { ...prev, status: "scanning" } : prev
+        );
+        return;
+      }
+
+      // Terminal result — this session can no longer change state.
+      sessionIdRef.current = null;
       clearTimers();
       if (result === "rejected") {
-        setState((prev) => ({
+        updateOwn((prev) => ({
           ...prev,
           status: "rejected",
           errorMessage: "Pairing was rejected by the mobile wallet.",
         }));
         analyticsService.track("qr_pairing_rejected", { sessionId });
       } else if (result === "error") {
-        setState((prev) => ({
+        updateOwn((prev) => ({
           ...prev,
           status: "error",
           errorMessage: "An error occurred during pairing. Please try again.",
@@ -184,7 +255,7 @@ export function useQRPairing() {
         setPublicKey(publicKey);
         setConnected(true);
         walletToast.connected(publicKey);
-        setState((prev) => ({ ...prev, status: "paired", publicKey }));
+        updateOwn((prev) => ({ ...prev, status: "paired", publicKey }));
         analyticsService.track("qr_pairing_success", {
           sessionId,
           wallet_type: "qr",
@@ -206,17 +277,27 @@ export function useQRPairing() {
       secondsLeft: Math.ceil(QR_TTL_MS / 1000),
       publicKey: null,
       errorMessage: null,
+      expiresAt: null,
     });
   }, [clearTimers]);
 
-  // Cleanup on unmount
-  useEffect(() => () => clearTimers(), [clearTimers]);
+  // Cleanup on unmount — also invalidate the session so an in-flight poll
+  // resolving after unmount is ignored.
+  useEffect(
+    () => () => {
+      sessionIdRef.current = null;
+      clearTimers();
+    },
+    [clearTimers]
+  );
 
   return {
     ...state,
     ttlMs: QR_TTL_MS,
     startSession,
     regenerate: startSession,
+    /** Request a fresh code (e.g. after expiry) without leaving the QR flow. */
+    requestNewCode: startSession,
     cancel,
   };
 }

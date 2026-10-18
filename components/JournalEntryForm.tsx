@@ -2,11 +2,11 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
-import { journalEntrySchema, type JournalEntry } from "@/lib/journalSchema";
+import { journalEntrySchema, normalizeJournalTags, type JournalEntry } from "@/lib/journalSchema";
 import { createJournalEntry, updateJournalEntry } from "@/lib/journalApi";
 import { Button } from "@/components/ui/button";
 import { ValidationSummary } from "@/components/forms/ValidationSummary";
-import { Plus, AlertCircle, Loader2 } from "lucide-react";
+import { Plus, AlertCircle, Loader2, X } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useSubmitGuard } from "@/hooks/useSubmitGuard";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
@@ -94,7 +94,9 @@ export function JournalEntryForm({
     status: (editEntry?.status as JournalEntry["status"]) || "SUCCEEDED",
     outcome: (editEntry?.outcome as JournalEntry["outcome"]) || "PENDING",
     notes: "",
+    tags: editEntry?.tags ?? [],
   });
+  const [tagInput, setTagInput] = useState("");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -216,7 +218,9 @@ export function JournalEntryForm({
       type: "MANUAL",
       status: "SUCCEEDED",
       outcome: "PENDING",
+      tags: [],
     });
+    setTagInput("");
     setErrors({});
     setSubmitted(false);
     setSubmitError(null);
@@ -266,6 +270,35 @@ export function JournalEntryForm({
       return next;
     });
   }, []);
+
+  /** Moves whatever is typed in the tag box into the tag list (comma/Enter/blur). */
+  const commitTagInput = useCallback(() => {
+    if (!tagInput.trim()) return;
+    const incoming = tagInput.split(",");
+    setTagInput("");
+    setFormData((prev) => ({
+      ...prev,
+      tags: normalizeJournalTags([...(prev.tags ?? []), ...incoming]),
+    }));
+  }, [tagInput]);
+
+  const removeTag = useCallback((tag: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: (prev.tags ?? []).filter((existing) => existing !== tag),
+    }));
+  }, []);
+
+  const handleTagKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" || e.key === ",") {
+        // Enter would otherwise submit the whole entry form.
+        e.preventDefault();
+        commitTagInput();
+      }
+    },
+    [commitTagInput]
+  );
 
   /**
    * Validates a single field on blur so required fields surface their
@@ -323,6 +356,7 @@ export function JournalEntryForm({
         type: data.type as TransactionHistoryItem["type"],
         status: data.status as TransactionHistoryItem["status"],
         outcome: data.outcome as TransactionHistoryItem["outcome"],
+        tags: data.tags ?? [],
       };
 
       // Optimistic: show entry immediately
@@ -375,6 +409,7 @@ export function JournalEntryForm({
         type: data.type as TransactionHistoryItem["type"],
         status: data.status as TransactionHistoryItem["status"],
         outcome: data.outcome as TransactionHistoryItem["outcome"],
+        tags: data.tags ?? [],
       };
 
       const snapshot = { ...entry };
@@ -674,6 +709,37 @@ export function JournalEntryForm({
             <option value="WIN">Win</option>
             <option value="LOSS">Loss</option>
           </select>
+        </div>
+
+        <div className="space-y-1 sm:col-span-2">
+          <label htmlFor="journal-entry-tag-input" className="text-xs font-medium text-slate-400">Tags</label>
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
+            {(formData.tags ?? []).map((tag) => (
+              <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-blue-400/30 bg-blue-400/10 px-2 py-0.5 text-xs text-blue-300">
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  disabled={isSubmitting}
+                  aria-label={`Remove tag ${tag}`}
+                  className="rounded-full hover:text-white disabled:opacity-50"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+            <input
+              id="journal-entry-tag-input"
+              type="text"
+              placeholder="e.g. breakout, dca — press Enter"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagKeyDown}
+              onBlur={commitTagInput}
+              className="min-w-24 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-50"
+              disabled={isSubmitting}
+            />
+          </div>
         </div>
 
         <div className="sm:col-span-2 hidden sm:block">

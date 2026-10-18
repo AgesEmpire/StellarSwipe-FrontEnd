@@ -19,6 +19,8 @@ export interface TransactionHistoryItem extends TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   outcome: TransactionOutcome;
+  /** Normalized strategy/setup labels, e.g. "breakout", "dca". */
+  tags?: string[];
 }
 
 export interface TransactionError {

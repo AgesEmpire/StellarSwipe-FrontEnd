@@ -1,6 +1,19 @@
 import { z } from "zod";
 
 /**
+ * Normalizes journal tags: trims, lowercases, collapses inner whitespace,
+ * drops empty values and removes duplicates while keeping first-seen order.
+ */
+export function normalizeJournalTags(tags: readonly string[]): string[] {
+  const unique = new Set<string>();
+  for (const raw of tags) {
+    const tag = raw.trim().replace(/\s+/g, " ").toLowerCase();
+    if (tag) unique.add(tag);
+  }
+  return Array.from(unique);
+}
+
+/**
  * Zod schema for validating a single trade entry.
  * This is used for both manual entry and CSV bulk import.
  */
@@ -23,6 +36,7 @@ export const journalEntrySchema = z.object({
   status: z.enum(["PENDING", "SUCCEEDED", "FAILED"]),
   outcome: z.enum(["WIN", "LOSS", "PENDING"]),
   notes: z.string().optional(),
+  tags: z.array(z.string()).transform(normalizeJournalTags).optional(),
 });
 
 export type JournalEntry = z.infer<typeof journalEntrySchema>;
