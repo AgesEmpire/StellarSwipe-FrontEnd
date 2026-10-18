@@ -11,6 +11,7 @@ import { useCrossTabSync } from "@/hooks/useCrossTabSync";
 import { useServiceWorker } from "@/hooks/useServiceWorker";
 import { IdleSessionGuard } from "@/components/IdleSessionGuard";
 import { NetworkMismatchBanner } from "@/components/NetworkMismatchBanner";
+import { startSettingsHistoryTracking } from "@/lib/settingsRegistry";
 
 // React Query Devtools are only useful while developing locally. Gating the
 // dynamic import on NODE_ENV means the `development` branch is statically
@@ -30,6 +31,9 @@ const ReactQueryDevtools: React.ComponentType<{ initialIsOpen?: boolean }> =
 export function Providers({ children }: { children: React.ReactNode }) {
   useCrossTabSync();
   useServiceWorker();
+
+  // Record preference changes from any surface for the settings history (#900).
+  useEffect(() => startSettingsHistoryTracking(), []);
 
   useEffect(() => {
     initI18n().then(() => {

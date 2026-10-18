@@ -8,6 +8,7 @@ import {
   signTransaction,
 } from "@stellar/freighter-api";
 import { useWalletStore } from "@/store/useWalletStore";
+import { useActiveFlowsStore } from "@/store/useActiveFlowsStore";
 import { NETWORK_PASSPHRASE } from "@/lib/stellar";
 import { walletToast } from "@/lib/walletToast";
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
@@ -137,6 +138,15 @@ export function useWallet() {
       throw new Error("Wallet not connected");
     }
     setIsSigning(true);
+    // A pending signature is network-bound; surface it to the network switch
+    // confirmation (#800). It can't be cancelled from the app — the user
+    // finishes or rejects it in the wallet.
+    const flowId = `signing-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    useActiveFlowsStore.getState().registerFlow({
+      id: flowId,
+      kind: "signing",
+      label: "Transaction waiting for your wallet signature",
+    });
     try {
       const result = await signTransaction(transactionXdr, {
         networkPassphrase: networkPassphrase ?? NETWORK_PASSPHRASE,
@@ -152,6 +162,7 @@ export function useWallet() {
       Sentry.captureException(err);
       throw err;
     } finally {
+      useActiveFlowsStore.getState().unregisterFlow(flowId);
       setIsSigning(false);
     }
   }
