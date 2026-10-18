@@ -26,6 +26,15 @@ export interface TaxableTransaction {
   acquisitionDate?: number;
   foreignCurrency?: string;
   conversionRate?: number;
+  /** Origin details used to identify the record during review (#894). */
+  source?: TaxTransactionSource;
+}
+
+export interface TaxTransactionSource {
+  /** On-chain transaction hash, when known. */
+  hash?: string;
+  /** How the trade was placed, e.g. COPY_TRADE, SWAP, MANUAL. */
+  type?: string;
 }
 
 export interface TaxEntry {
