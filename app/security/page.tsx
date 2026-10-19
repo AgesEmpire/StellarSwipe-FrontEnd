@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bug, ChevronRight, Shield, MonitorSmartphone } from "lucide-react";
+import { Bug, ChevronRight, Shield, MonitorSmartphone, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -16,21 +16,33 @@ import { DataSaverToggle } from "@/components/DataSaverToggle";
 import { NotificationPermissionButton } from "@/components/NotificationPermissionButton";
 import { useNotificationPreference } from "@/hooks/useNotificationPreference";
 import { SettingsBreadcrumb } from "@/components/SettingsBreadcrumb";
+import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
+import { useWalletStore } from "@/store/useWalletStore";
 
 export default function SecuritySettingsPage() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+  const [showDeletion, setShowDeletion] = useState(false);
   const { categoryPreferences, toggleCategory } = useNotificationPreference();
+
+  const publicKey = useWalletStore((s) => s.publicKey);
+  const disconnect = useWalletStore((s) => s.disconnect);
 
   function handleSetupComplete() {
     setTwoFactorEnabled(true);
     setShowSetup(false);
   }
 
+  function handleDeleted() {
+    disconnect();
+    setShowDeletion(false);
+  }
+
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
       <div className="mx-auto w-full max-w-2xl space-y-6">
         <SettingsBreadcrumb />
+
         {/* Page header */}
         <div className="flex items-center gap-2">
           <Shield size={20} className="text-blue-400" aria-hidden="true" />
@@ -301,6 +313,7 @@ export default function SecuritySettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Bug Bounty */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -375,7 +388,63 @@ export default function SecuritySettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* ── Danger Zone ───────────────────────────────────────────────────── */}
+        {!showSetup && (
+          <Card className="border-red-500/30">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Trash2 size={15} className="text-red-400" aria-hidden="true" />
+                <h2 className="text-sm font-semibold text-red-400">Danger Zone</h2>
+              </div>
+              <p className="text-xs text-foreground-muted">
+                Actions in this section are irreversible. Proceed with caution.
+              </p>
+            </CardHeader>
+            <CardContent className="px-5 pb-5 space-y-4">
+              <div className="flex flex-col gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">Delete Account</p>
+                  <p className="text-xs text-foreground-muted">
+                    Permanently deactivate your account. Financial and audit records
+                    are anonymised and retained per our 7-year retention policy.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowDeletion(true)}
+                  disabled={!publicKey}
+                  aria-label="Open account deletion dialog"
+                  className="shrink-0 gap-1.5"
+                  title={
+                    !publicKey
+                      ? "Connect your wallet to delete your account"
+                      : undefined
+                  }
+                >
+                  <Trash2 size={13} aria-hidden="true" />
+                  Delete Account
+                </Button>
+              </div>
+
+              {!publicKey && (
+                <p className="text-xs text-yellow-400" role="note">
+                  You must connect your Freighter wallet before you can delete your account.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Account Deletion Dialog */}
+      <AccountDeletionDialog
+        open={showDeletion}
+        publicKey={publicKey ?? ""}
+        onClose={() => setShowDeletion(false)}
+        onDeleted={handleDeleted}
+      />
     </main>
   );
 }

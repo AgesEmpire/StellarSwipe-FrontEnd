@@ -132,7 +132,7 @@ export function useSignalPrice(
     };
   }, [intervalMs]);
 
-  // Relative timestamp — refreshes every 60s
+  // Relative timestamp — refreshes every 60 s (always uses realClock for display)
   useEffect(() => {
     const fmt = () => {
       const secs = Math.floor((Date.now() - price.updatedAt.getTime()) / 1000);
