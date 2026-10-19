@@ -9,12 +9,13 @@ const sharedConfig = {
 };
 
 const config: Config = {
-  // Two projects:
-  //   1. "unit" — pure TypeScript tests that do not need MSW (poller, tracing, etc.)
-  //   2. "network" — tests that use MSW for HTTP mocking
+  // Three projects:
+  //   1. "unit"    — pure TypeScript tests with no MSW (poller, tracing, stores, etc.)
+  //   2. "lib"     — lib/__tests__ tests that do NOT use MSW (e.g. signal payload)
+  //   3. "network" — lib/__tests__ tests that DO use MSW for HTTP mocking
   //
-  // This split avoids the MSW ESM incompatibility surfacing in tests that
-  // don't need network mocking at all.
+  // The unit/lib split avoids the MSW ESM incompatibility surfacing in tests
+  // that don't need network mocking at all.
   projects: [
     {
       ...sharedConfig,
@@ -32,9 +33,19 @@ const config: Config = {
     },
     {
       ...sharedConfig,
+      displayName: "lib",
+      testMatch: [
+        // Pure lib tests that do NOT require MSW (add new ones here)
+        "<rootDir>/lib/__tests__/signalPayload.test.ts",
+      ],
+      // No setupFilesAfterEnv — no MSW needed.
+    },
+    {
+      ...sharedConfig,
       displayName: "network",
       testMatch: [
-        "<rootDir>/lib/__tests__/**/*.test.ts",
+        // lib tests that require MSW for HTTP mocking
+        "<rootDir>/lib/__tests__/api.msw.test.ts",
       ],
       // MSW lifecycle for HTTP-mocked tests only.
       setupFilesAfterEnv: ["<rootDir>/src/mocks/jest.setup.ts"],
