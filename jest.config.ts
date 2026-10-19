@@ -27,6 +27,7 @@ const config: Config = {
         "<rootDir>/components/__tests__/**/*.test.{ts,tsx}",
         "<rootDir>/components/chart/__tests__/**/*.test.{ts,tsx}",
         "<rootDir>/services/performanceMonitoring/__tests__/**/*.test.ts",
+        "<rootDir>/services/auditTrail/__tests__/**/*.test.ts",
       ],
       // No setupFilesAfterEnv — these tests never need MSW.
     },

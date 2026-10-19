@@ -12,6 +12,7 @@ import { NETWORK_PASSPHRASE } from "@/lib/stellar";
 import { walletToast } from "@/lib/walletToast";
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
 import analyticsService from "@/services/analytics";
+import { AUDIT_ACTIONS, recordAuditEntry } from "@/services/auditTrail";
 import type { WalletConnectErrorReason } from "@/components/WalletConnectErrorModal";
 
 function isUserRejection(err: unknown): boolean {
@@ -95,13 +96,31 @@ export function useWallet() {
       throw new Error("Wallet not connected");
     }
     setIsSigning(true);
+    const passphrase = networkPassphrase ?? NETWORK_PASSPHRASE;
     try {
       const result = await signTransaction(transactionXdr, {
-        networkPassphrase: networkPassphrase ?? NETWORK_PASSPHRASE,
+        networkPassphrase: passphrase,
         address: publicKey,
+      });
+      // Sensitive action — audit it. Neither the XDR nor the resulting
+      // signature is recorded.
+      recordAuditEntry({
+        actor: publicKey,
+        action: AUDIT_ACTIONS.TRANSACTION_SIGNED,
+        target: publicKey,
+        metadata: { networkPassphrase: passphrase },
       });
       return typeof result === "string" ? result : result.signedTxXdr;
     } catch (err) {
+      recordAuditEntry({
+        actor: publicKey,
+        action: AUDIT_ACTIONS.TRANSACTION_SIGN_FAILED,
+        target: publicKey,
+        metadata: {
+          networkPassphrase: passphrase,
+          reason: isUserRejection(err) ? "user_rejected" : "error",
+        },
+      });
       if (isUserRejection(err)) {
         walletToast.signingDenied();
         throw err;

@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  AUDIT_ACTIONS,
+  recordAuditEntry,
+} from "@/services/auditTrail";
 
 interface WalletState {
   publicKey: string | null;
@@ -12,13 +16,35 @@ interface WalletState {
 
 export const useWalletStore = create<WalletState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       publicKey: null,
       isConnected: false,
       network: "TESTNET",
-      setPublicKey: (key) => set({ publicKey: key }),
+      setPublicKey: (key) => {
+        if (key && key !== get().publicKey) {
+          // Sensitive account change — audit (public keys are not secrets).
+          recordAuditEntry({
+            actor: key,
+            action: AUDIT_ACTIONS.WALLET_CONNECTED,
+            target: key,
+            metadata: { network: get().network },
+          });
+        }
+        set({ publicKey: key });
+      },
       setConnected: (connected) => set({ isConnected: connected }),
-      disconnect: () => set({ publicKey: null, isConnected: false }),
+      disconnect: () => {
+        const previous = get().publicKey;
+        if (previous) {
+          // Sensitive account change — audit.
+          recordAuditEntry({
+            actor: previous,
+            action: AUDIT_ACTIONS.WALLET_DISCONNECTED,
+            target: previous,
+          });
+        }
+        set({ publicKey: null, isConnected: false });
+      },
     }),
     { name: "wallet-store" }
   )

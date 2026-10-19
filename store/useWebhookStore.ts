@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { AUDIT_ACTIONS, recordAuditEntry } from '@/services/auditTrail';
 
 export type WebhookEventType = 'new_signal' | 'trade_execution' | 'portfolio_alert';
 
@@ -52,12 +53,27 @@ export const useWebhookStore = create<WebhookStore>()(
           deliveries: [],
           rateLimit: 60,
         };
+        // Sensitive change — audit the registration. The generated secret is
+        // deliberately excluded.
+        recordAuditEntry({
+          actor: 'system',
+          action: AUDIT_ACTIONS.WEBHOOK_CREATED,
+          target: webhook.id,
+          metadata: { url, events },
+        });
         set((s) => ({ webhooks: [...s.webhooks, webhook] }));
         return webhook;
       },
 
-      removeWebhook: (id) =>
-        set((s) => ({ webhooks: s.webhooks.filter((w) => w.id !== id) })),
+      removeWebhook: (id) => {
+        // Sensitive change — audit the removal (webhook id, not the secret).
+        recordAuditEntry({
+          actor: 'system',
+          action: AUDIT_ACTIONS.WEBHOOK_DELETED,
+          target: id,
+        });
+        set((s) => ({ webhooks: s.webhooks.filter((w) => w.id !== id) }));
+      },
 
       updateEvents: (id, events) =>
         set((s) => ({

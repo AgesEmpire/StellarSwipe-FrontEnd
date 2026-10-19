@@ -4,7 +4,10 @@
  * - Caching for exchange rates and balances
  * - Network call batching
  * - Execution time measurement
+ * - Audit trail entries for executed trades (#949)
  */
+import { useWalletStore } from '@/store/useWalletStore';
+import { AUDIT_ACTIONS, recordAuditEntry, type AuditEntry } from '@/services/auditTrail';
 
 export interface TradeRequest {
   id: string;
@@ -22,6 +25,8 @@ export interface TradeResult {
   executionTimeMs: number;
   slippage?: number;
   error?: string;
+  /** Audit entry recorded for this (attempted) execution. */
+  auditEntry?: AuditEntry;
 }
 
 export interface ExecutionEstimate {
@@ -125,12 +130,42 @@ class TradeExecutionService {
       const item = this.queue.shift()!;
       try {
         const result = await this.executeWithTimeout(item.request);
-        item.resolve(result);
+        const auditEntry = this.auditTrade(item.request, result);
+        item.resolve({ ...result, auditEntry });
       } catch (err) {
+        // Failed attempts are security-sensitive too — record them.
+        this.auditTrade(item.request, {
+          success: false,
+          error: (err as Error).message,
+        });
         item.reject(err as Error);
       }
     }
     this.processing = false;
+  }
+
+  /**
+   * Append an audit entry for an attempted trade. Only the non-sensitive
+   * outcome is captured — no secrets or signatures.
+   */
+  private auditTrade(
+    request: TradeRequest,
+    result: { success: boolean; txHash?: string; error?: string }
+  ): AuditEntry {
+    return recordAuditEntry({
+      actor: useWalletStore.getState().publicKey ?? 'anonymous',
+      action: AUDIT_ACTIONS.TRADE_EXECUTED,
+      target: request.id,
+      metadata: {
+        signalId: request.signalId,
+        asset: request.asset,
+        direction: request.direction,
+        amount: request.amount,
+        success: result.success,
+        txHash: result.txHash,
+        error: result.error,
+      },
+    });
   }
 
   private async executeWithTimeout(request: TradeRequest): Promise<TradeResult> {
