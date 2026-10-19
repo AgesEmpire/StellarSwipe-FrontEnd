@@ -69,6 +69,7 @@ export const Leaderboard: React.FC = () => {
         {PERIOD_TABS.map((tab) => (
           <button
             key={tab.value}
+            type="button"
             onClick={() => setPeriod(tab.value)}
             aria-pressed={period === tab.value}
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
