@@ -64,11 +64,27 @@ export const Leaderboard: React.FC = () => {
       <h1 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-accent-market to-accent-primary text-transparent bg-clip-text">
         Community Leaderboard
       </h1>
-    return (
-      <div className="text-accent-danger p-4">
-        Failed to load leaderboard: {error}
-      </div>
-    );
+
+      <div
+        role="tablist"
+        aria-label="Leaderboard period"
+        className="flex flex-wrap gap-2 mb-6 justify-center"
+      >
+        {PERIOD_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            role="tab"
+            type="button"
+            aria-selected={period === tab.value}
+            onClick={() => setPeriod(tab.value)}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              period === tab.value
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {tab.label}
+          </button>
         ))}
       </div>
 
