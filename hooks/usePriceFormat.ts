@@ -3,6 +3,10 @@ import { usePricePrecisionStore } from "@/store/usePricePrecisionStore";
 /**
  * Returns a formatter function that formats a price number according to
  * the user's current precision preference (standard or high).
+ *
+ * Usage:
+ *   const fmt = usePriceFormat();
+ *   fmt(0.4821)  // "0.4821" (standard) or "0.482100" (high)
  */
 export function usePriceFormat(): (price: number) => string {
   const { precision } = usePricePrecisionStore();

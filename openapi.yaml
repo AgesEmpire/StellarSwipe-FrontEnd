@@ -111,7 +111,7 @@ components:
 
     Signal:
       type: object
-      required: [id, ticker, action, confidence, details, timestamp, quote]
+      required: [id, ticker, action, confidence, details, timestamp]
       properties:
         id:
           type: string

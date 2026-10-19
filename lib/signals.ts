@@ -17,8 +17,8 @@ export interface Signal {
   provider?: string;
   /** Current execution state of the signal */
   status?: SignalStatus;
-  /** Price quote metadata; missing values are null, never zero */
-  quote: Quote;
+  /** Price quote metadata; absent when the feed carries no price source. */
+  quote?: Quote;
 }
 
 export interface SignalFeedPage {
@@ -280,4 +280,118 @@ export function buildSignalCursorPage(
     nextCursor: hasMore ? encodeSignalCursor(items[items.length - 1]) : null,
     hasMore,
   };
+}
+
+// ── Activity summary (view=activity) ────────────────────────────────────────
+
+export interface ProviderActivitySummary {
+  provider: string;
+  totalSignals: number;
+  buySignals: number;
+  sellSignals: number;
+  holdSignals: number;
+  avgConfidence: number;
+  /** ISO timestamp of the provider's most recent signal, null when none. */
+  lastSignalAt: string | null;
+}
+
+export interface ActivitySummaryPage {
+  items: ProviderActivitySummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  nextPage: number | null;
+  hasMore: boolean;
+}
+
+/**
+ * Aggregates the feed into a per-provider activity summary, newest provider
+ * first, with traditional page/pageSize pagination.
+ */
+export function buildActivitySummary(
+  page = 1,
+  pageSize = 10
+): ActivitySummaryPage {
+  const byProvider = new Map<string, Signal[]>();
+  for (const signal of generateSignals()) {
+    const key = signal.provider ?? "unknown";
+    const bucket = byProvider.get(key);
+    if (bucket) bucket.push(signal);
+    else byProvider.set(key, [signal]);
+  }
+
+  const summaries: ProviderActivitySummary[] = [...byProvider.entries()]
+    .map(([provider, signals]) => {
+      const confidenceSum = signals.reduce((sum, s) => sum + s.confidence, 0);
+      return {
+        provider,
+        totalSignals: signals.length,
+        buySignals: signals.filter((s) => s.action === "BUY").length,
+        sellSignals: signals.filter((s) => s.action === "SELL").length,
+        holdSignals: signals.filter((s) => s.action === "HOLD").length,
+        avgConfidence: Math.round(confidenceSum / signals.length),
+        // generateSignals() returns newest-first, so index 0 is the latest.
+        lastSignalAt: signals[0]?.timestamp ?? null,
+      };
+    })
+    .sort((a, b) =>
+      compareSignalPositions(
+        { id: a.provider, timestamp: b.lastSignalAt ?? "" },
+        { id: b.provider, timestamp: a.lastSignalAt ?? "" }
+      )
+    );
+
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+  const items = summaries.slice(start, end);
+  const hasMore = end < summaries.length;
+
+  return {
+    items,
+    page,
+    pageSize,
+    total: summaries.length,
+    nextPage: hasMore ? page + 1 : null,
+    hasMore,
+  };
+}
+
+// ── Confidence history (view=confidence-history) ────────────────────────────
+
+export interface ConfidenceHistoryPoint {
+  timestamp: string;
+  confidence: number;
+}
+
+export interface ConfidenceHistory {
+  signalId: string;
+  ticker: string;
+  points: ConfidenceHistoryPoint[];
+}
+
+/**
+ * Synthetic confidence history for a single signal. The feed only carries the
+ * current confidence, so we derive a deterministic ramp that ends at the
+ * signal's current value. Returns null when the signal does not exist.
+ */
+export function buildConfidenceHistory(signalId: string): ConfidenceHistory | null {
+  const signal = generateSignals().find((s) => s.id === signalId);
+  if (!signal) return null;
+
+  const pointCount = 5;
+  const points: ConfidenceHistoryPoint[] = [];
+  const createdMs = Date.parse(signal.timestamp);
+  const spanMs = Date.now() - createdMs;
+
+  for (let i = 0; i < pointCount; i++) {
+    const fraction = i / (pointCount - 1);
+    // Ramp from two-thirds of the final confidence up to the final value.
+    const confidence = Math.round(signal.confidence * (2 / 3 + fraction / 3));
+    points.push({
+      timestamp: new Date(createdMs + spanMs * fraction).toISOString(),
+      confidence: Math.min(100, confidence),
+    });
+  }
+
+  return { signalId: signal.id, ticker: signal.ticker, points };
 }

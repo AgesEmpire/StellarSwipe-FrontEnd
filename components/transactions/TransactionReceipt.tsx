@@ -17,26 +17,38 @@ interface LifecycleEvent {
 
 const STATUS_LABELS: Record<TransactionStatus, string> = {
   pending: 'Submitted',
+  submitted: 'Submitted',
   processing: 'Processing',
+  success: 'Confirmed on ledger',
   confirmed: 'Confirmed on ledger',
   failed: 'Failed',
+  error: 'Failed',
   expired: 'Expired',
+  cancelled: 'Cancelled',
 };
 
 const STATUS_DESCRIPTIONS: Record<TransactionStatus, string> = {
   pending: 'Transaction submitted and awaiting network acknowledgement.',
+  submitted: 'Transaction submitted and awaiting network acknowledgement.',
   processing: 'Transaction accepted by the network and awaiting ledger confirmation.',
+  success: 'Transaction confirmed on the Stellar ledger.',
   confirmed: 'Transaction confirmed on the Stellar ledger.',
   failed: 'Transaction failed and was not applied to the ledger.',
+  error: 'Transaction failed and was not applied to the ledger.',
   expired: 'Transaction expired before it could be confirmed.',
+  cancelled: 'Transaction was cancelled before confirmation.',
 };
 
 const STATUS_TONES: Record<TransactionStatus, LifecycleEvent['tone']> = {
   pending: 'pending',
+  submitted: 'pending',
   processing: 'pending',
+  success: 'complete',
   confirmed: 'complete',
   failed: 'failed',
+  error: 'failed',
   expired: 'failed',
+  cancelled: 'failed',
 };
 
 function formatTimestamp(timestamp?: string): string {
@@ -52,15 +64,16 @@ function formatTimestamp(timestamp?: string): string {
 
 function buildLifecycleEvents(transaction: Transaction): LifecycleEvent[] {
   const history = transaction.statusHistory ?? [];
+  const finalStatus = transaction.status ?? 'pending';
 
   if (history.length === 0) {
     return [
       {
-        status: transaction.status,
+        status: finalStatus,
         timestamp: transaction.updatedAt ?? transaction.createdAt,
-        label: STATUS_LABELS[transaction.status],
-        description: STATUS_DESCRIPTIONS[transaction.status],
-        tone: STATUS_TONES[transaction.status],
+        label: STATUS_LABELS[finalStatus],
+        description: STATUS_DESCRIPTIONS[finalStatus],
+        tone: STATUS_TONES[finalStatus],
       },
     ];
   }
@@ -94,6 +107,7 @@ const TONE_TEXT_STYLES: Record<LifecycleEvent['tone'], string> = {
 
 export default function TransactionReceipt({ transaction }: TransactionReceiptProps) {
   const events = useMemo(() => buildLifecycleEvents(transaction), [transaction]);
+  const finalStatus = transaction.status ?? 'pending';
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -111,8 +125,8 @@ export default function TransactionReceipt({ transaction }: TransactionReceiptPr
         </div>
         <div>
           <dt className="text-gray-500">Status</dt>
-          <dd className={`font-medium ${TONE_TEXT_STYLES[STATUS_TONES[transaction.status]]}`}>
-            {STATUS_LABELS[transaction.status]}
+          <dd className={`font-medium ${TONE_TEXT_STYLES[STATUS_TONES[finalStatus]]}`}>
+            {STATUS_LABELS[finalStatus]}
           </dd>
         </div>
       </dl>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import TransactionTimeline from '../components/TransactionTimeline';
+import TransactionTimeline from '../components/transactions/TransactionTimeline';
 import type { TransactionLifecycleEvent } from '../lib/types/transaction';
 
 describe('TransactionTimeline', () => {

@@ -82,7 +82,6 @@ export const useComparisonStore = create<ComparisonState>()(
         });
         return { ok: true };
       },
-      clearSignals: () => set({ signals: [], limitReached: false }),
       clearAll: () => set({ signals: [], limitReached: false }),
 
       toggleMetric: (key) =>

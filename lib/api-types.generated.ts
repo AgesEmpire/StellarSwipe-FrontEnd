@@ -32,7 +32,7 @@ export interface Signal {
   expiresAt?: string;
   provider?: string;
   status?: SignalStatus;
-  quote: Quote;
+  quote?: Quote;
 }
 
 export interface SignalFeedPage {
