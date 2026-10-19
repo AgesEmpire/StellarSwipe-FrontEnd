@@ -236,8 +236,6 @@ function FreshnessTimestamp({
     </span>
   );
 }
-  );
-}
 
 export default function LeaderboardPage() {
   return (
@@ -278,7 +276,7 @@ function LeaderboardPageInner() {
   useEffect(() => {
     const evaluate = () => {
       setNow(Date.now());
-      setIsStale(lastUpdated != null && Date.now() - lastUpdated > STALE_THRESHOLD_MS);
+      setIsStale(lastUpdated != null && Date.now() - lastUpdated > STALE_AFTER_MS);
     };
     evaluate();
     const timer = window.setInterval(evaluate, 30 * 1000);
@@ -439,8 +437,6 @@ function LeaderboardPageInner() {
             title="Failed to load leaderboard"
             description={error.message}
             onRetry={refetch}
-          />
-        </div>
           />
         </div>
       </PageTransition>
@@ -707,10 +703,6 @@ function LeaderboardPageInner() {
         )}
 
         <ScrollToTop />
-      </div>
-    </PageTransition>
-  );
-}
       </div>
     </PageTransition>
   );

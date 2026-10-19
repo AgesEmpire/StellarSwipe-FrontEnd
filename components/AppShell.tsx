@@ -12,7 +12,6 @@ import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { OnChainConfirmationStatus } from "@/components/OnChainConfirmationStatus";
 import { TransactionActivityFeed } from "@/components/TransactionActivityFeed";
 import { PositionStopLossControl } from "@/components/PositionStopLossControl";
-import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { NetworkErrorState } from "@/components/NetworkErrorState";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { SignalCard } from "@/components/SignalCard";

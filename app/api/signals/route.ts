@@ -3,6 +3,7 @@ import {
   buildSignalCursorPage,
   buildSignalPage,
   buildActivitySummary,
+  buildConfidenceHistory,
   decodeSignalCursor,
   parseSignalFeedFilters,
 } from "@/lib/signals";
