@@ -25,7 +25,6 @@ import { usePriceFormat } from "@/hooks/usePriceFormat";
 import { validateTradeField } from "@/lib/tradeSchemas";
 import { useNetworkMismatch } from "@/components/NetworkMismatchBanner";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
-import { useWalletStore } from "@/store/useWalletStore";
 
 function truncateKey(key: string) {
   return `${key.slice(0, 6)}...${key.slice(-4)}`;
@@ -177,8 +176,8 @@ export function TradeModal({
   const [now, setNow] = useState(() => Date.now());
   const { isDemoMode } = useDemoModeStore();
   const walletPublicKey = useWalletStore((s) => s.publicKey);
-  const walletNetwork = useWalletStore((s) => s.network);
-  const draftContext = `${ASSET_CODE}:${walletNetwork}:${walletPublicKey ?? ""}`;
+  const walletNetworkDraft = useWalletStore((s) => s.network);
+  const draftContext = `${ASSET_CODE}:${walletNetworkDraft}:${walletPublicKey ?? ""}`;
   const draftKey = `${TRADE_DRAFT_PREFIX}${draftContext}`;
   const { enabled: positionLimitEnabled, percentage: positionLimitPercentage } =
     usePositionLimitStore();
@@ -1224,8 +1223,7 @@ export function TradeModal({
                     className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-all
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface
                       ${
-                        disabled={disabled || submitting || quoteExpired}
-                        aria-disabled={disabled || submitting || quoteExpired}
+                        disabled || submitting || quoteExpired
                           ? "bg-foreground/10 text-foreground-subtle cursor-not-allowed"
                           : type === "MARKET"
                           ? "bg-accent-market hover:opacity-90 text-foreground"
