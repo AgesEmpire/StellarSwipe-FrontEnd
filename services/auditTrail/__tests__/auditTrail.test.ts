@@ -25,7 +25,13 @@ import { tradeExecutionService } from '@/services/tradeExecutionService';
 
 beforeEach(() => {
   resetAuditTrail();
-  useWalletStore.setState({ publicKey: null, isConnected: false, network: 'TESTNET' });
+  useWalletStore.setState({
+    wallets: [],
+    activePublicKey: null,
+    publicKey: null,
+    isConnected: false,
+    network: 'TESTNET',
+  });
   useWebhookStore.setState({ webhooks: [] });
 });
 
@@ -203,6 +209,7 @@ describe('sensitive operations create entries', () => {
     useWalletStore.getState().setPublicKey('GTRADER1');
     const result = await tradeExecutionService.enqueue({
       id: 'trade_1',
+      userId: 'GTRADER1',
       signalId: 'sig_1',
       asset: 'XLM/USDC',
       direction: 'BUY',
