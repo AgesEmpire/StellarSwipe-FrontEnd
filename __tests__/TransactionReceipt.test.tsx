@@ -1,8 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import TransactionReceipt, {
-  getExplorerTxUrl,
-} from '../components/TransactionReceipt';
+import TransactionReceipt from '../components/TransactionReceipt';
+import { getExplorerTxUrl } from '../lib/stellar/explorer';
 
 describe('getExplorerTxUrl', () => {
   const hash = 'abc123def456';

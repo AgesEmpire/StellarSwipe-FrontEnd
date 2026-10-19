@@ -1,11 +1,30 @@
 export type TransactionStatus =
   | "pending"
+  | "submitted"
+  | "processing"
   | "success"
+  | "confirmed"
   | "failed"
+  | "error"
   | "expired"
   | "cancelled";
 
 export type StellarNetwork = "mainnet" | "testnet";
+
+/** A single entry in a transaction's status history. */
+export interface TransactionStatusEvent {
+  status: TransactionStatus;
+  timestamp?: string | null;
+}
+
+/** Lifecycle event consumed by the transaction timeline components. */
+export interface TransactionLifecycleEvent {
+  stage: string;
+  status?: TransactionStatus;
+  timestamp?: string | null;
+  label?: string;
+  description?: string;
+}
 
 export interface Transaction {
   id: string;
@@ -13,8 +32,11 @@ export interface Transaction {
   asset?: string | null;
   amount?: string | number | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
   status?: TransactionStatus | null;
   network?: StellarNetwork | null;
+  /** Chronological record of status transitions, when tracked. */
+  statusHistory?: TransactionStatusEvent[];
 }
 
 const STELLAR_EXPLORER_BASE: Record<StellarNetwork, string> = {

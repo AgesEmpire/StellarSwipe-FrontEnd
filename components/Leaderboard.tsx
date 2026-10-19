@@ -65,28 +65,23 @@ export const Leaderboard: React.FC = () => {
         Community Leaderboard
       </h1>
 
-      <div
-        role="tablist"
-        aria-label="Leaderboard period"
-        className="flex flex-wrap gap-2 mb-6 justify-center"
-      >
+      <nav aria-label="Leaderboard time period" className="mb-6 flex justify-center gap-2">
         {PERIOD_TABS.map((tab) => (
           <button
             key={tab.value}
-            role="tab"
             type="button"
-            aria-selected={period === tab.value}
             onClick={() => setPeriod(tab.value)}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+            aria-pressed={period === tab.value}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
               period === tab.value
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-primary text-primary-foreground"
+                : "bg-foreground/10 text-foreground hover:bg-foreground/20"
             }`}
           >
             {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {rankings.map((entry: LeaderboardEntry, idx: number) => {

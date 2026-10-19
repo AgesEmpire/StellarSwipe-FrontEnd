@@ -10,7 +10,7 @@ const FRESHNESS_THRESHOLD_MS = 5 * 60 * 1000;
 
 type RefreshStatus = "idle" | "pending" | "success" | "error";
 
-type FreshnessState = "loading" | "fresh" | "stale" | "unavailable";
+type FreshnessState = "loading" | "fresh" | "stale";
 
 const STALE_AFTER_MS = 5 * 60 * 1000;
 
@@ -44,9 +44,7 @@ function MetricFreshness({ timestamp }: { timestamp: number | null }) {
   const label =
     state === "loading"
       ? "Loading"
-      : state === "unavailable"
-        ? "Unavailable"
-        : formatFreshness(timestamp as number);
+      : formatFreshness(timestamp as number);
 
   const exact =
     timestamp === null
@@ -56,9 +54,7 @@ function MetricFreshness({ timestamp }: { timestamp: number | null }) {
   const tone =
     state === "stale"
       ? "text-amber-600"
-      : state === "unavailable"
-        ? "text-foreground-muted"
-        : "text-foreground-muted";
+      : "text-foreground-muted";
 
   return (
     <span
@@ -119,8 +115,6 @@ function PerformanceDashboardSkeleton() {
         </div>
       </div>
     </div>
-  );
-}
   );
 }
 

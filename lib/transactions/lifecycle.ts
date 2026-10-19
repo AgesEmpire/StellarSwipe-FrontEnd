@@ -109,7 +109,7 @@ export function buildLifecycleTimeline(
 
   if (events.length === 0) {
     const fallback = buildEvent({
-      status: transaction.status,
+      status: transaction.status ?? undefined,
       timestamp: transaction.updatedAt ?? transaction.createdAt ?? null,
     });
     return fallback ? [fallback] : [];

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { TradeQuote } from '@/lib/types/trade';
+import type { TradeQuote } from '@/lib/trade/quote';
 
 interface TradeReviewProps {
   quote: TradeQuote | null;

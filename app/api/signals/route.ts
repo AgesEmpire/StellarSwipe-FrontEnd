@@ -3,6 +3,7 @@ import {
   buildSignalCursorPage,
   buildSignalPage,
   buildActivitySummary,
+  buildConfidenceHistory,
   decodeSignalCursor,
   parseSignalFeedFilters,
 } from "@/lib/signals";
@@ -103,6 +104,13 @@ export async function GET(request: Request) {
   return NextResponse.json(feed, { status: 200 });
 }
 
+/**
+ * POST /api/signals
+ *
+ * Dismisses a signal for the authenticated user.
+ *
+ * Body: { signalId: string; reason?: string }
+ */
 export async function POST(request: Request) {
   const userId = getRequestUserId(request);
 

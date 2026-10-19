@@ -430,7 +430,7 @@ export function PortfolioPerformanceBenchmarkChart({
         <CardContent>
           <EmptyState
             title="No portfolio history yet"
-            description={`Once you hold at least one asset, `we'll chart your performance against the ${benchmark.name} benchmark here.`}
+            description={`Once you hold at least one asset, we'll chart your performance against the ${benchmark.name} benchmark here.`}
             className="h-48 rounded-xl bg-transparent py-6"
           />
         </CardContent>
@@ -491,15 +491,6 @@ export function PortfolioPerformanceBenchmarkChart({
               aria-checked={showBenchmark}
               aria-label="Show XLM benchmark series"
               onClick={() => setShowBenchmark((v) => !v)}
-              className={cn(
-                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                showBenchmark ? "bg-blue-500" : "bg-surface-high"
-              )}
-            >
-              <span
-                aria-hidden="true"
-
               className={cn(
                 "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
@@ -615,10 +606,6 @@ export function PortfolioPerformanceBenchmarkChart({
               y={showBenchmark ? 26 : 14}
               fontSize={9}
               fill={chartColors.primary}
-              textAnchor="end"
-            >
-              ─ Portfolio
-            </text>
               textAnchor="end"
             >
               ─ Portfolio

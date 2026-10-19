@@ -1,22 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Printer, GitCompare, Link as LinkIcon, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Printer, GitCompare, Link as LinkIcon, Check, ChevronLeft, ChevronRight, Image as ImageIcon, Download, AlertCircle, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { PageTransition } from "@/components/PageTransition";
 import { useComparisonStore } from "@/store/useComparisonStore";
 import { MetricToggleBar } from "@/components/comparison/MetricToggleBar";
-import { ComparisonChart } from "@/components/comparison/ComparisonChart";
-import { AddSignalPanel } from "@/components/comparison/AddSignalPanel";
 import { SnapshotNameField } from "@/components/comparison/SnapshotNameField";
 import { fetchSignals } from "@/lib/api";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/hooks/useI18n";
+import { ComparisonErrorBoundary } from "@/components/ComparisonErrorBoundary";
+import { ExportPreviewDialog } from "@/components/ExportPreviewDialog";
+import { downloadComparisonCsv, downloadComparisonImage } from "@/lib/exportComparison";
+import { toast } from "@/lib/toast";
 
 const ComparisonCard = dynamic(
   () =>
@@ -95,6 +98,7 @@ function ComparePageContent() {
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exportingImage, setExportingImage] = useState(false);
+  const [activeMobileIndex, setActiveMobileIndex] = useState(0);
   const [pendingExport, setPendingExport] = useState<
     "csv" | "image" | "pdf" | null
   >(null);
@@ -512,7 +516,7 @@ function ComparePageContent() {
                         ) : (
                           <span className="h-2 w-2 rounded-full bg-red-400 shrink-0" aria-hidden="true" />
                         )}
-                        {signal.asset}
+                        {signal.ticker}
                       </button>
                     ))}
                     {canAdd() && (
