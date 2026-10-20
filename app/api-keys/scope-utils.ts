@@ -69,6 +69,98 @@ export function getLeastPrivilegeScope(): ApiKeyScope | undefined {
   return API_KEY_SCOPES.find((scope) => scope.leastPrivilege);
 }
 
+/**
+ * Validate and normalize a raw list of scope ids against the canonical scope
+ * catalog. Unknown ids are dropped, duplicates are removed, and the result is
+ * returned in canonical order so persisted keys always carry a stable, valid
+ * scope set.
+ */
+export function normalizeScopes(rawScopes: unknown): string[] {
+  if (!Array.isArray(rawScopes)) {
+    return [];
+  }
+
+  const requested = new Set<string>();
+  for (const value of rawScopes) {
+    if (typeof value === "string" && SCOPE_BY_ID[value]) {
+      requested.add(value);
+    }
+  }
+
+  return API_KEY_SCOPES.filter((scope) => requested.has(scope.id)).map(
+    (scope) => scope.id,
+  );
+}
+
+/**
+ * Determine whether a key's granted scopes satisfy every required scope for a
+ * protected route. An empty requirement set is always satisfied.
+ */
+export function hasRequiredScopes(
+  grantedScopes: readonly string[],
+  requiredScopes: readonly string[],
+): boolean {
+  if (requiredScopes.length === 0) {
+  return true;
+  }
+  const granted = new Set(grantedScopes);
+  return requiredScopes.every((scope) => granted.has(scope));
+}
+
+/**
+ * Minimal, secret-free view of a persisted API key used to decide whether a
+ * request may proceed. Never carries the raw key or its hash.
+ */
+export interface ApiKeyAuthRecord {
+  id: string;
+  scopes: readonly string[];
+  expiresAt?: Date | string | null;
+  revokedAt?: Date | string | null;
+}
+
+export type ApiKeyAuthFailure =
+  | "revoked"
+  | "expired"
+  | "insufficient_scope";
+
+export type ApiKeyAuthResult =
+  | { ok: true; keyId: string }
+  | { ok: false; reason: ApiKeyAuthFailure };
+
+function toTimestamp(value: Date | string | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const time = value instanceof Date ? value.getTime() : Date.parse(value);
+  return Number.isNaN(time) ? null : time;
+}
+
+/**
+ * Decide whether a key may authenticate a request. Revocation always wins,
+ * then expiry is checked against the current time, then scopes. This runs on
+ * every request so expired or revoked keys can never reach backend resources.
+ */
+export function evaluateApiKeyAuth(
+  record: ApiKeyAuthRecord,
+  requiredScopes: readonly string[],
+  now: Date = new Date(),
+): ApiKeyAuthResult {
+  if (toTimestamp(record.revokedAt) !== null) {
+    return { ok: false, reason: "revoked" };
+  }
+
+  const expiresAt = toTimestamp(record.expiresAt);
+  if (expiresAt !== null && expiresAt <= now.getTime()) {
+    return { ok: false, reason: "expired" };
+  }
+
+  if (!hasRequiredScopes(record.scopes, requiredScopes)) {
+    return { ok: false, reason: "insufficient_scope" };
+  }
+
+  return { ok: true, keyId: record.id };
+}
+
 export interface ScopeReviewSummary {
   selected: ApiKeyScope[];
   readCount: number;

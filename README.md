@@ -251,3 +251,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-937 -->
 - #937: Add backend endpoints to list and revoke active sessions
+
+<!-- handsoff-issue-946 -->
+- #946: Add account profile read and update endpoints

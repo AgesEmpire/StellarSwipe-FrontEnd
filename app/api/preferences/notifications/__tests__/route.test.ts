@@ -6,10 +6,16 @@
  *  - Read boundary: defaults returned before anything is saved
  *  - Update boundary: valid payloads persist; invalid payloads return
  *    field-level errors and store nothing
+ *  - Versioning: responses carry a schema version
+ *  - Unknown-field policy: unknown fields are stripped, not persisted
+ *  - Isolation: users can only read/write their own preferences
  */
 
 import { GET, PUT } from "@/app/api/preferences/notifications/route";
-import { defaultNotificationPreferences } from "@/lib/notificationPreferences";
+import {
+  defaultNotificationPreferences,
+  NOTIFICATION_PREFERENCES_VERSION,
+} from "@/lib/notificationPreferences";
 
 function makeRequest(
   method: string,
@@ -59,6 +65,19 @@ describe("GET /api/preferences/notifications", () => {
       { start: "22:00", end: "07:00" },
     ]);
   });
+
+  it("includes the schema version in the response", async () => {
+    const res = await GET(makeRequest("GET", "route-read-version"));
+    const body = await res.json();
+    expect(body.version).toBe(NOTIFICATION_PREFERENCES_VERSION);
+  });
+
+  it("does not leak another user's preferences", async () => {
+    await PUT(makeRequest("PUT", "route-isolation-a", validBody()));
+    const res = await GET(makeRequest("GET", "route-isolation-b"));
+    const body = await res.json();
+    expect(body.preferences).toEqual(defaultNotificationPreferences());
+  });
 });
 
 describe("PUT /api/preferences/notifications", () => {
@@ -72,6 +91,31 @@ describe("PUT /api/preferences/notifications", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.preferences).toEqual(validBody());
+  });
+
+  it("includes the schema version in the response", async () => {
+    const res = await PUT(makeRequest("PUT", "route-put-version", validBody()));
+    const body = await res.json();
+    expect(body.version).toBe(NOTIFICATION_PREFERENCES_VERSION);
+  });
+
+  it("strips unknown fields instead of persisting them", async () => {
+    const res = await PUT(
+      makeRequest("PUT", "route-put-unknown", {
+        ...validBody(),
+        unknownField: "should be dropped",
+        channels: { push: true, email: false, inApp: true, sms: true },
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.preferences).toEqual(validBody());
+    expect(body.preferences.unknownField).toBeUndefined();
+    expect(body.preferences.channels.sms).toBeUndefined();
+
+    const read = await GET(makeRequest("GET", "route-put-unknown"));
+    const readBody = await read.json();
+    expect(readBody.preferences).toEqual(validBody());
   });
 
   it("rejects an invalid time zone with a field-level error", async () => {
