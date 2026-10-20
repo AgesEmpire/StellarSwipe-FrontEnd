@@ -11,7 +11,9 @@
  *  3. Deduplicates repeated submissions using the idempotency key.
  *  4. Applies the retention policy — retained records are anonymised,
  *     non-essential records are scheduled for purge.
- *  5. Traces the worker span via worker-tracing.service.
+ *  5. Revokes the current server-side session so the credential cannot be
+ *     reused after logout.
+ *  6. Traces the worker span via worker-tracing.service.
  *
  * NOTE: In this front-end demo the "deletion" is simulated.  Replace the
  * `performAccountDeletion` stub with your actual Soroban / back-end call.
@@ -32,6 +34,11 @@ import {
 // In production replace with Redis or a DB-backed idempotency table keyed
 // by (idempotencyKey, publicKey).
 const processedKeys = new Map<string, DeletionResponse>();
+
+// ─── In-memory revoked-session store ──────────────────────────────────────────
+// Tracks credentials that have been revoked on logout.  In production replace
+// with a server-side session store / token denylist (Redis, DB, etc.).
+const revokedSessions = new Set<string>();
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
@@ -104,6 +111,26 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   );
 }
 
+// ─── Session revocation ───────────────────────────────────────────────────────
+
+/**
+ * Revokes the current server-side session credential for the given public key.
+ *
+ * Idempotent: revoking an already-revoked session is a no-op and does not
+ * throw, so repeated logout calls remain safe and consistent.
+ */
+export function revokeSession(publicKey: string): void {
+  revokedSessions.add(publicKey);
+}
+
+/**
+ * Returns true if the credential for the given public key has been revoked
+ * and therefore can no longer be reused.
+ */
+export function isSessionRevoked(publicKey: string): boolean {
+  return revokedSessions.has(publicKey);
+}
+
 // ─── Deletion business logic ──────────────────────────────────────────────────
 
 /**
@@ -113,7 +140,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
  *  1. Check for pending on-chain transactions (simulate guard).
  *  2. Anonymise retained records per the retention policy.
  *  3. Schedule purge of non-essential records.
- *  4. Deactivate the account.
+ *  4. Deactivate the account and revoke the current session credential.
  *
  * Replace this stub with real Soroban / database calls.
  */
@@ -156,6 +183,10 @@ async function performAccountDeletion(
   void anonymisedRecords;
   void purgedRecords;
   void DEFAULT_RETENTION_POLICY; // ensure import used
+
+  // Revoke the current server-side session so the credential cannot be reused.
+  // Idempotent: safe to call again on an already-revoked session.
+  revokeSession(publicKey);
 
   const processedAt = new Date().toISOString();
 
