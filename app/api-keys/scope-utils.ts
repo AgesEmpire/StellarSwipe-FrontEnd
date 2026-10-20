@@ -69,6 +69,44 @@ export function getLeastPrivilegeScope(): ApiKeyScope | undefined {
   return API_KEY_SCOPES.find((scope) => scope.leastPrivilege);
 }
 
+/**
+ * Validate and normalize a raw list of scope ids against the canonical scope
+ * catalog. Unknown ids are dropped, duplicates are removed, and the result is
+ * returned in canonical order so persisted keys always carry a stable, valid
+ * scope set.
+ */
+export function normalizeScopes(rawScopes: unknown): string[] {
+  if (!Array.isArray(rawScopes)) {
+    return [];
+  }
+
+  const requested = new Set<string>();
+  for (const value of rawScopes) {
+    if (typeof value === "string" && SCOPE_BY_ID[value]) {
+      requested.add(value);
+    }
+  }
+
+  return API_KEY_SCOPES.filter((scope) => requested.has(scope.id)).map(
+    (scope) => scope.id,
+  );
+}
+
+/**
+ * Determine whether a key's granted scopes satisfy every required scope for a
+ * protected route. An empty requirement set is always satisfied.
+ */
+export function hasRequiredScopes(
+  grantedScopes: readonly string[],
+  requiredScopes: readonly string[],
+): boolean {
+  if (requiredScopes.length === 0) {
+    return true;
+  }
+  const granted = new Set(grantedScopes);
+  return requiredScopes.every((scope) => granted.has(scope));
+}
+
 export interface ScopeReviewSummary {
   selected: ApiKeyScope[];
   readCount: number;
