@@ -209,3 +209,70 @@ export function buildScopeReviewSummary(
 
   return { selected, readCount, writeCount, hasWriteAccess, summary };
 }
+
+/**
+ * Public, non-secret identifier for an API key. This is safe to persist,
+ * display, and log; it is derived from the key id and a short prefix of the
+ * raw secret so users can recognize a key without exposing the secret itself.
+ */
+export interface ApiKeyPublicMetadata {
+  /** Stable public identifier (e.g. "key_abc123"). */
+  id: string;
+  /** Short, non-reversible display prefix (e.g. "sk_live_ab12"). */
+  prefix: string;
+  /** Human-readable label chosen by the user. */
+  name: string;
+  /** Selected scope ids. */
+  scopes: string[];
+  /** ISO timestamp of creation. */
+  createdAt: string;
+  /** ISO timestamp of last use, if any. */
+  lastUsedAt?: string;
+  /** ISO timestamp of revocation, if any. */
+  revokedAt?: string;
+}
+
+/**
+ * The result of creating an API key. The `secret` is the ONLY place the raw
+ * plaintext key is ever exposed; it must be shown to the user exactly once and
+ * never persisted or logged. Everything else is safe metadata.
+ */
+export interface CreatedApiKey {
+  /** Raw plaintext secret — show once, never store or log. */
+  secret: string;
+  /** Safe, persistable metadata (no secret material). */
+  metadata: ApiKeyPublicMetadata;
+}
+
+/**
+ * Build the safe public metadata for a key. Deliberately accepts only the
+ * non-secret prefix (never the full secret) so plaintext cannot leak into
+ * persisted or logged structures.
+ */
+export function buildApiKeyPublicMetadata(input: {
+  id: string;
+  prefix: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+}): ApiKeyPublicMetadata {
+  return {
+    id: input.id,
+    prefix: input.prefix,
+    name: input.name,
+    scopes: [...input.scopes],
+    createdAt: input.createdAt,
+  };
+}
+
+/**
+ * Redact a raw secret for safe logging. Only a short prefix is retained so
+ * operators can correlate a key without ever recording the full secret.
+ */
+export function redactApiKeySecret(secret: string): string {
+  if (!secret) {
+    return "";
+  }
+  const visible = secret.slice(0, 8);
+  return `${visible}${"*".repeat(Math.max(0, secret.length - visible.length))}`;
+}
