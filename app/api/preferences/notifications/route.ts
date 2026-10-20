@@ -12,6 +12,10 @@ import {
  * Returns the authenticated user's notification preferences (channel
  * enablement, time zone, quiet-hour windows). Users without saved
  * preferences receive the defaults.
+ *
+ * The response is scoped to the authenticated user and includes the schema
+ * `version` so clients can migrate older payloads. Unknown fields are never
+ * persisted (see PUT).
  */
 export async function GET(request: Request) {
   const userId = getRequestUserId(request);
@@ -32,6 +36,10 @@ export async function GET(request: Request) {
  * Replaces the authenticated user's notification preferences. The payload is
  * validated in full; invalid time zones or out-of-range quiet-hour times
  * return 400 with a field-level `fields` map and store nothing.
+ *
+ * Unknown-field policy: unknown top-level fields are stripped (not rejected)
+ * so forward-compatible clients can send newer payloads without breaking.
+ * The stored value is always normalized to the current schema version.
  */
 export async function PUT(request: Request) {
   const userId = getRequestUserId(request);
