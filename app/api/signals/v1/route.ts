@@ -28,6 +28,21 @@ function forbiddenResponse(missingScopes: string[]) {
 }
 
 /**
+ * Stable unauthorized response returned whenever an API key is expired or
+ * revoked. The message is intentionally generic so it never leaks whether a
+ * key exists, its secret, or its lifecycle state.
+ */
+function unauthorizedResponse() {
+  return NextResponse.json(
+    {
+      error: "unauthorized",
+      message: "API key is invalid, expired, or revoked.",
+    },
+    { status: 401 }
+  );
+}
+
+/**
  * Normalize the raw scope claim carried by the API key into a validated,
  * de-duplicated list. Accepts either a space-delimited string or an array.
  */
@@ -43,8 +58,54 @@ function normalizeScopes(raw: string | null): string[] {
   );
 }
 
+/**
+ * Parse a lifecycle timestamp header (e.g. `x-api-key-expires-at`). Returns
+ * `null` when the header is absent or not a valid date.
+ */
+function parseTimestamp(raw: string | null): number | null {
+  if (!raw) return null;
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * Determine whether the presented API key is still usable. A key is rejected
+ * when it is explicitly revoked or when its expiry has passed. Keys without an
+ * expiry header are treated as non-expiring.
+ */
+function isKeyUsable(request: Request, now: number): boolean {
+  const revoked = request.headers.get("x-api-key-revoked");
+  if (revoked && revoked.trim().toLowerCase() === "true") {
+    return false;
+  }
+
+  const expiresAt = parseTimestamp(request.headers.get("x-api-key-expires-at"));
+  if (expiresAt !== null && expiresAt <= now) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Record last-used metadata for the authenticated key. Only non-secret
+ * identifiers and a timestamp are surfaced; the key secret is never echoed.
+ */
+function lastUsedMetadata(request: Request, now: number) {
+  return {
+    keyId: request.headers.get("x-api-key-id") ?? null,
+    lastUsedAt: new Date(now).toISOString(),
+  };
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const now = Date.now();
+
+  // Enforce API key lifecycle (expiry + revocation) before doing any work.
+  if (!isKeyUsable(request, now)) {
+    return unauthorizedResponse();
+  }
 
   // Enforce API key scopes before doing any work.
   const grantedScopes = normalizeScopes(request.headers.get("x-api-key-scopes"));
@@ -74,6 +135,8 @@ export async function GET(request: Request) {
     { page, pageSize, shimVersion: "v1" }
   );
 
+  const lastUsed = lastUsedMetadata(request, now);
+
   return NextResponse.json(feed, {
     status: 200,
     headers: {
@@ -81,6 +144,7 @@ export async function GET(request: Request) {
       Link: '</api/signals>; rel="successor-version"',
       "X-Deprecation-Notice":
         "This endpoint is deprecated. Use /api/signals with pageSize instead of limit.",
+      "X-API-Key-Last-Used-At": lastUsed.lastUsedAt,
     },
   });
 }
