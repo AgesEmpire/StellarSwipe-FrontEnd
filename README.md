@@ -248,3 +248,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-936 -->
 - #936: Rotate refresh credentials and detect reuse
+
+<!-- handsoff-issue-937 -->
+- #937: Add backend endpoints to list and revoke active sessions
