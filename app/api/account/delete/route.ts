@@ -232,6 +232,7 @@ export function linkWallet(params: {
   const { accountPublicKey, walletAddress, challenge, signature, domain, network } =
     params;
 
+  // ── Session check ──────────────────────────────────────────────────────────
   if (isSessionRevoked(accountPublicKey)) {
     return {
       success: false,
@@ -240,27 +241,145 @@ export function linkWallet(params: {
     };
   }
 
+  // ── Challenge lookup ───────────────────────────────────────────────────────
   const pending = pendingChallenges.get(challenge);
-  const isFresh =
-    pending !== undefined &&
-    !pending.used &&
-    pending.accountPublicKey === accountPublicKey &&
-    pending.walletAddress === walletAddress &&
-    pending.domain === domain &&
-    pending.network === network &&
-    Date.now() - pending.issuedAt <= CHALLENGE_TTL_MS;
-
-  if (!isFresh || !signature) {
+  if (!pending) {
     return {
       success: false,
-      message:
-        "Invalid or expired signature challenge. Request a fresh challenge and sign it.",
+      message: "Invalid challenge: not found.",
       errorCode: "INVALID_CHALLENGE",
     };
   }
 
-  // Consume the challenge exactly once before any side effects so that
-  // concurrent reuse of the same challenge allows at most one success.
+  // ── Single-use enforcement ─────────────────────────────────────────────────
+  if (pending.used) {
+    return {
+      success: false,
+      message: "Invalid challenge: already used.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
   pending.used = true;
 
-  // Con
+  // ── Expiry check ───────────────────────────────────────────────────────────
+  if (Date.now() - pending.issuedAt > CHALLENGE_TTL_MS) {
+    return {
+      success: false,
+      message: "Invalid challenge: expired.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
+
+  // ── Context binding ────────────────────────────────────────────────────────
+  if (
+    pending.accountPublicKey !== accountPublicKey ||
+    pending.walletAddress !== walletAddress ||
+    pending.domain !== domain ||
+    pending.network !== network
+  ) {
+    return {
+      success: false,
+      message: "Invalid challenge: context mismatch.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
+
+  // ── Signature presence ─────────────────────────────────────────────────────
+  if (!signature) {
+    return {
+      success: false,
+      message: "Invalid challenge: missing signature.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
+
+  // ── Uniqueness policy ──────────────────────────────────────────────────────
+  const existingOwner = walletOwners.get(walletAddress);
+  if (existingOwner && existingOwner !== accountPublicKey) {
+    return {
+      success: false,
+      message: "Wallet is already linked to another account.",
+      errorCode: "WALLET_ALREADY_LINKED",
+    };
+  }
+
+  const wallets = accountWallets.get(accountPublicKey) ?? [];
+  if (!wallets.some((w) => w.address === walletAddress)) {
+    wallets.push({ address: walletAddress, isPrimary: wallets.length === 0 });
+    accountWallets.set(accountPublicKey, wallets);
+    walletOwners.set(walletAddress, accountPublicKey);
+  }
+
+  return {
+    success: true,
+    message: "Wallet linked successfully.",
+    wallets,
+  };
+}
+
+/**
+ * Unlinks a Stellar wallet from an account.  Requires an active, non-revoked
+ * session and refuses to unlink the primary wallet.
+ */
+export function unlinkWallet(params: {
+  accountPublicKey: string;
+  walletAddress: string;
+}): WalletOperationResult {
+  const { accountPublicKey, walletAddress } = params;
+
+  if (isSessionRevoked(accountPublicKey)) {
+    return {
+      success: false,
+      message: "Unauthenticated: session has been revoked.",
+      errorCode: "UNAUTHENTICATED",
+    };
+  }
+
+  const wallets = accountWallets.get(accountPublicKey) ?? [];
+  const target = wallets.find((w) => w.address === walletAddress);
+  if (!target) {
+    return {
+      success: false,
+      message: "Wallet not found for this account.",
+      errorCode: "WALLET_NOT_FOUND",
+    };
+  }
+
+  if (target.isPrimary) {
+    return {
+      success: false,
+      message: "The primary wallet cannot be unlinked.",
+      errorCode: "PRIMARY_WALLET_PROTECTED",
+    };
+  }
+
+  const remaining = wallets.filter((w) => w.address !== walletAddress);
+  accountWallets.set(accountPublicKey, remaining);
+  walletOwners.delete(walletAddress);
+
+  return {
+    success: true,
+    message: "Wallet unlinked successfully.",
+    wallets: remaining,
+  };
+}
+
+// ─── Deletion stub ────────────────────────────────────────────────────────────
+
+async function performAccountDeletion(
+  request: DeletionRequest
+): Promise<DeletionResponse> {
+  // Apply retention policy: anonymise retained fields, schedule purge of the
+  // rest.  Replace with the real back-end call in production.
+  void DEFAULT_RETENTION_POLICY;
+  void anonymiseValue(request.publicKey);
+
+  // Revoke the session so the credential cannot be reused after deletion.
+  revokeSession(request.publicKey);
+
+  return {
+    success: true,
+    idempotencyKey: request.idempotencyKey,
+    message: "Account deletion initiated.",
+  };
+}
