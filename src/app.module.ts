@@ -1,5 +1,6 @@
 import { Module, ValidationPipe } from '@nestjs/common';
-import { APP_PIPE } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { CorrelationIdInterceptor } from './common/correlation-id.interceptor';
 
 @Module({
   imports: [],
@@ -13,6 +14,10 @@ import { APP_PIPE } from '@nestjs/core';
         transform: true,
         transformOptions: { enableImplicitConversion: true },
       }),
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CorrelationIdInterceptor,
     },
   ],
 })
