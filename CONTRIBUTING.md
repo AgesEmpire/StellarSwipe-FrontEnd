@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving this project! This guide covers local setup, the database migration workflow, and how to get a change merged.
+Thanks for your interest in improving this project! This guide covers local setup, the database migration workflow, backend unit test conventions, and how to get a change merged.
 
 ## Getting started
 
@@ -50,9 +50,90 @@ Run migrations as a dedicated deployment step (e.g. a release job) before starti
 
 Every migration change should be covered by a test that provisions a clean database, runs all migrations from scratch, and asserts the resulting schema. This guarantees a fresh environment can be brought up to date and that migrations remain ordered and repeatable.
 
+## Backend unit tests (NestJS)
+
+Providers and guards are tested in isolation with the Nest testing utilities. Tests must not require a live database, queue, or external service — every dependency is replaced with a mock.
+
+### Conventions
+
+- Place tests next to the code under test as `*.spec.ts` (e.g. `users.service.spec.ts`, `roles.guard.spec.ts`).
+- Build the unit under test with `Test.createTestingModule({ providers: [...] })` and override its dependencies with `.overrideProvider(...).useValue(...)`.
+- Use `jest.fn()` mocks for injected dependencies; assert on calls rather than hitting real services.
+- Always `await module.close()` in `afterEach` so each test starts from a clean module.
+
+### Example: isolated provider
+
+```ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { UsersService } from './users.service';
+import { UsersRepository } from './users.repository';
+
+describe('UsersService', () => {
+  let module: TestingModule;
+  let service: UsersService;
+  const repository = { findById: jest.fn() };
+
+  beforeEach(async () => {
+    module = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        { provide: UsersRepository, useValue: repository },
+      ],
+    }).compile();
+
+    service = module.get(UsersService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('returns the user from the repository', async () => {
+    repository.findById.mockResolvedValue({ id: '1' });
+    await expect(service.findById('1')).resolves.toEqual({ id: '1' });
+    expect(repository.findById).toHaveBeenCalledWith('1');
+  });
+});
+```
+
+### Example: isolated guard
+
+```ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
+import { RolesGuard } from './roles.guard';
+
+describe('RolesGuard', () => {
+  let module: TestingModule;
+  let guard: RolesGuard;
+  const reflector = { getAllAndOverride: jest.fn() };
+
+  beforeEach(async () => {
+    module = await Test.createTestingModule({
+      providers: [RolesGuard, { provide: Reflector, useValue: reflector }],
+    }).compile();
+
+    guard = module.get(RolesGuard);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('allows access when no roles are required', () => {
+    reflector.getAllAndOverride.mockReturnValue(undefined);
+    const context = { switchToHttp: () => ({ getRequest: () => ({ user: {} }) }), getHandler: () => ({}), getClass: () => ({}) } as any;
+    expect(guard.canActivate(context)).toBe(true);
+  });
+});
+```
+
 ## Submitting changes
 
 - Keep pull requests focused; one logical change per PR.
 - Match existing code style and structure; avoid unrelated refactors.
 - Describe what changed and why, and note any migration or deployment steps reviewers must run.
 - Make sure new migrations are documented and tested as described above.
+- New providers and guards should ship with isolated unit tests following the conventions above.

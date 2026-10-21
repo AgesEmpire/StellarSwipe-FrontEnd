@@ -127,3 +127,112 @@ describe("confidence history on signal details (#815)", () => {
     }
   });
 });
+
+/**
+ * NestJS unit test conventions (#929)
+ *
+ * Lightweight pattern for isolated providers and guards:
+ * - Build a testing module with `Test.createTestingModule`.
+ * - Override dependencies with `.overrideProvider(...).useValue(...)` so no live
+ *   services (DB, HTTP, queues) are required.
+ * - Always `await module.close()` in `afterEach` to release resources.
+ */
+describe("NestJS unit test conventions (#929)", () => {
+  // Example provider under test with an injected dependency.
+  class ExampleService {
+    constructor(private readonly dep: { getValue: () => number }) {}
+    compute(): number {
+      return this.dep.getValue() * 2;
+    }
+  }
+
+  // Example guard under test with an injected dependency.
+  class ExampleGuard {
+    constructor(private readonly dep: { isAllowed: () => boolean }) {}
+    canActivate(): boolean {
+      return this.dep.isAllowed();
+    }
+  }
+
+  const DEP = "EXAMPLE_DEP";
+
+  describe("isolated provider", () => {
+    let moduleRef: import("@nestjs/testing").TestingModule;
+    let service: ExampleService;
+
+    beforeEach(async () => {
+      const { Test } = await import("@nestjs/testing");
+      moduleRef = await Test.createTestingModule({
+        providers: [
+          ExampleService,
+          { provide: DEP, useValue: { getValue: () => 21 } },
+        ],
+      }).compile();
+      service = moduleRef.get(ExampleService);
+    });
+
+    afterEach(async () => {
+      await moduleRef.close();
+    });
+
+    it("resolves the provider with a mocked dependency", () => {
+      expect(service.compute()).toBe(42);
+    });
+
+    it("allows overriding the dependency without live services", async () => {
+      const { Test } = await import("@nestjs/testing");
+      const overridden = await Test.createTestingModule({
+        providers: [ExampleService, { provide: DEP, useValue: { getValue: () => 0 } }],
+      })
+        .overrideProvider(DEP)
+        .useValue({ getValue: () => 5 })
+        .compile();
+
+      try {
+        expect(overridden.get(ExampleService).compute()).toBe(10);
+      } finally {
+        await overridden.close();
+      }
+    });
+  });
+
+  describe("isolated guard", () => {
+    let moduleRef: import("@nestjs/testing").TestingModule;
+    let guard: ExampleGuard;
+
+    beforeEach(async () => {
+      const { Test } = await import("@nestjs/testing");
+      moduleRef = await Test.createTestingModule({
+        providers: [
+          ExampleGuard,
+          { provide: DEP, useValue: { isAllowed: () => true } },
+        ],
+      }).compile();
+      guard = moduleRef.get(ExampleGuard);
+    });
+
+    afterEach(async () => {
+      await moduleRef.close();
+    });
+
+    it("grants access when the mocked dependency allows it", () => {
+      expect(guard.canActivate()).toBe(true);
+    });
+
+    it("denies access when the dependency is overridden to reject", async () => {
+      const { Test } = await import("@nestjs/testing");
+      const overridden = await Test.createTestingModule({
+        providers: [ExampleGuard, { provide: DEP, useValue: { isAllowed: () => true } }],
+      })
+        .overrideProvider(DEP)
+        .useValue({ isAllowed: () => false })
+        .compile();
+
+      try {
+        expect(overridden.get(ExampleGuard).canActivate()).toBe(false);
+      } finally {
+        await overridden.close();
+      }
+    });
+  });
+});
