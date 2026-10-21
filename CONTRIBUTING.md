@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving this project! This guide covers local setup, the database migration workflow, backend unit test conventions, and how to get a change merged.
+Thanks for your interest in improving this project! This guide covers local setup, the database migration workflow, backend unit test conventions, database-backed integration tests, and how to get a change merged.
 
 ## Getting started
 
@@ -49,6 +49,53 @@ Run migrations as a dedicated deployment step (e.g. a release job) before starti
 ### Testing migrations
 
 Every migration change should be covered by a test that provisions a clean database, runs all migrations from scratch, and asserts the resulting schema. This guarantees a fresh environment can be brought up to date and that migrations remain ordered and repeatable.
+
+## Database-backed integration tests
+
+Unit tests mock every dependency, so they cannot catch persistence bugs (constraints, cascades, transaction behavior). Integration tests exercise the real database against a **disposable, isolated** database so they never touch shared or production data.
+
+### Isolated database per run
+
+- Point integration tests at a dedicated test database via `TEST_DATABASE_URL` (never reuse the application's `DATABASE_URL`).
+- Each run uses its own isolated schema/database so parallel runs and local development cannot collide. A common pattern is a per-run schema name (e.g. `test_<run-id>`) created at setup and dropped at teardown.
+- The harness must refuse to run if the target looks like production (see the CI guard below).
+
+### Migrations and cleanup
+
+- Before the suite runs, apply **all** migrations from scratch against the disposable database so tests always start from the current schema.
+- After the suite finishes, drop the isolated schema/database so no state leaks between runs.
+- Wrap each test (or test file) in a transaction that is rolled back, or truncate the affected tables in `afterEach`, so tests are independent and order-insensitive.
+- Teardown must run even when tests fail — register cleanup in `afterAll`/global teardown so a failed run does not leave a dangling database behind.
+
+### Example: setup and teardown
+
+```ts
+import { Client } from 'pg';
+
+const schema = `test_${process.pid}_${Date.now()}`;
+let client: Client;
+
+beforeAll(async () => {
+  client = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+  await client.connect();
+  await client.query(`CREATE SCHEMA ${schema}`);
+  await client.query(`SET search_path TO ${schema}`);
+  await runMigrations(client); // apply all migrations from scratch
+});
+
+afterAll(async () => {
+  await client.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+  await client.end();
+});
+```
+
+### CI safety guard
+
+CI must never be able to target production settings:
+
+- Integration tests read only `TEST_DATABASE_URL`; the workflow must not expose production `DATABASE_URL` or credentials to the test job.
+- Add a guard that aborts the run if the resolved test URL matches a production host or is missing, so a misconfigured pipeline fails loudly instead of writing to real data.
+- Keep test credentials scoped to the disposable database and rotate/expire them like any other secret.
 
 ## Backend unit tests (NestJS)
 
@@ -137,3 +184,4 @@ describe('RolesGuard', () => {
 - Describe what changed and why, and note any migration or deployment steps reviewers must run.
 - Make sure new migrations are documented and tested as described above.
 - New providers and guards should ship with isolated unit tests following the conventions above.
+- Persistence changes should be covered by a database-backed integration test using the disposable-database harness described above.
