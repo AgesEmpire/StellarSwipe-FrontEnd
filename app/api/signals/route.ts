@@ -10,8 +10,20 @@ import {
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
 import { getRequestUserId } from "@/lib/providerFollows";
 import { dismissSignal, isSignalDismissalReason } from "@/lib/signalState";
+import {
+  consumeRateLimit,
+  getRateLimitIdentity,
+  rateLimitResponse,
+} from "@/lib/rateLimit";
 
 export async function GET(request: Request) {
+  const userId = getRequestUserId(request);
+  const identity = getRateLimitIdentity(request, userId);
+  const throttled = rateLimitResponse(
+    consumeRateLimit("signals:read", identity)
+  );
+  if (throttled) return throttled;
+
   const url = new URL(request.url);
   const page = Number(url.searchParams.get("page") ?? "1");
   const pageSize = Number(url.searchParams.get("pageSize") ?? "10");
@@ -117,6 +129,12 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
+
+  const identity = getRateLimitIdentity(request, userId);
+  const throttled = rateLimitResponse(
+    consumeRateLimit("signals:write", identity)
+  );
+  if (throttled) return throttled;
 
   let body: unknown;
 

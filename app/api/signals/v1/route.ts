@@ -13,6 +13,93 @@ import { traceWorker } from "@/src/tracing/worker-tracing.service";
 const REQUIRED_SCOPES = ["signals:read"] as const;
 
 /**
+ * Route-aware rate limit configuration. Each endpoint group declares its own
+ * request budget and window so limits can be tuned per surface without code
+ * changes elsewhere. Windows are expressed in milliseconds.
+ */
+const RATE_LIMITS: Record<
+  string,
+  { limit: number; windowMs: number }
+> = {
+  "signals:v1": { limit: 60, windowMs: 60_000 },
+};
+
+const RATE_LIMIT_GROUP = "signals:v1";
+
+/**
+ * In-memory sliding-window counters keyed by endpoint group + identity. This is
+ * process-local; a shared store can be swapped in without changing callers.
+ */
+const rateLimitBuckets = new Map<string, number[]>();
+
+/**
+ * Resolve the throttling identity for a request. Authenticated traffic is
+ * keyed by account identity (API key id) with an IP fallback so a single
+ * account cannot evade limits by rotating source addresses.
+ */
+function resolveIdentity(request: Request): string {
+  const keyId = request.headers.get("x-api-key-id");
+  if (keyId && keyId.trim().length > 0) {
+    return `user:${keyId.trim()}`;
+  }
+
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip =
+    forwarded?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    "unknown";
+  return `ip:${ip}`;
+}
+
+/**
+ * Apply the configured limit for an endpoint group. Returns `null` when the
+ * request is within budget, otherwise the number of seconds until the caller
+ * may retry.
+ */
+function checkRateLimit(group: string, identity: string, now: number): number | null {
+  const config = RATE_LIMITS[group];
+  if (!config) return null;
+
+  const bucketKey = `${group}:${identity}`;
+  const windowStart = now - config.windowMs;
+  const hits = (rateLimitBuckets.get(bucketKey) ?? []).filter(
+    (ts) => ts > windowStart
+  );
+
+  if (hits.length >= config.limit) {
+    rateLimitBuckets.set(bucketKey, hits);
+    const retryAfterMs = hits[0] + config.windowMs - now;
+    return Math.max(1, Math.ceil(retryAfterMs / 1000));
+  }
+
+  hits.push(now);
+  rateLimitBuckets.set(bucketKey, hits);
+  return null;
+}
+
+/**
+ * Stable throttled response with retry guidance. Includes `Retry-After` and
+ * `X-RateLimit-*` headers so clients can back off deterministically.
+ */
+function rateLimitedResponse(retryAfterSeconds: number, limit: number) {
+  return NextResponse.json(
+    {
+      error: "rate_limited",
+      message: "Too many requests. Please retry after the indicated delay.",
+      retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfterSeconds),
+        "X-RateLimit-Limit": String(limit),
+        "X-RateLimit-Remaining": "0",
+      },
+    }
+  );
+}
+
+/**
  * Stable forbidden response returned whenever an API key is missing one or
  * more of the scopes required by this route.
  */
@@ -114,6 +201,13 @@ export async function GET(request: Request) {
   );
   if (missingScopes.length > 0) {
     return forbiddenResponse(missingScopes);
+  }
+
+  // Apply route-aware throttling keyed by account identity with IP fallback.
+  const identity = resolveIdentity(request);
+  const retryAfter = checkRateLimit(RATE_LIMIT_GROUP, identity, now);
+  if (retryAfter !== null) {
+    return rateLimitedResponse(retryAfter, RATE_LIMITS[RATE_LIMIT_GROUP].limit);
   }
 
   // Legacy callers used `limit`; map it to `pageSize`
