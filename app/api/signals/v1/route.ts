@@ -104,6 +104,34 @@ function logRequest(entry: {
 }
 
 /**
+ * Emit bounded operational metrics for a request: a count, a duration, and an
+ * error counter. Labels are restricted to the normalized route template and
+ * the HTTP status code so no user-specific data (wallet addresses, secrets,
+ * raw URLs) can leak into the metric series.
+ */
+function recordMetrics(entry: {
+  route: string;
+  method: string;
+  status: number;
+  latencyMs: number;
+}) {
+  const { route, method, status, latencyMs } = entry;
+  const labels = { route, method, status: String(status) };
+
+  const record = {
+    type: "metric",
+    name: "http_request",
+    labels,
+    count: 1,
+    durationMs: latencyMs,
+    errors: status >= 500 ? 1 : 0,
+  };
+
+  // Structured, single-line JSON so metric scrapers/aggregators can parse it.
+  console.log(JSON.stringify(record));
+}
+
+/**
  * Stable forbidden response returned whenever an API key is missing one or
  * more of the scopes required by this route.
  */
@@ -214,6 +242,12 @@ export async function GET(request: Request) {
       status: response.status,
       startedAt,
       correlationId,
+    });
+    recordMetrics({
+      route,
+      method: request.method,
+      status: response.status,
+      latencyMs: Date.now() - startedAt,
     });
     return response;
   };

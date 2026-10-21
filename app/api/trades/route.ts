@@ -17,6 +17,9 @@ const APP_NETWORK: string = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "TESTNET"
  * POST /api/trades
  * Revalidates trade limits before the client may submit a transaction.
  * Nothing is submitted here; a 2xx response only means the order may proceed.
+ *
+ * Metrics are emitted by withRequestLogging using the bounded route template
+ * ("/api/trades") and HTTP status only — never wallet addresses or payloads.
  */
 export const POST = withRequestLogging("/api/trades", async (req: NextRequest) => {
   const parsed = tradeRequestSchema.safeParse(await req.json().catch(() => null));
