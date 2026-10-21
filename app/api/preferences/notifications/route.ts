@@ -7,6 +7,29 @@ import {
 } from "@/lib/notificationPreferences";
 
 /**
+ * Builds a consistent API error envelope: a stable machine-readable `code`, a
+ * safe human-readable `message`, and the `requestId` for correlation. Internal
+ * details (stack traces, secrets) are never included.
+ */
+function errorResponse(
+  request: Request,
+  status: number,
+  code: string,
+  message: string,
+  extra?: Record<string, unknown>
+) {
+  const requestId =
+    request.headers.get("x-request-id") ??
+    request.headers.get("x-correlation-id") ??
+    crypto.randomUUID();
+
+  return NextResponse.json(
+    { error: { code, message, requestId, ...extra } },
+    { status, headers: { "x-request-id": requestId } }
+  );
+}
+
+/**
  * GET /api/preferences/notifications
  *
  * Returns the authenticated user's notification preferences (channel
@@ -21,7 +44,12 @@ export async function GET(request: Request) {
   const userId = getRequestUserId(request);
 
   if (!userId) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return errorResponse(
+      request,
+      401,
+      "UNAUTHENTICATED",
+      "Authentication required"
+    );
   }
 
   return NextResponse.json(
@@ -45,24 +73,34 @@ export async function PUT(request: Request) {
   const userId = getRequestUserId(request);
 
   if (!userId) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return errorResponse(
+      request,
+      401,
+      "UNAUTHENTICATED",
+      "Authentication required"
+    );
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
+    return errorResponse(
+      request,
+      400,
+      "INVALID_JSON",
+      "Invalid JSON body"
     );
   }
 
   const result = validateNotificationPreferences(body);
   if (!result.ok) {
-    return NextResponse.json(
-      { error: "Validation failed", fields: result.fields },
-      { status: 400 }
+    return errorResponse(
+      request,
+      400,
+      "VALIDATION_FAILED",
+      "Validation failed",
+      { fields: result.fields }
     );
   }
 

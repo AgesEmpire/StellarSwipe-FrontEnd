@@ -127,3 +127,47 @@ describe("confidence history on signal details (#815)", () => {
     }
   });
 });
+
+describe("consistent API error envelope (#917)", () => {
+  type ErrorEnvelope = {
+    error: {
+      code: string;
+      message: string;
+      requestId: string;
+    };
+  };
+
+  function getErrorEnvelope(): { body: ErrorEnvelope; init: ResponseInit } {
+    const [body, init] = [mockJson.mock.calls[0][0], mockJson.mock.calls[0][1]];
+    return { body: body as ErrorEnvelope, init: init as ResponseInit };
+  }
+
+  it("returns a stable envelope for validation errors (400)", async () => {
+    await GET(makeRequest("?page=0"));
+    const { body, init } = getErrorEnvelope();
+    expect(init.status).toBe(400);
+    expect(body.error).toMatchObject({
+      code: expect.any(String),
+      message: expect.any(String),
+      requestId: expect.any(String),
+    });
+    expect(body.error.code.length).toBeGreaterThan(0);
+    expect(body.error.requestId.length).toBeGreaterThan(0);
+  });
+
+  it("omits stack traces and secrets from error responses", async () => {
+    await GET(makeRequest("?page=0"));
+    const { body } = getErrorEnvelope();
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toMatch(/\bat\s+\S+\s+\(/);
+    expect(serialized).not.toMatch(/stack/i);
+    expect(serialized).not.toMatch(/secret|password|token|api[_-]?key/i);
+  });
+
+  it("includes a request ID on every error response", async () => {
+    await GET(makeRequest("?page=0"));
+    const { body } = getErrorEnvelope();
+    expect(typeof body.error.requestId).toBe("string");
+    expect(body.error.requestId.length).toBeGreaterThan(0);
+  });
+});
