@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccountBalances } from "@/lib/stellar";
+import { withRequestLogging } from "@/lib/requestLogging";
 import {
   TRADE_ERROR_CODES,
   checkAvailableBalance,
@@ -17,7 +18,7 @@ const APP_NETWORK: string = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "TESTNET"
  * Revalidates trade limits before the client may submit a transaction.
  * Nothing is submitted here; a 2xx response only means the order may proceed.
  */
-export async function POST(req: NextRequest) {
+export const POST = withRequestLogging("/api/trades", async (req: NextRequest) => {
   const parsed = tradeRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return rejectResponse(
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (balanceRejection) return rejectResponse(balanceRejection);
 
   return NextResponse.json({ ok: true }, { status: 200 });
-}
+});
 
 function rejectResponse({ code, message, status }: TradeRejection) {
   return NextResponse.json({ code, message }, { status });
