@@ -4,6 +4,7 @@ import {
   buildSignalPage,
   buildActivitySummary,
   buildConfidenceHistory,
+  buildProviderActivityTimeline,
   decodeSignalCursor,
   parseSignalFeedFilters,
 } from "@/lib/signals";
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
   const pageSize = Number(url.searchParams.get("pageSize") ?? "10");
   const view = url.searchParams.get("view");
   const signalId = url.searchParams.get("signalId");
+  const providerId = url.searchParams.get("providerId");
 
   if (
     Number.isNaN(page) ||
@@ -41,6 +43,23 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json(activity, { status: 200 });
+  }
+
+  if (view === "provider-timeline") {
+    if (!providerId) {
+      return NextResponse.json(
+        { error: "providerId is required to load a provider activity timeline." },
+        { status: 400 }
+      );
+    }
+
+    const timeline = await traceWorker(
+      "worker:signals:provider-timeline",
+      async () => buildProviderActivityTimeline(providerId, page, pageSize),
+      { providerId, page, pageSize }
+    );
+
+    return NextResponse.json(timeline, { status: 200 });
   }
 
   if (view === "confidence-history") {
