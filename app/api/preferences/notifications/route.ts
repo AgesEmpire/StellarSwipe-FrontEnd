@@ -70,6 +70,10 @@ export async function GET(request: Request) {
  * Unknown-field policy: unknown top-level fields are stripped (not rejected)
  * so forward-compatible clients can send newer payloads without breaking.
  * The stored value is always normalized to the current schema version.
+ *
+ * Idempotency: when the client supplies an `Idempotency-Key` header, keys are
+ * scoped to the authenticated principal. A matching repeat returns the stored
+ * outcome; reusing the same key with a different payload returns 409.
  */
 export async function PUT(request: Request) {
   const startedAt = Date.now();
