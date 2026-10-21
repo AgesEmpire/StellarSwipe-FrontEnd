@@ -10,6 +10,21 @@ import {
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
 import { getRequestUserId } from "@/lib/providerFollows";
 import { dismissSignal, isSignalDismissalReason } from "@/lib/signalState";
+import { applyCorsHeaders } from "@/lib/cors";
+
+const SIGNALS_ALLOWED_METHODS = ["GET", "POST", "OPTIONS"];
+const SIGNALS_ALLOWED_HEADERS = ["Content-Type", "Authorization"];
+
+function withCors(request: Request, response: NextResponse) {
+  return applyCorsHeaders(request, response, {
+    methods: SIGNALS_ALLOWED_METHODS,
+    headers: SIGNALS_ALLOWED_HEADERS,
+  });
+}
+
+export async function OPTIONS(request: Request) {
+  return withCors(request, new NextResponse(null, { status: 204 }));
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -24,12 +39,15 @@ export async function GET(request: Request) {
     Number.isNaN(pageSize) ||
     pageSize < 1
   ) {
-    return NextResponse.json(
-      {
-        error:
-          "Invalid pagination parameters. page and pageSize must be positive integers.",
-      },
-      { status: 400 }
+    return withCors(
+      request,
+      NextResponse.json(
+        {
+          error:
+            "Invalid pagination parameters. page and pageSize must be positive integers.",
+        },
+        { status: 400 }
+      )
     );
   }
 
@@ -40,14 +58,17 @@ export async function GET(request: Request) {
       { page, pageSize }
     );
 
-    return NextResponse.json(activity, { status: 200 });
+    return withCors(request, NextResponse.json(activity, { status: 200 }));
   }
 
   if (view === "confidence-history") {
     if (!signalId) {
-      return NextResponse.json(
-        { error: "signalId is required to load confidence history." },
-        { status: 400 }
+      return withCors(
+        request,
+        NextResponse.json(
+          { error: "signalId is required to load confidence history." },
+          { status: 400 }
+        )
       );
     }
 
@@ -57,32 +78,41 @@ export async function GET(request: Request) {
       { signalId }
     );
 
-    return NextResponse.json(history, { status: 200 });
+    return withCors(request, NextResponse.json(history, { status: 200 }));
   }
 
   const filters = parseSignalFeedFilters(url.searchParams);
   if (!filters) {
-    return NextResponse.json(
-      { error: "Invalid filter parameters. action and status must be known values." },
-      { status: 400 }
+    return withCors(
+      request,
+      NextResponse.json(
+        { error: "Invalid filter parameters. action and status must be known values." },
+        { status: 400 }
+      )
     );
   }
 
   // Presence of `cursor` selects cursor mode; an empty value requests the first page.
   if (url.searchParams.has("cursor")) {
     if (url.searchParams.has("page")) {
-      return NextResponse.json(
-        { error: "Use either cursor or page, not both." },
-        { status: 400 }
+      return withCors(
+        request,
+        NextResponse.json(
+          { error: "Use either cursor or page, not both." },
+          { status: 400 }
+        )
       );
     }
 
     const cursor = url.searchParams.get("cursor") ?? "";
     const after = cursor ? decodeSignalCursor(cursor) : null;
     if (cursor && !after) {
-      return NextResponse.json(
-        { error: "Invalid cursor." },
-        { status: 400 }
+      return withCors(
+        request,
+        NextResponse.json(
+          { error: "Invalid cursor." },
+          { status: 400 }
+        )
       );
     }
 
@@ -92,7 +122,7 @@ export async function GET(request: Request) {
       { pageSize, filters }
     );
 
-    return NextResponse.json(cursorFeed, { status: 200 });
+    return withCors(request, NextResponse.json(cursorFeed, { status: 200 }));
   }
 
   const feed = await traceWorker(
@@ -101,7 +131,7 @@ export async function GET(request: Request) {
     { page, pageSize, filters }
   );
 
-  return NextResponse.json(feed, { status: 200 });
+  return withCors(request, NextResponse.json(feed, { status: 200 }));
 }
 
 /**
@@ -115,7 +145,10 @@ export async function POST(request: Request) {
   const userId = getRequestUserId(request);
 
   if (!userId) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return withCors(
+      request,
+      NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    );
   }
 
   let body: unknown;
@@ -123,9 +156,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body." },
-      { status: 400 }
+    return withCors(
+      request,
+      NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 }
+      )
     );
   }
 
@@ -138,9 +174,12 @@ export async function POST(request: Request) {
     typeof payload.signalId === "string" ? payload.signalId.trim() : "";
 
   if (!signalId) {
-    return NextResponse.json(
-      { error: "signalId is required to dismiss a recommendation." },
-      { status: 400 }
+    return withCors(
+      request,
+      NextResponse.json(
+        { error: "signalId is required to dismiss a recommendation." },
+        { status: 400 }
+      )
     );
   }
 
@@ -162,5 +201,5 @@ export async function POST(request: Request) {
     { signalId, reason }
   );
 
-  return NextResponse.json(dismissal, { status: 200 });
+  return withCors(request, NextResponse.json(dismissal, { status: 200 }));
 }
