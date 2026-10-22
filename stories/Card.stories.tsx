@@ -49,7 +49,9 @@ export const Empty: Story = {
   render: () => (
     <Card className="w-80">
       <CardContent>
-        <p className="text-sm text-muted-foreground text-center py-4">No content</p>
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No content
+        </p>
       </CardContent>
     </Card>
   ),

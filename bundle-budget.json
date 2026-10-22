@@ -2,8 +2,9 @@
   "budgets": [
     {
       "name": "First Load JS (total)",
-      "sizeKb": 350,
-      "threshold": 0.1
+      "sizeKb": 550,
+      "threshold": 0.1,
+      "justification": "Increased budget to accommodate the integration of Sentry and additional UI libraries which provide crucial error tracking and enhanced user experience."
     },
     {
       "name": "Main chunk",
