@@ -50,6 +50,14 @@ const quoteRequestSchema = z.object({
     .refine((v) => Number(v) >= MIN_AMOUNT, `Amount must be at least ${MIN_AMOUNT}`),
   wallet: z.string().trim().regex(STELLAR_ADDRESS, "Wallet must be a valid Stellar address"),
   network: z.enum(SUPPORTED_NETWORKS),
+  // Optional current balances so the review step can preview post-trade
+  // balances. Missing entries are surfaced as unavailable estimates.
+  balances: z
+    .object({
+      asset: z.string().trim().regex(amountPattern).optional(),
+      fiat: z.string().trim().regex(amountPattern).optional(),
+    })
+    .optional(),
 });
 
 type Quote = z.infer<typeof quoteRequestSchema> & {
@@ -163,6 +171,45 @@ function formatAmount(value: number, decimals: number): string {
   return roundTo(value, decimals).toFixed(decimals);
 }
 
+/**
+ * Estimate the balances a user will hold after the proposed trade.
+ *
+ * BUY  — spend fiat (total + fee), receive the asset.
+ * SELL — spend the asset, receive fiat (total - fee).
+ *
+ * Any missing balance input is reported as `null` with an `unavailable`
+ * label so the review step can render it as an estimate rather than a
+ * confirmed figure.
+ */
+function estimateBalances(quote: Quote) {
+  const beforeAsset = quote.balances?.asset !== undefined ? Number(quote.balances.asset) : null;
+  const beforeFiat = quote.balances?.fiat !== undefined ? Number(quote.balances.fiat) : null;
+
+  const assetDelta = quote.direction === "BUY" ? Number(quote.assetAmount) : -Number(quote.assetAmount);
+  const fiatDelta =
+    quote.direction === "BUY" ? -(quote.total + quote.fee) : quote.total - quote.fee;
+
+  const afterAsset = beforeAsset === null ? null : roundTo(beforeAsset + assetDelta, ASSET_DECIMALS);
+  const afterFiat = beforeFiat === null ? null : roundTo(beforeFiat + fiatDelta, FIAT_DECIMALS);
+
+  return {
+    asset: {
+      symbol: quote.asset,
+      before: beforeAsset === null ? null : formatAmount(beforeAsset, ASSET_DECIMALS),
+      after: afterAsset === null ? null : formatAmount(afterAsset, ASSET_DECIMALS),
+      delta: formatAmount(assetDelta, ASSET_DECIMALS),
+      label: beforeAsset === null ? "unavailable" : "estimate",
+    },
+    fiat: {
+      symbol: "USDC",
+      before: beforeFiat === null ? null : formatAmount(beforeFiat, FIAT_DECIMALS),
+      after: afterFiat === null ? null : formatAmount(afterFiat, FIAT_DECIMALS),
+      delta: formatAmount(fiatDelta, FIAT_DECIMALS),
+      label: beforeFiat === null ? "unavailable" : "estimate",
+    },
+  };
+}
+
 function toResponse(quote: Quote) {
   return {
     quoteId: quote.quoteId,
@@ -181,6 +228,10 @@ function toResponse(quote: Quote) {
       fee: quote.fee,
       slippageBps: quote.slippageBps,
     },
+    // Estimated before/after balances for the review step. Values are
+    // derived from the quoted amount and displayed fee; missing inputs are
+    // labeled `unavailable`.
+    balancePreview: estimateBalances(quote),
     // Timestamp of the rate used for this conversion so the UI can label
     // freshness and refuse to reuse a stale conversion.
     quotedAt: new Date(quote.quotedAt).toISOString(),
