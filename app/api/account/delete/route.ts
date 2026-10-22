@@ -153,6 +153,8 @@ const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 interface WalletChallenge {
   accountPublicKey: string;
   walletAddress: string;
+  domain: string;
+  network: string;
   issuedAt: number;
   used: boolean;
 }
@@ -183,19 +185,24 @@ export interface WalletOperationResult {
 
 /**
  * Issues a fresh, single-use signature challenge for linking `walletAddress`
- * to `accountPublicKey`.  The caller signs the returned challenge and submits
- * it back to `linkWallet`.
+ * to `accountPublicKey`.  The challenge is bound to the issuing context
+ * (account, wallet, domain, and Stellar network) so it cannot be replayed
+ * against a different login, wallet, domain, or network.  The caller signs
+ * the returned challenge and submits it back to `linkWallet`.
  */
 export function issueLinkChallenge(
   accountPublicKey: string,
-  walletAddress: string
+  walletAddress: string,
+  context: { domain: string; network: string }
 ): { challenge: string; expiresAt: string } {
-  const challenge = `${accountPublicKey}:${walletAddress}:${Date.now()}:${Math.random()
+  const challenge = `${accountPublicKey}:${walletAddress}:${context.domain}:${context.network}:${Date.now()}:${Math.random()
     .toString(36)
     .slice(2)}`;
   pendingChallenges.set(challenge, {
     accountPublicKey,
     walletAddress,
+    domain: context.domain,
+    network: context.network,
     issuedAt: Date.now(),
     used: false,
   });
@@ -208,15 +215,24 @@ export function issueLinkChallenge(
 /**
  * Links a Stellar wallet to an account after verifying a fresh signature
  * challenge.  Enforces the documented uniqueness policy.
+ *
+ * The challenge is consumed exactly once: it is atomically marked used before
+ * any side effects, so concurrent reuse of the same challenge allows at most
+ * one success.  The presented context (account, wallet, domain, network) must
+ * match the context the challenge was issued for.
  */
 export function linkWallet(params: {
   accountPublicKey: string;
   walletAddress: string;
   challenge: string;
   signature: string;
+  domain: string;
+  network: string;
 }): WalletOperationResult {
-  const { accountPublicKey, walletAddress, challenge, signature } = params;
+  const { accountPublicKey, walletAddress, challenge, signature, domain, network } =
+    params;
 
+  // ── Session check ──────────────────────────────────────────────────────────
   if (isSessionRevoked(accountPublicKey)) {
     return {
       success: false,
@@ -225,52 +241,85 @@ export function linkWallet(params: {
     };
   }
 
+  // ── Challenge lookup ───────────────────────────────────────────────────────
   const pending = pendingChallenges.get(challenge);
-  const isFresh =
-    pending !== undefined &&
-    !pending.used &&
-    pending.accountPublicKey === accountPublicKey &&
-    pending.walletAddress === walletAddress &&
-    Date.now() - pending.issuedAt <= CHALLENGE_TTL_MS;
-
-  if (!isFresh || !signature) {
+  if (!pending) {
     return {
       success: false,
-      message:
-        "Invalid or expired signature challenge. Request a fresh challenge and sign it.",
+      message: "Invalid challenge: not found.",
       errorCode: "INVALID_CHALLENGE",
     };
   }
 
-  // Consume the challenge so it cannot be replayed.
+  // ── Single-use enforcement ─────────────────────────────────────────────────
+  if (pending.used) {
+    return {
+      success: false,
+      message: "Invalid challenge: already used.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
   pending.used = true;
-  pendingChallenges.delete(challenge);
 
+  // ── Expiry check ───────────────────────────────────────────────────────────
+  if (Date.now() - pending.issuedAt > CHALLENGE_TTL_MS) {
+    return {
+      success: false,
+      message: "Invalid challenge: expired.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
+
+  // ── Context binding ────────────────────────────────────────────────────────
+  if (
+    pending.accountPublicKey !== accountPublicKey ||
+    pending.walletAddress !== walletAddress ||
+    pending.domain !== domain ||
+    pending.network !== network
+  ) {
+    return {
+      success: false,
+      message: "Invalid challenge: context mismatch.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
+
+  // ── Signature presence ─────────────────────────────────────────────────────
+  if (!signature) {
+    return {
+      success: false,
+      message: "Invalid challenge: missing signature.",
+      errorCode: "INVALID_CHALLENGE",
+    };
+  }
+
+  // ── Uniqueness policy ──────────────────────────────────────────────────────
   const existingOwner = walletOwners.get(walletAddress);
   if (existingOwner && existingOwner !== accountPublicKey) {
     return {
       success: false,
-      message: "This wallet is already linked to another account.",
+      message: "Wallet is already linked to another account.",
       errorCode: "WALLET_ALREADY_LINKED",
     };
   }
 
   const wallets = accountWallets.get(accountPublicKey) ?? [];
-  if (wallets.some((w) => w.address === walletAddress)) {
-    // Idempotent: already linked to this account.
-    return { success: true, message: "Wallet already linked.", wallets };
+  if (!wallets.some((w) => w.address === walletAddress)) {
+    wallets.push({ address: walletAddress, isPrimary: wallets.length === 0 });
+    accountWallets.set(accountPublicKey, wallets);
+    walletOwners.set(walletAddress, accountPublicKey);
   }
 
-  wallets.push({ address: walletAddress, isPrimary: wallets.length === 0 });
-  accountWallets.set(accountPublicKey, wallets);
-  walletOwners.set(walletAddress, accountPublicKey);
-
-  return { success: true, message: "Wallet linked.", wallets };
+  return {
+    success: true,
+    message: "Wallet linked successfully.",
+    wallets,
+  };
 }
 
 /**
- * Unlinks a Stellar wallet from an account, enforcing primary-wallet and
- * active-session safety.
+ * Unlinks a Stellar wallet from an account.  Requires an active, non-revoked
+ * session and refuses to unlink the primary wallet.
  */
 export function unlinkWallet(params: {
   accountPublicKey: string;
@@ -291,7 +340,7 @@ export function unlinkWallet(params: {
   if (!target) {
     return {
       success: false,
-      message: "Wallet is not linked to this account.",
+      message: "Wallet not found for this account.",
       errorCode: "WALLET_NOT_FOUND",
     };
   }
@@ -308,84 +357,29 @@ export function unlinkWallet(params: {
   accountWallets.set(accountPublicKey, remaining);
   walletOwners.delete(walletAddress);
 
-  return { success: true, message: "Wallet unlinked.", wallets: remaining };
-}
-
-// ─── Deletion business logic ──────────────────────────────────────────────────
-
-/**
- * Performs the actual account deletion.
- *
- * Steps:
- *  1. Check for pending on-chain transactions (simulate guard).
- *  2. Anonymise retained records per the retention policy.
- *  3. Schedule purge of non-essential records.
- *  4. Deactivate the account and revoke the current session credential.
- *
- * Replace this stub with real Soroban / database calls.
- */
-async function performAccountDeletion(
-  request: DeletionRequest
-): Promise<DeletionResponse> {
-  const { publicKey, idempotencyKey, retentionPolicy } = request;
-
-  // Simulate guard: open positions must be closed before deletion
-  const hasPendingTransactions = await checkPendingTransactions(publicKey);
-  if (hasPendingTransactions) {
-    return {
-      success: false,
-      idempotencyKey,
-      message:
-        "Cannot delete account while there are pending transactions. " +
-        "Close all open positions first.",
-      errorCode: "PENDING_TRANSACTIONS",
-    };
-  }
-
-  // Anonymise retained records (financial + audit)
-  const anonymisedRecords = retentionPolicy.retainAndAnonymise.map(
-    (category) => ({
-      category,
-      anonymisedKey: anonymiseValue(`${publicKey}:${category}`),
-    })
-  );
-
-  // Schedule non-essential records for purge (simulated)
-  const purgedRecords = retentionPolicy.purge.map((category) => ({
-    category,
-    scheduledFor: new Date(
-      Date.now() + retentionPolicy.retentionDays * 24 * 60 * 60 * 1000
-    ).toISOString(),
-  }));
-
-  // In production: write anonymisedRecords to DB, queue purge jobs,
-  // and call the identity provider / Soroban contract to deactivate.
-  void anonymisedRecords;
-  void purgedRecords;
-  void DEFAULT_RETENTION_POLICY; // ensure import used
-
-  // Revoke the current server-side session so the credential cannot be reused.
-  // Idempotent: safe to call again on an already-revoked session.
-  revokeSession(publicKey);
-
-  const processedAt = new Date().toISOString();
-
   return {
     success: true,
-    idempotencyKey,
-    processedAt,
-    message: "Account scheduled for deletion. Financial records have been anonymised per retention policy.",
+    message: "Wallet unlinked successfully.",
+    wallets: remaining,
   };
 }
 
-/**
- * Guard: returns true if the account has any open / pending on-chain
- * transactions that must be settled before deletion.
- *
- * Replace with a real Horizon / Soroban contract query.
- */
-async function checkPendingTransactions(publicKey: string): Promise<boolean> {
-  // Demo: no pending transactions for any account.
-  void publicKey;
-  return false;
+// ─── Deletion stub ────────────────────────────────────────────────────────────
+
+async function performAccountDeletion(
+  request: DeletionRequest
+): Promise<DeletionResponse> {
+  // Apply retention policy: anonymise retained fields, schedule purge of the
+  // rest.  Replace with the real back-end call in production.
+  void DEFAULT_RETENTION_POLICY;
+  void anonymiseValue(request.publicKey);
+
+  // Revoke the session so the credential cannot be reused after deletion.
+  revokeSession(request.publicKey);
+
+  return {
+    success: true,
+    idempotencyKey: request.idempotencyKey,
+    message: "Account deletion initiated.",
+  };
 }

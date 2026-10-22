@@ -263,3 +263,9 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-864 -->
 - #864: Add configurable columns to the portfolio holdings table
+
+<!-- handsoff-issue-913 -->
+- #913: Validate NestJS environment configuration at startup
+
+<!-- handsoff-issue-926 -->
+- #926: Instrument NestJS requests with distributed tracing context
