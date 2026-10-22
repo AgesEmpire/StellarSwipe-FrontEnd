@@ -29,6 +29,10 @@ export interface Signal {
   stats?: SignalStats;
   providerId?: string;
   providerName?: string;
+  /** ISO timestamp of the last revision/update to this signal */
+  lastUpdated?: string;
+  /** Whether this signal has been updated since initial publication */
+  hasRevision?: boolean;
 }
 
 export async function fetchSignals(): Promise<Signal[]> {
