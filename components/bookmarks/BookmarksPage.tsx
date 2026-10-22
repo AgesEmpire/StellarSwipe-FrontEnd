@@ -5,6 +5,8 @@ import { ArrowLeft, BookmarkX, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SignalCard } from "@/components/SignalCard";
 import { useBookmarkStore } from "@/store/useBookmarkStore";
+import { useWatchlistStore } from "@/store/useWatchlistStore";
+import { useWatchlistActions } from "@/hooks/useWatchlistActions";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import type { Signal } from "@/lib/signals";
 
@@ -34,14 +36,12 @@ function BookmarksEmptyState() {
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Button asChild size="sm" className="gap-2">
           <Link href="/app">
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            Browse feed
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Browse feed
           </Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
           <Link href="/providers">
-            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            Explore providers
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Explore providers
           </Link>
         </Button>
       </div>
@@ -51,10 +51,15 @@ function BookmarksEmptyState() {
 
 export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
   const bookmarks = useBookmarkStore((state) => state.bookmarks);
+  const { watchlist, setWatchlist } = useWatchlistStore();
+  const watchlistActions = useWatchlistActions();
   const { assets } = usePortfolio();
 
   const bookmarkedSignals = initialSignals.filter((signal) => bookmarks.includes(signal.id));
   const portfolioBalance = assets.reduce((sum, asset) => sum + asset.value, 0);
+
+  // Available assets for watchlist
+  const availableAssets = ["XLM", "USDC", "AQUA", "yXLM"];
 
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-8 lg:px-8">
@@ -77,8 +82,7 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
             </div>
             <Button asChild variant="outline" size="sm" className="gap-2">
               <Link href="/app">
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                Back to feed
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Back to feed
               </Link>
             </Button>
           </div>
@@ -102,6 +106,27 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                 portfolioBalance={portfolioBalance}
               />
             ))}
+            <div className="mt-6 p-4 bg-card rounded-lg border border-white/10">
+              <h3 className="text-sm font-medium text-foreground mb-3">Watchlist</h3>
+              <p className="text-xs text-foreground-muted mb-2">
+                Assets you're tracking without a specific signal
+              </p>
+              <div className="space-y-2 max-w-md">
+                {availableAssets.map((symbol) => (
+                  <div key={symbol} className="flex items-center justify-between px-3 py-2 bg-white/5 rounded">
+                    <span className="font-medium text-sm">{symbol}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => watchlistActions.toggleWatchlist(symbol, symbol)}
+                      className="text-xs"
+                    >
+                      {watchlistActions.hasWatchlist(symbol) ? "Watched" : "Add"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
