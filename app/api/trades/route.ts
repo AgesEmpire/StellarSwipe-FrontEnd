@@ -13,6 +13,74 @@ import {
 const APP_NETWORK: string = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "TESTNET";
 
 /**
+ * OpenAPI description of this route, consumed by the docs generator so the
+ * published contract stays aligned with the handler below.
+ */
+export const openapi = {
+  method: "post" as const,
+  path: "/api/trades",
+  summary: "Revalidate trade limits before submitting a transaction",
+  description:
+    "Revalidates trade limits before the client may submit a transaction. Nothing is submitted here; a 2xx response only means the order may proceed.",
+  security: [{ walletSignature: [] }],
+  request: { schema: tradeRequestSchema },
+  responses: {
+    200: {
+      description: "Order may proceed; includes estimated post-trade balances.",
+      schema: {
+        type: "object",
+        required: ["ok", "preview"],
+        properties: {
+          ok: { type: "boolean", enum: [true] },
+          preview: {
+            type: "object",
+            required: ["asset", "before", "after", "estimated"],
+            properties: {
+              asset: { type: "string", enum: ["native"] },
+              before: { type: "number" },
+              after: { type: "number", nullable: true },
+              estimated: { type: "boolean" },
+              quoteComplete: { type: "boolean" },
+              feeKnown: { type: "boolean" },
+              fee: { type: "number", nullable: true },
+              unavailable: { type: "array", items: { type: "string" } },
+            },
+          },
+        },
+      },
+    },
+    400: { description: "Malformed trade request.", schema: errorSchema() },
+    409: {
+      description: "Active wallet changed since the review was created.",
+      schema: {
+        type: "object",
+        required: ["code", "message", "accountChanged"],
+        properties: {
+          code: { type: "string" },
+          message: { type: "string" },
+          accountChanged: { type: "boolean" },
+          activePublicKey: { type: "string" },
+          reviewedPublicKey: { type: "string" },
+        },
+      },
+    },
+    422: { description: "Trade rejected by limits or balance checks.", schema: errorSchema() },
+    503: { description: "Balance could not be verified.", schema: errorSchema() },
+  },
+};
+
+function errorSchema() {
+  return {
+    type: "object",
+    required: ["code", "message"],
+    properties: {
+      code: { type: "string" },
+      message: { type: "string" },
+    },
+  };
+}
+
+/**
  * POST /api/trades
  * Revalidates trade limits before the client may submit a transaction.
  * Nothing is submitted here; a 2xx response only means the order may proceed.
@@ -116,4 +184,3 @@ function buildBalancePreview(
 function rejectResponse({ code, message, status }: TradeRejection) {
   return NextResponse.json({ code, message }, { status });
 }
-

@@ -1,19 +1,22 @@
-# StellarSwipe-FrontEnd
+# Project
 
-[![CI](https://github.com/AgesEmpire/StellarSwipe-FrontEnd/actions/workflows/ci.yml/badge.svg)](https://github.com/AgesEmpire/StellarSwipe-FrontEnd/actions/workflows/ci.yml)
+## API Versioning
 
-## Overview
+This server exposes a versioned REST API using **URI-based versioning**.
 
-Modern, responsive web app featuring:
+- The current stable version is **v1**.
+- Requests without an explicit version resolve to the **default version (v1)**.
+- Requests for an unsupported version (e.g. `/v2/...`) return a predictable `404 Not Found` instead of silently falling through to another version.
 
-- Infinite scrolling signal feed
-- Gamified swipe mechanics (Framer Motion drag gestures)
-- Freighter wallet integration
-- Real-time dashboard & trade execution
+### Examples
 
-Connects to Soroban contracts for on-chain actions.
+| Request | Resolves to |
+| --- | --- |
+| `GET /health` | default version (`v1`) |
+| `GET /v1/health` | explicit `v1` |
+| `GET /v2/health` | `404 Not Found` (unsupported version) |
 
-## Security
+### Adding a new version
 
 Found a vulnerability? Please don't open a public issue — see
 [SECURITY.md](SECURITY.md) for how to report it privately, supported
@@ -275,3 +278,7 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-868 -->
 - #868: Drill into portfolio holdings from allocation chart segments
+
+1. Bump the default version in the NestJS bootstrap (`app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })`).
+2. Annotate controllers/handlers with `@Version('2')` where the new version applies.
+3. Add e2e coverage for the new version alongside the existing default/explicit/unsupported cases.
