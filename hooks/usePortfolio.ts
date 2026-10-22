@@ -3,12 +3,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@/hooks/useWallet";
-import {
-  usePortfolioStore,
-  type PortfolioAsset,
-} from "@/store/usePortfolioStore";
-import { queryOptions } from "@/lib/queryOptions";
-
+import { usePortfolioStore, type PortfolioAsset } from "@/store/usePortfolioStore";
 function withPercentages(
   assets: Omit<PortfolioAsset, "percentage">[]
 ): PortfolioAsset[] {
@@ -115,6 +110,27 @@ export function usePortfolio() {
       store.setAssets(data);
     }
   }, [data, store]);
+
+  // Initialize quote prices for all assets if not already set
+  useEffect(() => {
+    const assets = store.assets;
+    const now = new Date();
+    let needsInit = false;
+    if (assets.length > 0) {
+      const firstAsset = assets[0];
+      if (firstAsset.quotePrice === undefined || firstAsset.quoteLastUpdated === undefined) {
+        needsInit = true;
+      }
+    }
+    if (needsInit) {
+      const initializedAssets = assets.map((asset) => ({
+        ...asset,
+        quotePrice: asset.value,
+        quoteLastUpdated: now,
+      }));
+      store.setAssets(initializedAssets);
+    }
+  }, [store.assets]);
 
   return {
     assets: data || store.assets,

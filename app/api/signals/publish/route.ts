@@ -15,6 +15,11 @@ import { validateSignalPayload } from "@/lib/signalPayload";
  * with HTTP 422 and a structured errors array — no partial record is
  * created.
  *
+ * Idempotency: mutating requests may supply an `Idempotency-Key` header.
+ * Keys are scoped to the authenticated principal so keys from different
+ * users cannot collide. A matching repeat returns the stored outcome; the
+ * same key reused with a different payload returns HTTP 409.
+ *
  * Expected body (JSON):
  *   {
  *     asset:     string   — e.g. "XLM/USDC"
@@ -26,6 +31,30 @@ import { validateSignalPayload } from "@/lib/signalPayload";
  */
 
 const ADMIN_ROLES = ["admin", "signals:publish"] as const;
+
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+
+interface StoredOutcome {
+  fingerprint: string;
+  status: number;
+  body: unknown;
+  expiresAt: number;
+}
+
+/**
+ * In-memory idempotency store keyed by `${principalId}:${idempotencyKey}`.
+ * Scoping to the principal prevents cross-user key collisions. Entries
+ * expire after IDEMPOTENCY_TTL_MS.
+ */
+const idempotencyStore = new Map<string, StoredOutcome>();
+
+function pruneExpired(now: number): void {
+  for (const [key, entry] of idempotencyStore) {
+    if (entry.expiresAt <= now) {
+      idempotencyStore.delete(key);
+    }
+  }
+}
 
 /**
  * Resolve the caller's roles from trusted server-side identity data.
@@ -50,10 +79,28 @@ function getTrustedRoles(request: Request): string[] {
   return roles.filter((role): role is string => typeof role === "string");
 }
 
+/**
+ * Resolve the authenticated principal id from trusted server-side identity
+ * data. Returns null when no trusted identity is present.
+ */
+function getPrincipalId(request: Request): string | null {
+  const principal = (request as Request & {
+    auth?: { id?: unknown; sub?: unknown };
+  }).auth;
+
+  const id = principal?.id ?? principal?.sub;
+
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
 function isAuthorized(roles: string[]): boolean {
   return roles.some((role) =>
     (ADMIN_ROLES as readonly string[]).includes(role)
   );
+}
+
+function fingerprint(body: unknown): string {
+  return JSON.stringify(body);
 }
 
 export async function POST(request: Request) {
@@ -73,6 +120,15 @@ export async function POST(request: Request) {
     );
   }
 
+  const principalId = getPrincipalId(request);
+
+  if (!principalId) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 }
+    );
+  }
+
   let body: unknown;
 
   try {
@@ -82,6 +138,51 @@ export async function POST(request: Request) {
       { error: "Request body must be valid JSON." },
       { status: 400 }
     );
+  }
+
+  const idempotencyKey = request.headers.get("Idempotency-Key");
+  const now = Date.now();
+
+  if (idempotencyKey) {
+    pruneExpired(now);
+
+    const scopedKey = `${principalId}:${idempotencyKey}`;
+    const existing = idempotencyStore.get(scopedKey);
+    const requestFingerprint = fingerprint(body);
+
+    if (existing) {
+      if (existing.fingerprint !== requestFingerprint) {
+        return NextResponse.json(
+          {
+            error:
+              "Idempotency-Key was reused with a different request payload.",
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json(existing.body, { status: existing.status });
+    }
+
+    const result = validateSignalPayload(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { errors: result.errors },
+        { status: 422 }
+      );
+    }
+
+    const responseBody = { signal: result.data };
+
+    idempotencyStore.set(scopedKey, {
+      fingerprint: requestFingerprint,
+      status: 201,
+      body: responseBody,
+      expiresAt: now + IDEMPOTENCY_TTL_MS,
+    });
+
+    return NextResponse.json(responseBody, { status: 201 });
   }
 
   const result = validateSignalPayload(body);

@@ -77,7 +77,12 @@ export function useProviderSignals(providerId: string) {
   return useQuery({
     queryKey: ["provider-signals", providerId],
     queryFn: async () => {
-      return mockProviderSignals[providerId] || [];
+      const rawSignals = mockProviderSignals[providerId] || [];
+      return rawSignals.map((signal) => ({
+        ...signal,
+        lastUpdated: signal.timestamp,
+        hasRevision: false,
+      }));
     },
     ...queryOptions.providerSignals,
   });

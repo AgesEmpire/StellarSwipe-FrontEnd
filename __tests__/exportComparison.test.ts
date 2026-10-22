@@ -125,6 +125,13 @@ describe("buildComparisonCsv – data values", () => {
     expect(csv).toContain('"Say ""hello"""');
   });
 
+  it("escapes values that contain newlines", () => {
+    const csv = buildComparisonCsv([
+      makeSignal({ id: "sig-newline", provider: "Line one\nLine two" }),
+    ]);
+    expect(csv).toContain('"Line one\nLine two"');
+  });
+
   it("each data row has the same number of cells as the header", () => {
     const signals = [makeSignal({ id: "sig-1" }), makeSignal({ id: "sig-2" })];
     const csv = buildComparisonCsv(signals);

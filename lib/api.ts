@@ -27,11 +27,27 @@ export class ServerError extends Error {
   }
 }
 
-export class TimeoutError extends Error {
-  constructor(timeoutMs: number) {
-    super(`Request timed out after ${timeoutMs / 1000}s — please try again.`);
-    this.name = "TimeoutError";
-  }
+export interface SignalStats {
+  entryPrice: number;
+  targetPrice: number;
+  stopLoss: number;
+  riskReward: string;
+}
+
+export interface Signal {
+  id: string;
+  asset: string;
+  action: "BUY" | "SELL";
+  confidence: number;
+  timestamp: string;
+  rationale?: string;
+  stats?: SignalStats;
+  providerId?: string;
+  providerName?: string;
+  /** ISO timestamp of the last revision/update to this signal */
+  lastUpdated?: string;
+  /** Whether this signal has been updated since initial publication */
+  hasRevision?: boolean;
 }
 
 async function apiFetch<T>(url: string, signal?: AbortSignal): Promise<T> {

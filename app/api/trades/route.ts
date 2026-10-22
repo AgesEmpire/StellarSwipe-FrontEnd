@@ -116,3 +116,4 @@ function buildBalancePreview(
 function rejectResponse({ code, message, status }: TradeRejection) {
   return NextResponse.json({ code, message }, { status });
 }
+

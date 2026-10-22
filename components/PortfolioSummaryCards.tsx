@@ -24,10 +24,17 @@ export function PortfolioSummaryCards() {
   }
 
   const totalPnL = totalRealizedPnL + totalUnrealizedPnL;
-  const pnlPercent =
-    totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
-  const activePositions = assets.filter((a) => a.value > 0).length;
+  const pnlPercent = totalValue > 0 ? (totalPnL / (totalValue - totalPnL)) * 100 : 0;
   const isPositive = totalPnL >= 0;
+  const activePositions = assets.filter((a) => a.value > 0).length;
+
+  // Determine if any quotes are stale (older than 5 minutes)
+  const hasStaleQuotes = assets.some((asset) => {
+    const lastUpdated = asset.quoteLastUpdated;
+    if (!lastUpdated) return false;
+    const age = Date.now() - new Date(lastUpdated).getTime();
+    return age > 5 * 60 * 1000; // 5 minutes
+  });
 
   /** Mask a numeric string if privacy mode is on. */
   const mask = (v: string) => (privacyMode ? PRIVACY_MASK : v);
@@ -78,14 +85,17 @@ export function PortfolioSummaryCards() {
             </div>
           ))}
         </div>
+
+        {/* Quote status overlay */}
+        {hasStaleQuotes && (
+          <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md text-sm">
+            <span className="text-amber-300 font-medium">
+              Some quotes are stale (older than 5 minutes).{" "}
+            </span>
+            <span className="text-amber-400 ml-2">Refresh portfolio to update prices.</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
-}
-
-function formatCurrency(value: number): string {
-  return `$${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
