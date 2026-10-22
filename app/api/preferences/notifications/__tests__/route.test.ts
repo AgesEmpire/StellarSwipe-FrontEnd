@@ -9,6 +9,9 @@
  *  - Versioning: responses carry a schema version
  *  - Unknown-field policy: unknown fields are stripped, not persisted
  *  - Isolation: users can only read/write their own preferences
+ *  - End-to-end: authenticated success, invalid payload, and unauthorized
+ *    access exercised through the full route boundary with deterministic
+ *    per-test user ids and teardown that clears stored state
  */
 
 import { GET, PUT } from "@/app/api/preferences/notifications/route";
@@ -162,5 +165,57 @@ describe("PUT /api/preferences/notifications", () => {
     const read = await GET(makeRequest("GET", "route-put-no-store"));
     const body = await read.json();
     expect(body.preferences).toEqual(defaultNotificationPreferences());
+  });
+});
+
+describe("end-to-end authenticated API flow", () => {
+  const userId = "e2e-authenticated-user";
+
+  afterEach(async () => {
+    // Teardown: reset the user's stored preferences so each test starts from
+    // a deterministic state and no state leaks between runs.
+    await PUT(
+      makeRequest("PUT", userId, {
+        channels: { push: false, email: false, inApp: false },
+        timeZone: "UTC",
+        quietHours: { enabled: false, windows: [] },
+      })
+    );
+  });
+
+  it("persists an authenticated update and reads it back", async () => {
+    const write = await PUT(makeRequest("PUT", userId, validBody()));
+    expect(write.status).toBe(200);
+    const writeBody = await write.json();
+    expect(writeBody.version).toBe(NOTIFICATION_PREFERENCES_VERSION);
+    expect(writeBody.preferences).toEqual(validBody());
+
+    const read = await GET(makeRequest("GET", userId));
+    expect(read.status).toBe(200);
+    const readBody = await read.json();
+    expect(readBody.version).toBe(NOTIFICATION_PREFERENCES_VERSION);
+    expect(readBody.preferences).toEqual(validBody());
+  });
+
+  it("rejects an invalid payload without persisting it", async () => {
+    const res = await PUT(
+      makeRequest("PUT", userId, { ...validBody(), timeZone: "Not/AZone" })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("Validation failed");
+    expect(body.fields.timeZone).toBeDefined();
+
+    const read = await GET(makeRequest("GET", userId));
+    const readBody = await read.json();
+    expect(readBody.preferences).toEqual(defaultNotificationPreferences());
+  });
+
+  it("rejects unauthorized access on both read and write", async () => {
+    const read = await GET(makeRequest("GET", null));
+    expect(read.status).toBe(401);
+
+    const write = await PUT(makeRequest("PUT", null, validBody()));
+    expect(write.status).toBe(401);
   });
 });

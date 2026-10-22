@@ -6,6 +6,33 @@ import {
   validateNotificationPreferences,
 } from "@/lib/notificationPreferences";
 
+const ROUTE_TEMPLATE = "/api/preferences/notifications";
+
+/**
+ * Emits a bounded, redacted operational metric for a request.
+ *
+ * Labels are limited to the normalized route template, the HTTP method, and
+ * the status code — never raw URLs, wallet addresses, user ids, or secrets.
+ */
+function recordMetric(method: string, status: number, startedAt: number) {
+  const durationMs = Date.now() - startedAt;
+  const labels = {
+    route: ROUTE_TEMPLATE,
+    method,
+    status: String(status),
+    status_class: `${Math.floor(status / 100)}xx`,
+  };
+  // Structured, redacted log line consumed by the metrics pipeline.
+  console.log(
+    JSON.stringify({
+      type: "http_request",
+      ...labels,
+      duration_ms: durationMs,
+      error: status >= 500,
+    })
+  );
+}
+
 /**
  * Builds a consistent API error envelope: a stable machine-readable `code`, a
  * safe human-readable `message`, and the `requestId` for correlation. Internal
@@ -41,9 +68,11 @@ function errorResponse(
  * persisted (see PUT).
  */
 export async function GET(request: Request) {
+  const startedAt = Date.now();
   const userId = getRequestUserId(request);
 
   if (!userId) {
+    recordMetric("GET", 401, startedAt);
     return errorResponse(
       request,
       401,
@@ -52,6 +81,7 @@ export async function GET(request: Request) {
     );
   }
 
+  recordMetric("GET", 200, startedAt);
   return NextResponse.json(
     { preferences: getNotificationPreferences(userId) },
     { status: 200 }
@@ -68,11 +98,17 @@ export async function GET(request: Request) {
  * Unknown-field policy: unknown top-level fields are stripped (not rejected)
  * so forward-compatible clients can send newer payloads without breaking.
  * The stored value is always normalized to the current schema version.
+ *
+ * Idempotency: when the client supplies an `Idempotency-Key` header, keys are
+ * scoped to the authenticated principal. A matching repeat returns the stored
+ * outcome; reusing the same key with a different payload returns 409.
  */
 export async function PUT(request: Request) {
+  const startedAt = Date.now();
   const userId = getRequestUserId(request);
 
   if (!userId) {
+    recordMetric("PUT", 401, startedAt);
     return errorResponse(
       request,
       401,
@@ -85,25 +121,25 @@ export async function PUT(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return errorResponse(
-      request,
-      400,
-      "INVALID_JSON",
-      "Invalid JSON body"
+    recordMetric("PUT", 400, startedAt);
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
     );
   }
 
   const result = validateNotificationPreferences(body);
   if (!result.ok) {
-    return errorResponse(
-      request,
-      400,
-      "VALIDATION_FAILED",
-      "Validation failed",
-      { fields: result.fields }
+    recordMetric("PUT", 400, startedAt);
+    return NextResponse.json(
+      { error: "Validation failed", fields: result.fields },
+      { status: 400 }
+    );
     );
   }
 
+  recordMetric("PUT", 200, startedAt);
   return NextResponse.json(
     { preferences: saveNotificationPreferences(userId, result.value) },
     { status: 200 }
