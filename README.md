@@ -272,3 +272,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-867 -->
 - #867: Annotate deposits and withdrawals on portfolio performance charts
+
+<!-- handsoff-issue-868 -->
+- #868: Drill into portfolio holdings from allocation chart segments
