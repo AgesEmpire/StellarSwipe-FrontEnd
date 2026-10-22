@@ -255,6 +255,15 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 <!-- handsoff-issue-946 -->
 - #946: Add account profile read and update endpoints
 
+<!-- handsoff-issue-862 -->
+- #862: Separate realized and unrealized P&L in the portfolio summary
+
+<!-- handsoff-issue-863 -->
+- #863: Add lot-level cost basis details to position views
+
+<!-- handsoff-issue-864 -->
+- #864: Add configurable columns to the portfolio holdings table
+
 <!-- handsoff-issue-913 -->
 - #913: Validate NestJS environment configuration at startup
 
