@@ -257,3 +257,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-862 -->
 - #862: Separate realized and unrealized P&L in the portfolio summary
+
+<!-- handsoff-issue-863 -->
+- #863: Add lot-level cost basis details to position views
