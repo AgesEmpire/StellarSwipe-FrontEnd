@@ -4,8 +4,6 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@/hooks/useWallet";
 import { usePortfolioStore, type PortfolioAsset } from "@/store/usePortfolioStore";
-import { useQuotePrice } from "@/hooks/useQuotePrice";
-
 function withPercentages(
   assets: Omit<PortfolioAsset, "percentage">[]
 ): PortfolioAsset[] {
@@ -85,10 +83,5 @@ export function usePortfolio() {
     totalValue: store.totalValue,
     isLoading: store.isLoading,
     refetch,
-    getQuoteInfo: (symbol: string) => {
-      const asset = store.assets.find((a) => a.symbol === symbol);
-      if (!asset) return { state: "unavailable", price: null, lastUpdated: null, timeAgo: "never" };
-      return useQuotePrice(symbol, asset.quotePrice, asset.quoteLastUpdated);
-    },
   };
 }

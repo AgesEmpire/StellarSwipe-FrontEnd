@@ -5,8 +5,6 @@ import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { useQuotePrice } from "@/hooks/useQuotePrice";
-
 export function PortfolioSummaryCards() {
   const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL } = usePortfolioStore();
 
@@ -15,8 +13,13 @@ export function PortfolioSummaryCards() {
   const isPositive = totalPnL >= 0;
   const activePositions = assets.filter((a) => a.value > 0).length;
 
-  // Get quote info for each asset
-  const quoteInfos = assets.map((asset) => useQuotePrice(asset.symbol, asset.quotePrice, asset.quoteLastUpdated));
+  // Determine if any quotes are stale (older than 5 minutes)
+  const hasStaleQuotes = assets.some((asset) => {
+    const lastUpdated = asset.quoteLastUpdated;
+    if (!lastUpdated) return false;
+    const age = Date.now() - new Date(lastUpdated).getTime();
+    return age > 5 * 60 * 1000; // 5 minutes
+  });
 
   const stats = [
     {
@@ -41,10 +44,6 @@ export function PortfolioSummaryCards() {
     },
   ];
 
-  // Determine if any quotes are stale
-  const hasStaleQuotes = quoteInfos.some((qi) => qi.state === "stale");
-  const hasUnavailableQuotes = quoteInfos.some((qi) => qi.state === "unavailable");
-
   return (
     <Card className="w-full">
       <CardContent className="pt-4 pb-3 px-4">
@@ -67,13 +66,10 @@ export function PortfolioSummaryCards() {
         {/* Quote status overlay */}
         {hasStaleQuotes && (
           <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md text-sm">
-            <span className="text-amber-300 font-medium">Some quotes are stale (older than 5 minutes). </span>
+            <span className="text-amber-300 font-medium">
+              Some quotes are stale (older than 5 minutes).{" "}
+            </span>
             <span className="text-amber-400 ml-2">Refresh portfolio to update prices.</span>
-          </div>
-        )}
-        {hasUnavailableQuotes && !hasStaleQuotes && (
-          <div className="mt-2 p-2 bg-gray-500/10 border border-gray-500/20 rounded-md text-sm">
-            <span className="text-gray-300 font-medium">Quote prices unavailable for some assets.</span>
           </div>
         )}
       </CardContent>

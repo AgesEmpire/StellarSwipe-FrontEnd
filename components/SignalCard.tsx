@@ -137,6 +137,10 @@ export function SignalCard({
     : timestamp;
   const signalProvider =
     providerName ?? signalData?.providerName ?? signalData?.providerId ?? signalData?.asset ?? "Provider";
+  const signalLastUpdated = signalData?.lastUpdated
+    ? new Date(signalData.lastUpdated)
+    : null;
+  const hasSignalRevision = signalData?.hasRevision ?? false;
   const badgeSignal =
     signalAction === "BUY" ? "BUY" : signalAction === "SELL" ? "SELL" : "NEUTRAL";
 
@@ -394,6 +398,12 @@ export function SignalCard({
                   <span aria-hidden="true">·</span>
                   <span>{signalConfidence}% confidence</span>
                 </div>
+                {hasSignalRevision && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded text-xs">
+                    <span className="text-gray-400">Updated</span>
+                    <span className="text-gray-500">{signalLastUpdated ? signalLastUpdated.toLocaleDateString() : "unknown"}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

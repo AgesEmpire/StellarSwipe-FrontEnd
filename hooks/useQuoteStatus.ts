@@ -43,3 +43,6 @@ export function useQuotePrice(symbol: string, price: number | null, lastUpdated:
 
   return { state, price, lastUpdated, timeAgo };
 }
+
+// Alias for backward compatibility
+export const useQuoteStatus = useQuotePrice;
