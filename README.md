@@ -269,3 +269,6 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-926 -->
 - #926: Instrument NestJS requests with distributed tracing context
+
+<!-- handsoff-issue-867 -->
+- #867: Annotate deposits and withdrawals on portfolio performance charts
