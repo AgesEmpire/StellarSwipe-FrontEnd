@@ -128,6 +128,61 @@ describe("confidence history on signal details (#815)", () => {
   });
 });
 
+describe("structured request logging with redaction (#924)", () => {
+  const SECRET = "super-secret-value";
+
+  function makeLoggedRequest(headers: Record<string, string>) {
+    return new Request(`http://localhost/api/signals/v1?page=1&limit=5`, { headers });
+  }
+
+  it("emits a structured log line with route, status, latency, and correlation ID", async () => {
+    const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await GET(makeLoggedRequest({ "x-correlation-id": "corr-123" }));
+      const entries = logSpy.mock.calls
+        .map((call) => call[0])
+        .filter((arg): arg is string => typeof arg === "string")
+        .map((arg) => {
+          try {
+            return JSON.parse(arg) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })
+        .filter((entry): entry is Record<string, unknown> => entry !== null);
+
+      const requestLog = entries.find((entry) => entry.route !== undefined);
+      expect(requestLog).toBeDefined();
+      expect(requestLog?.route).toBe("/api/signals/v1");
+      expect(requestLog?.status).toBe(200);
+      expect(typeof requestLog?.latencyMs).toBe("number");
+      expect(requestLog?.correlationId).toBe("corr-123");
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it("redacts auth headers, signatures, and API keys from logged data", async () => {
+    const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await GET(
+        makeLoggedRequest({
+          authorization: `Bearer ${SECRET}`,
+          "x-api-key": SECRET,
+          "x-signature": SECRET,
+          cookie: `session=${SECRET}`,
+        }),
+      );
+      const serialized = logSpy.mock.calls
+        .map((call) => (typeof call[0] === "string" ? call[0] : JSON.stringify(call[0])))
+        .join("\n");
+      expect(serialized).not.toContain(SECRET);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+});
+
 /**
  * NestJS unit test conventions (#929)
  *
@@ -370,5 +425,7 @@ describe("authenticated API e2e (#931)", () => {
       .post("/signals")
       .send({ id: "sig-3", value: 1 });
     expect(res.status).toBe(403);
+  });
+});
   });
 });

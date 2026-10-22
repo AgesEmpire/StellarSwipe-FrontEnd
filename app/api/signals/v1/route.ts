@@ -13,6 +13,125 @@ import { traceWorker } from "@/src/tracing/worker-tracing.service";
 const REQUIRED_SCOPES = ["signals:read"] as const;
 
 /**
+ * Header names whose values must never appear in logs. Matched
+ * case-insensitively against the raw header name.
+ */
+const SENSITIVE_HEADERS = new Set([
+  "authorization",
+  "proxy-authorization",
+  "cookie",
+  "set-cookie",
+  "x-api-key",
+  "x-api-key-secret",
+  "x-api-key-scopes",
+  "x-signature",
+  "x-hub-signature",
+  "x-hub-signature-256",
+  "x-request-signature",
+]);
+
+/**
+ * Query parameter names whose values must never appear in logs.
+ */
+const SENSITIVE_QUERY_PARAMS = new Set([
+  "api_key",
+  "apikey",
+  "access_token",
+  "token",
+  "signature",
+  "sig",
+  "secret",
+  "password",
+]);
+
+const REDACTED = "[REDACTED]";
+
+/**
+ * Redact a header map, replacing any sensitive header value with a stable
+ * placeholder. Header names are preserved so logs stay searchable.
+ */
+function redactHeaders(headers: Headers): Record<string, string> {
+  const out: Record<string, string> = {};
+  headers.forEach((value, name) => {
+    out[name] = SENSITIVE_HEADERS.has(name.toLowerCase()) ? REDACTED : value;
+  });
+  return out;
+}
+
+/**
+ * Redact sensitive query parameters, preserving the rest of the query string
+ * so route-level debugging remains possible.
+ */
+function redactQuery(url: URL): Record<string, string> {
+  const out: Record<string, string> = {};
+  url.searchParams.forEach((value, name) => {
+    out[name] = SENSITIVE_QUERY_PARAMS.has(name.toLowerCase())
+      ? REDACTED
+      : value;
+  });
+  return out;
+}
+
+/**
+ * Emit a single structured (JSON) request log line. Includes route, status,
+ * latency, and correlation ID, with sensitive fields redacted.
+ */
+function logRequest(entry: {
+  request: Request;
+  route: string;
+  status: number;
+  startedAt: number;
+  correlationId: string;
+}) {
+  const { request, route, status, startedAt, correlationId } = entry;
+  const url = new URL(request.url);
+  const latencyMs = Date.now() - startedAt;
+
+  const record = {
+    type: "request",
+    route,
+    method: request.method,
+    path: url.pathname,
+    status,
+    latencyMs,
+    correlationId,
+    query: redactQuery(url),
+    headers: redactHeaders(request.headers),
+  };
+
+  // Structured, single-line JSON so log aggregators can parse it.
+  console.log(JSON.stringify(record));
+}
+
+/**
+ * Emit bounded operational metrics for a request: a count, a duration, and an
+ * error counter. Labels are restricted to the normalized route template and
+ * the HTTP status code so no user-specific data (wallet addresses, secrets,
+ * raw URLs) can leak into the metric series.
+ */
+function recordMetrics(entry: {
+  route: string;
+  method: string;
+  status: number;
+  latencyMs: number;
+}) {
+  const { route, method, status, latencyMs } = entry;
+  const labels = { route, method, status: String(status) };
+
+  const record = {
+    type: "metric",
+    name: "http_request",
+    labels,
+    count: 1,
+    durationMs: latencyMs,
+    errors: status >= 500 ? 1 : 0,
+  };
+
+  // Structured, single-line JSON so metric scrapers/aggregators can parse it.
+  console.log(JSON.stringify(record));
+}
+
+/**
  * Route-aware rate limit configuration. Each endpoint group declares its own
  * request budget and window so limits can be tuned per surface without code
  * changes elsewhere. Windows are expressed in milliseconds.
@@ -97,6 +216,7 @@ function rateLimitedResponse(retryAfterSeconds: number, limit: number) {
       },
     }
   );
+}
 }
 
 /**
@@ -185,13 +305,47 @@ function lastUsedMetadata(request: Request, now: number) {
   };
 }
 
+/**
+ * Resolve the correlation ID for a request, honoring an inbound header when
+ * present and otherwise generating a fresh one.
+ */
+function resolveCorrelationId(request: Request): string {
+  return (
+    request.headers.get("x-correlation-id") ??
+    request.headers.get("x-request-id") ??
+    crypto.randomUUID()
+  );
+}
+
 export async function GET(request: Request) {
+  const startedAt = Date.now();
+  const correlationId = resolveCorrelationId(request);
+  const route = "/api/signals/v1";
+
+  const respond = (response: NextResponse) => {
+    response.headers.set("X-Correlation-Id", correlationId);
+    logRequest({
+      request,
+      route,
+      status: response.status,
+      startedAt,
+      correlationId,
+    });
+    recordMetrics({
+      route,
+      method: request.method,
+      status: response.status,
+      latencyMs: Date.now() - startedAt,
+    });
+    return response;
+  };
+
   const url = new URL(request.url);
   const now = Date.now();
 
   // Enforce API key lifecycle (expiry + revocation) before doing any work.
   if (!isKeyUsable(request, now)) {
-    return unauthorizedResponse();
+    return respond(unauthorizedResponse());
   }
 
   // Enforce API key scopes before doing any work.
@@ -200,7 +354,7 @@ export async function GET(request: Request) {
     (scope) => !grantedScopes.includes(scope)
   );
   if (missingScopes.length > 0) {
-    return forbiddenResponse(missingScopes);
+    return respond(forbiddenResponse(missingScopes));
   }
 
   // Apply route-aware throttling keyed by account identity with IP fallback.
@@ -217,9 +371,11 @@ export async function GET(request: Request) {
   );
 
   if (Number.isNaN(page) || page < 1 || Number.isNaN(pageSize) || pageSize < 1) {
-    return NextResponse.json(
-      { error: "Invalid pagination parameters." },
-      { status: 400 }
+    return respond(
+      NextResponse.json(
+        { error: "Invalid pagination parameters." },
+        { status: 400 }
+      )
     );
   }
 
@@ -231,14 +387,16 @@ export async function GET(request: Request) {
 
   const lastUsed = lastUsedMetadata(request, now);
 
-  return NextResponse.json(feed, {
-    status: 200,
-    headers: {
-      Deprecation: "true",
-      Link: '</api/signals>; rel="successor-version"',
-      "X-Deprecation-Notice":
-        "This endpoint is deprecated. Use /api/signals with pageSize instead of limit.",
-      "X-API-Key-Last-Used-At": lastUsed.lastUsedAt,
-    },
-  });
+  return respond(
+    NextResponse.json(feed, {
+      status: 200,
+      headers: {
+        Deprecation: "true",
+        Link: '</api/signals>; rel="successor-version"',
+        "X-Deprecation-Notice":
+          "This endpoint is deprecated. Use /api/signals with pageSize instead of limit.",
+        "X-API-Key-Last-Used-At": lastUsed.lastUsedAt,
+      },
+    })
+  );
 }
