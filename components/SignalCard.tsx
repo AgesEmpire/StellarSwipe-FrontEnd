@@ -31,10 +31,10 @@ import { MiniChart } from "./chart/MiniChart";
 import { PremiumSignalBadge } from "@/components/PremiumSignalBadge";
 import { ProviderRatingBadge } from "@/components/ProviderRatingBadge";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
-import { useBookmarkActions } from "@/hooks/useBookmarkActions";
+import { useBookmarkStore } from "@/store/useBookmarkStore";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
 import { useSignalPrice } from "@/hooks/useSignalPrice";
-import { toast } from "@/lib/toast";
+import { toast } from "sonner";
 import type { Signal as ApiSignal } from "@/lib/api";
 
 interface ROIPoint {
@@ -50,12 +50,11 @@ interface SignalCardProps {
   projectedTarget?: number;
   roiHistory?: ROIPoint[];
   analysis?: string;
-  action?: "BUY" | "SELL" | "HOLD";
+  action?: "BUY" | "SELL";
   timestamp?: Date;
   providerStake?: number;
   providerReputation?: number;
   providerName?: string;
-  signalId?: string;
   isPremium?: boolean;
   hasAccess?: boolean;
   requiredStake?: number;
@@ -63,7 +62,6 @@ interface SignalCardProps {
   portfolioBalance?: number;
   onTrade?: (pair: string, price: number) => void;
   onPass?: () => void;
-  showPassAction?: boolean;
 }
 
 const DEFAULT_ROI: ROIPoint[] = [
@@ -94,7 +92,6 @@ export function SignalCard({
   providerStake,
   providerReputation,
   providerName,
-  signalId: signalIdProp,
   isPremium = false,
   hasAccess = true,
   requiredStake = 1000,
@@ -102,10 +99,8 @@ export function SignalCard({
   portfolioBalance,
   onTrade,
   onPass,
-  showPassAction = true,
 }: SignalCardProps) {
   const [dismissed, setDismissed] = useState(false);
-  const [dismissPending, setDismissPending] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copiedFeedback, setCopiedFeedback] = useState(false);
@@ -118,8 +113,6 @@ export function SignalCard({
   const executingRef = useRef(false);
   const shareMenuRef = useRef<HTMLDivElement>(null);
   const hasVibratedRef = useRef(false);
-  const dismissTimerRef = useRef<number | null>(null);
-  const { addBookmark, removeBookmark, hasBookmark } = useBookmarkActions();
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-300, 300], [-18, 18]);
@@ -128,7 +121,10 @@ export function SignalCard({
   const passOpacity = useTransform(x, [-20, -SWIPE_THRESHOLD], [0, 1]);
 
   const { price, flash, relativeTime } = useSignalPrice(3000);
-  const signalId = signalIdProp ?? signalData?.id ?? pair ?? "signal-unknown";
+  const bookmarks = useBookmarkStore((state) => state.bookmarks);
+  const toggleBookmark = useBookmarkStore((state) => state.toggleBookmark);
+
+  const signalId = signalData?.id ?? pair ?? "signal-unknown";
   const signalPair = pair ?? `${signalData?.asset ?? "XLM"}/USDC`;
   const signalAction = signalData?.action ?? action;
   const signalConfidence = signalData?.confidence ?? confidence;
@@ -144,7 +140,7 @@ export function SignalCard({
   const badgeSignal =
     signalAction === "BUY" ? "BUY" : signalAction === "SELL" ? "SELL" : "NEUTRAL";
 
-  const isBookmarked = hasBookmark(signalId);
+  const isBookmarked = bookmarks.includes(signalId);
   const bookmarkedLabel = isBookmarked ? "Remove bookmark" : "Bookmark signal";
 
   const currentPrice = executionPrice;
@@ -187,51 +183,19 @@ export function SignalCard({
     }
   }, [showShareMenu]);
 
-  useEffect(() => {
-    return () => {
-      if (dismissTimerRef.current !== null) {
-        window.clearTimeout(dismissTimerRef.current);
-      }
-    };
-  }, []);
-
   if (loading) return <TradeSkeleton />;
 
   const roi = (((projectedTarget - executionPrice) / executionPrice) * 100).toFixed(2);
   const isPositive = parseFloat(roi) >= 0;
 
   function handlePass() {
-    if (!showPassAction || dismissPending || dismissed) return;
     setActionAnnouncement(`Passed on ${signalAction} signal for ${signalPair}`);
-    setDismissPending(true);
-    if (dismissTimerRef.current !== null) {
-      window.clearTimeout(dismissTimerRef.current);
-    }
-    dismissTimerRef.current = window.setTimeout(() => {
-      setDismissPending(false);
-      setDismissed(true);
-      onPass?.();
-      dismissTimerRef.current = null;
-    }, 4500);
-    toast.info("Signal dismissed", {
-      description: `${signalPair} will disappear in a few seconds unless you undo it.`,
-      duration: 4500,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          if (dismissTimerRef.current !== null) {
-            window.clearTimeout(dismissTimerRef.current);
-            dismissTimerRef.current = null;
-          }
-          setDismissPending(false);
-          setActionAnnouncement(`Restored ${signalAction} signal for ${signalPair}`);
-        },
-      },
-    });
+    setDismissed(true);
+    onPass?.();
   }
 
   function handleExecuteTrade() {
-    if (executingRef.current || dismissPending || dismissed) return;
+    if (executingRef.current) return;
     executingRef.current = true;
     setActionAnnouncement(`Opening trade modal for ${signalAction} ${signalPair}`);
     setModalOpen(true);
@@ -254,7 +218,7 @@ export function SignalCard({
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === "ArrowLeft" && showPassAction) {
+    if (e.key === "ArrowLeft") {
       e.preventDefault();
       handlePass();
     } else if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") {
@@ -301,10 +265,9 @@ export function SignalCard({
     ) {
       handleExecuteTrade();
     } else if (
-      showPassAction &&
-      (offsetX < -SWIPE_THRESHOLD ||
-        (offsetX < -SWIPE_THRESHOLD * 0.4 && velocityX < -VELOCITY_THRESHOLD) ||
-        (fastSwipe && velocityX < 0))
+      offsetX < -SWIPE_THRESHOLD ||
+      (offsetX < -SWIPE_THRESHOLD * 0.4 && velocityX < -VELOCITY_THRESHOLD) ||
+      (fastSwipe && velocityX < 0)
     ) {
       handlePass();
     }
@@ -328,12 +291,11 @@ export function SignalCard({
           dragConstraints={{ left: -180, right: 180 }}
           dragElastic={0.15}
           dragTransition={{ bounceStiffness: 600, bounceDamping: 22 }}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            exit={{ x: 0, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
-            whileTap={{ cursor: "grabbing" }}
-            aria-disabled={dismissPending}
-          >
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          exit={{ x: 0, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
+          whileTap={{ cursor: "grabbing" }}
+        >
           <motion.div
             className="pointer-events-none absolute inset-0 z-10 flex items-center justify-start rounded-2xl border-2 border-green-500 bg-green-500/10 pl-6"
             style={{ opacity: tradeOpacity }}
@@ -344,17 +306,15 @@ export function SignalCard({
             </span>
           </motion.div>
 
-          {showPassAction && (
-            <motion.div
-              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-end rounded-2xl border-2 border-red-500 bg-red-500/10 pr-6"
-              style={{ opacity: passOpacity }}
-              aria-hidden="true"
-            >
-              <span className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-sm font-bold text-white shadow">
-                <X size={15} /> PASS
-              </span>
-            </motion.div>
-          )}
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-end rounded-2xl border-2 border-red-500 bg-red-500/10 pr-6"
+            style={{ opacity: passOpacity }}
+            aria-hidden="true"
+          >
+            <span className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-sm font-bold text-white shadow">
+              <X size={15} /> PASS
+            </span>
+          </motion.div>
 
           {/* ARIA live region — announces pass/trade actions to screen readers */}
           <div
@@ -374,7 +334,7 @@ export function SignalCard({
             tabIndex={0}
             onKeyDown={handleKeyDown}
             role="article"
-            aria-label={`${signalAction} signal for ${signalPair} at ${executionPrice} with ${signalConfidence}% confidence. Press Enter or right arrow to trade${showPassAction ? ", left arrow to pass" : ""}.`}
+            aria-label={`${signalAction} signal for ${signalPair} at ${executionPrice} with ${signalConfidence}% confidence. Press Enter or right arrow to trade, left arrow to pass.`}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-2">
@@ -409,17 +369,10 @@ export function SignalCard({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isBookmarked) {
-                      removeBookmark(signalId, signalPair);
-                    } else {
-                      addBookmark(signalId);
-                    }
-                  }}
+                  onClick={() => toggleBookmark(signalId)}
                   aria-label={bookmarkedLabel}
-                  disabled={dismissPending || dismissed}
                   className={cn(
-                    "rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60",
+                    "rounded-full p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                     isBookmarked ? "bg-sky-500/15 text-sky-300" : "bg-white/5 text-slate-300 hover:bg-white/10"
                   )}
                 >
@@ -456,7 +409,7 @@ export function SignalCard({
                     </div>
                   )}
                 </div>
-                <SignalBadge signal={badgeSignal} />
+                <SignalBadge signal={signalAction} />
               </div>
             </div>
 
@@ -576,27 +529,23 @@ export function SignalCard({
             </div>
 
             <div className="flex gap-2 pt-2">
-              {showPassAction && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePass}
-                  className="flex-1"
-                  disabled={dismissPending || dismissed}
-                  aria-label={`Pass on ${signalAction} signal for ${signalPair}`}
-                >
-                  <X size={16} className="mr-1" />
-                  Pass
-                </Button>
-              )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExecuteTrade}
-                  disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason || dismissPending || dismissed}
-                  className="flex-1 active:scale-95"
-                  aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
-                >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePass}
+                className="flex-1"
+                aria-label={`Pass on ${signalAction} signal for ${signalPair}`}
+              >
+                <X size={16} className="mr-1" />
+                Pass
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleExecuteTrade}
+                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason}
+                className="flex-1 active:scale-95"
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+              >
                 <Zap size={16} className="mr-1" />
                 {isDemoMode ? "Demo Trade" : "Execute Trade"}
               </Button>
