@@ -57,6 +57,53 @@ const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 type RefreshStatus = "idle" | "pending" | "success" | "error";
 
 // ---------------------------------------------------------------------------
+// Per-wallet allocation breakdown (#866)
+// ---------------------------------------------------------------------------
+
+/** A single connected wallet and its contribution to the portfolio. */
+export interface ConnectedWalletAllocation {
+  /** Stable wallet address used as a unique identity. */
+  address: string;
+  /** Optional human-friendly label (e.g. ENS name). */
+  label?: string;
+  /** Allocation value contributed by this wallet. */
+  value: number;
+  /** Whether the wallet is currently connected/available. */
+  available: boolean;
+}
+
+/** Allocation view mode: aggregate across wallets, or per-wallet breakdown. */
+type AllocationViewMode = "aggregate" | "per-wallet";
+
+/**
+ * Filter out unavailable wallets so they never corrupt aggregate totals.
+ * Returns only wallets that are connected and available.
+ */
+export function getAvailableWallets(
+  wallets: ConnectedWalletAllocation[]
+): ConnectedWalletAllocation[] {
+  return wallets.filter((wallet) => wallet.available);
+}
+
+/**
+ * Sum the allocation values of available wallets only.
+ * Unavailable wallets are excluded so totals stay accurate.
+ */
+export function sumAvailableAllocation(
+  wallets: ConnectedWalletAllocation[]
+): number {
+  return getAvailableWallets(wallets).reduce((sum, wallet) => sum + wallet.value, 0);
+}
+
+/** Short, distinguishable display identity for a wallet. */
+export function formatWalletIdentity(wallet: ConnectedWalletAllocation): string {
+  if (wallet.label) return wallet.label;
+  const { address } = wallet;
+  if (address.length <= 10) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+// ---------------------------------------------------------------------------
 // Data freshness (#772)
 // ---------------------------------------------------------------------------
 
@@ -189,6 +236,10 @@ function AnalyticsPageInner() {
     return { start, end };
   });
 
+  // Per-wallet allocation breakdown state (#866)
+  const [allocationView, setAllocationView] = useState<AllocationViewMode>("aggregate");
+  const [connectedWallets, setConnectedWallets] = useState<ConnectedWalletAllocation[]>([]);
+
   // Stale-data tracking + refresh state (#773)
   const [lastUpdated, setLastUpdated] = useState<number>(() => Date.now());
   const [isStale, setIsStale] = useState(false);
@@ -239,218 +290,116 @@ function AnalyticsPageInner() {
     router.replace(`${pathname}${serializeAnalyticsRange(range)}`, { scroll: false });
   }, [pathname, router]);
 
-  // Refresh preserves filters, scroll position, and selected tabs by only
-  // re-fetching data (router.refresh) without navigating or resetting state.
-  const handleRefresh = useCallback(async () => {
-    if (refreshStatus === "pending") return;
-    setRefreshStatus("pending");
-    if (statusResetRef.current) clearTimeout(statusResetRef.current);
-    try {
-      router.refresh();
-      setLastUpdated(Date.now());
-      setIsStale(false);
-      setRefreshStatus("success");
-    } catch {
-      setRefreshStatus("error");
-    } finally {
-      statusResetRef.current = setTimeout(() => setRefreshStatus("idle"), 4000);
-    }
-  }, [refreshStatus, router]);
+  // Available wallets only — unavailable wallets must not corrupt totals (#866)
+  const availableWallets = useMemo(
+    () => getAvailableWallets(connectedWallets),
+    [connectedWallets]
+  );
 
-  // Pull current & prior period metrics from the portfolio store / demo data
-  const {
-    pnl,
-    winRate,
-    totalTrades,
-    priorPnl,
-    priorWinRate,
-    priorTotalTrades,
-    isDemo,
-  } = usePeriodComparison();
-
-  // Freshness timestamps for the metric cards (#772).
-  // Metrics are considered loaded once the comparison hook returns values;
-  // demo data is simulated so it is reported as unavailable rather than fresh.
-  const metricsLoaded =
-    pnl !== undefined && winRate !== undefined && totalTrades !== undefined;
-  const metricsUpdatedAt = useMemo<Date | null>(() => {
-    if (!metricsLoaded || isDemo) return null;
-    return new Date();
-  }, [metricsLoaded, isDemo]);
-
-  const refreshLabel =
-    refreshStatus === "pending"
-      ? "Refreshing…"
-      : refreshStatus === "success"
-        ? "Updated"
-        : refreshStatus === "error"
-          ? "Refresh failed"
-          : "Refresh";
+  const aggregateTotal = useMemo(
+    () => sumAvailableAllocation(connectedWallets),
+    [connectedWallets]
+  );
 
   return (
-    <div className="p-6">
-      {/* #758 — Route-aware breadcrumb */}
+    <div className="space-y-6">
       <RouteBreadcrumb />
-      {/* Header row with toggle */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <h1 className="text-2xl font-bold" data-focus-target>Portfolio Analytics</h1>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Stale-data badge — informational, not an error (#773) */}
-          {isStale && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400"
-            >
-              <span
-                className="w-2 h-2 rounded-full bg-amber-400"
-                aria-hidden="true"
-              />
-              Data may be out of date
-            </span>
-          )}
-
-          {/* Refresh action with pending / success / failure states (#773) */}
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshStatus === "pending"}
-            aria-busy={refreshStatus === "pending"}
-            aria-live="polite"
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900"
-            aria-label={
-              refreshStatus === "pending"
-                ? "Refreshing analytics data"
-                : refreshStatus === "success"
-                  ? "Analytics data updated"
-                  : refreshStatus === "error"
-                    ? "Refresh failed, try again"
-                    : "Refresh analytics data"
-            }
-          >
-            <span
-              aria-hidden="true"
-              className={
-                refreshStatus === "pending" ? "animate-spin" : undefined
-              }
-            >
-              {refreshStatus === "success"
-                ? "✓"
-                : refreshStatus === "error"
-                  ? "!"
-                  : "↻"}
-            </span>
-            <span>{refreshLabel}</span>
-          </button>
-
-          <button
-            onClick={() => setShowPeriodComparison((v) => !v)}
-            aria-pressed={showPeriodComparison}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white/5 text-foreground hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900"
-            aria-label={
-              showPeriodComparison
-                ? "Hide period comparison"
-                : "Show period comparison"
-            }
-          >
-            <span>
-              {showPeriodComparison ? "Hide" : "Show"} Period Comparison
-            </span>
-            <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400">
-              {showPeriodComparison ? "−" : "+"}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Saved view tabs — workspace management (#791) */}
-      <SavedViewTabs
-        currentSnapshot={currentSnapshot}
-        onApply={handleApplyView}
-        className="mb-4"
-      />
-
-      {/* Period Comparison Widget — additive, not replacing benchmark chart */}
-      {showPeriodComparison && (
-        <div className="mb-6">
-          <PeriodComparisonWidget
-            pnl={pnl}
-            winRate={winRate}
-            totalTrades={totalTrades}
-            priorPnl={priorPnl}
-            priorWinRate={priorWinRate}
-            priorTotalTrades={priorTotalTrades}
-            granularity={granularity}
-            onGranularityChange={setGranularity}
-            isDemo={isDemo}
-          />
-
-          {/* Data freshness for the comparison metrics (#772) */}
-          <MetricFreshness
-            updatedAt={metricsUpdatedAt}
-            isLoading={!metricsLoaded}
-            label="Period comparison"
-          />
-
-          {/* Demo mode footnote */}
-          {isDemo && (
-            <p className="mt-2 text-xs text-foreground-muted text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-400" aria-hidden="true" />
-                Demo mode — prior period data is simulated. Connect to a real
-                API for historical comparison.
-              </span>
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Custom analytics date range */}
-      <div className="mb-6">
-        <h2 className="mb-2 text-sm font-semibold text-foreground-muted">
-          Custom range
-        </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Analytics</h1>
         <DateRangePicker value={customRange} onChange={updateCustomRange} />
       </div>
 
-      {/* Existing charts — unaffected by period comparison */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+      <SavedViewTabs
+        currentSnapshot={currentSnapshot}
+        onApplyView={handleApplyView}
+        activeViewId={activeViewId}
+      />
+
+      {/* Portfolio allocation — aggregate vs per-wallet breakdown (#866) */}
+      <section aria-labelledby="portfolio-allocation-heading" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="portfolio-allocation-heading" className="text-lg font-medium">
+            Portfolio allocation
+          </h2>
+          <div
+            role="group"
+            aria-label="Portfolio allocation view"
+            className="inline-flex rounded-md border border-white/10 p-0.5 text-sm"
+          >
+            <button
+              type="button"
+              aria-pressed={allocationView === "aggregate"}
+              onClick={() => setAllocationView("aggregate")}
+              className={`rounded px-3 py-1 transition-colors ${
+                allocationView === "aggregate"
+                  ? "bg-white/15 text-foreground"
+                  : "text-foreground-muted hover:text-foreground"
+              }`}
+            >
+              Aggregate
+            </button>
+            <button
+              type="button"
+              aria-pressed={allocationView === "per-wallet"}
+              onClick={() => setAllocationView("per-wallet")}
+              className={`rounded px-3 py-1 transition-colors ${
+                allocationView === "per-wallet"
+                  ? "bg-white/15 text-foreground"
+                  : "text-foreground-muted hover:text-foreground"
+              }`}
+            >
+              Per wallet
+            </button>
+          </div>
+        </div>
+
+        {allocationView === "aggregate" ? (
           <PortfolioAllocationChart />
-          <MetricFreshness
-            updatedAt={metricsUpdatedAt}
-            isLoading={!metricsLoaded}
-            label="Portfolio allocation"
-          />
-        </div>
-        <div>
-          <PnLWidget />
-          <MetricFreshness
-            updatedAt={metricsUpdatedAt}
-            isLoading={!metricsLoaded}
-            label="P&L"
-          />
-        </div>
-        <div className="md:col-span-2">
-          <PerformanceDashboard />
-          <MetricFreshness
-            updatedAt={metricsUpdatedAt}
-            isLoading={!metricsLoaded}
-            label="Performance"
-          />
-        </div>
-        <div className="md:col-span-2">
-          <PnLShareCardGenerator />
-        </div>
-      </div>
+        ) : availableWallets.length === 0 ? (
+          <p className="text-sm text-foreground-muted">
+            No connected wallets available to break down.
+          </p>
+        ) : (
+          <ul className="space-y-2" aria-label="Allocation by connected wallet">
+            {availableWallets.map((wallet) => {
+              const share =
+                aggregateTotal > 0 ? (wallet.value / aggregateTotal) * 100 : 0;
+              return (
+                <li
+                  key={wallet.address}
+                  className="flex items-center justify-between gap-3 rounded-md border border-white/10 px-3 py-2 text-sm"
+                >
+                  <span className="font-mono truncate" title={wallet.address}>
+                    {formatWalletIdentity(wallet)}
+                  </span>
+                  <span className="flex items-center gap-3 tabular-nums">
+                    <span className="text-foreground-muted">
+                      {wallet.value.toLocaleString()}
+                    </span>
+                    <span className="w-14 text-right">{share.toFixed(1)}%</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <PnLWidget />
+
+      <PerformanceDashboard />
+
+      {showPeriodComparison && (
+        <PeriodComparisonWidget granularity={granularity} />
+      )}
     </div>
   );
 }
 
 export default function AnalyticsPage() {
   return (
-    <RouteErrorBoundary featureName="Analytics">
+    <RouteErrorBoundary>
       <AnalyticsPageInner />
     </RouteErrorBoundary>
   );
