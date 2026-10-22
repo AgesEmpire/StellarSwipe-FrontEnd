@@ -9,6 +9,8 @@ export interface PortfolioAsset {
   color: string;
   realizedPnL?: number;
   unrealizedPnL?: number;
+  quotePrice?: number;
+  quoteLastUpdated?: Date;
 }
 
 export interface PortfolioState {

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@/hooks/useWallet";
 import { usePortfolioStore, type PortfolioAsset } from "@/store/usePortfolioStore";
+import { useQuotePrice } from "@/hooks/useQuotePrice";
 
 function withPercentages(
   assets: Omit<PortfolioAsset, "percentage">[]
@@ -56,6 +57,27 @@ export function usePortfolio() {
     }
   }, [data, store]);
 
+  // Initialize quote prices for all assets if not already set
+  useEffect(() => {
+    const assets = store.assets;
+    const now = new Date();
+    let needsInit = false;
+    if (assets.length > 0) {
+      const firstAsset = assets[0];
+      if (firstAsset.quotePrice === undefined || firstAsset.quoteLastUpdated === undefined) {
+        needsInit = true;
+      }
+    }
+    if (needsInit) {
+      const initializedAssets = assets.map((asset) => ({
+        ...asset,
+        quotePrice: asset.value,
+        quoteLastUpdated: now,
+      }));
+      store.setAssets(initializedAssets);
+    }
+  }, [store.assets]);
+
   return {
     assets: data || store.assets,
     totalRealizedPnL: store.totalRealizedPnL,
@@ -63,5 +85,10 @@ export function usePortfolio() {
     totalValue: store.totalValue,
     isLoading: store.isLoading,
     refetch,
+    getQuoteInfo: (symbol: string) => {
+      const asset = store.assets.find((a) => a.symbol === symbol);
+      if (!asset) return { state: "unavailable", price: null, lastUpdated: null, timeAgo: "never" };
+      return useQuotePrice(symbol, asset.quotePrice, asset.quoteLastUpdated);
+    },
   };
 }
