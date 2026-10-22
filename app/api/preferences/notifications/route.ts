@@ -34,6 +34,29 @@ function recordMetric(method: string, status: number, startedAt: number) {
 }
 
 /**
+ * Builds a consistent API error envelope: a stable machine-readable `code`, a
+ * safe human-readable `message`, and the `requestId` for correlation. Internal
+ * details (stack traces, secrets) are never included.
+ */
+function errorResponse(
+  request: Request,
+  status: number,
+  code: string,
+  message: string,
+  extra?: Record<string, unknown>
+) {
+  const requestId =
+    request.headers.get("x-request-id") ??
+    request.headers.get("x-correlation-id") ??
+    crypto.randomUUID();
+
+  return NextResponse.json(
+    { error: { code, message, requestId, ...extra } },
+    { status, headers: { "x-request-id": requestId } }
+  );
+}
+
+/**
  * GET /api/preferences/notifications
  *
  * Returns the authenticated user's notification preferences (channel
@@ -50,7 +73,12 @@ export async function GET(request: Request) {
 
   if (!userId) {
     recordMetric("GET", 401, startedAt);
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return errorResponse(
+      request,
+      401,
+      "UNAUTHENTICATED",
+      "Authentication required"
+    );
   }
 
   recordMetric("GET", 200, startedAt);
@@ -81,7 +109,12 @@ export async function PUT(request: Request) {
 
   if (!userId) {
     recordMetric("PUT", 401, startedAt);
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return errorResponse(
+      request,
+      401,
+      "UNAUTHENTICATED",
+      "Authentication required"
+    );
   }
 
   let body: unknown;
@@ -93,6 +126,7 @@ export async function PUT(request: Request) {
       { error: "Invalid JSON body" },
       { status: 400 }
     );
+    );
   }
 
   const result = validateNotificationPreferences(body);
@@ -101,6 +135,7 @@ export async function PUT(request: Request) {
     return NextResponse.json(
       { error: "Validation failed", fields: result.fields },
       { status: 400 }
+    );
     );
   }
 
