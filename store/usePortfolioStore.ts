@@ -11,15 +11,8 @@ export interface PortfolioAsset {
   costBasis?: number;
   realizedPnL?: number;
   unrealizedPnL?: number;
-  /** Constituent tokens for grouped/segment assets (e.g. a pool or fund). */
-  constituents?: PortfolioConstituent[];
-}
-
-export interface PortfolioConstituent {
-  symbol: string;
-  name: string;
-  value: number;
-  percentage: number;
+  quotePrice?: number;
+  quoteLastUpdated?: Date;
 }
 
 export interface PortfolioState {

@@ -17,6 +17,10 @@ export interface Signal {
   hasAccess?: boolean;
   /** Minimum XLM stake required to unlock */
   requiredStake?: number;
+  /** ISO timestamp of the last revision/update to this signal */
+  lastUpdated?: string;
+  /** Whether this signal has been updated since initial publication */
+  hasRevision?: boolean;
 }
 
 export interface SignalProvider {
@@ -43,4 +47,8 @@ export interface ProviderSignal {
   outcome: "WIN" | "LOSS" | "PENDING";
   targetPrice: number;
   actualPrice?: number;
+  /** ISO timestamp of the last revision/update to this signal */
+  lastUpdated?: string;
+  /** Whether this signal has been updated since initial publication */
+  hasRevision?: boolean;
 }
