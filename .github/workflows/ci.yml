@@ -1,8 +1,13 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
   ci:
@@ -27,5 +32,22 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
+      - name: Test (Jest)
         run: npm test
+
+      - name: Test (Vitest — comparison-tray suites)
+        run: npm run test:vitest
+
+      - name: Test with Coverage (Jest)
+        run: npm run test:coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+      - name: Run Knip (Dead Code Detection)
+        run: npm run knip
