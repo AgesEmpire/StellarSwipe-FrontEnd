@@ -255,5 +255,8 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 <!-- handsoff-issue-946 -->
 - #946: Add account profile read and update endpoints
 
+<!-- handsoff-issue-913 -->
+- #913: Validate NestJS environment configuration at startup
+
 <!-- handsoff-issue-926 -->
 - #926: Instrument NestJS requests with distributed tracing context
