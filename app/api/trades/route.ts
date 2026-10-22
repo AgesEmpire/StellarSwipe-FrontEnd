@@ -17,6 +17,11 @@ const APP_NETWORK: string = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "TESTNET"
  * Revalidates trade limits before the client may submit a transaction.
  * Nothing is submitted here; a 2xx response only means the order may proceed.
  * The response also carries estimated post-trade balances for the review step.
+ *
+ * When the client sends the account the review was created for
+ * (`reviewedPublicKey`), a mismatch with the active `publicKey` means the
+ * wallet changed mid-review: the review is invalidated and signing is
+ * refused until the user deliberately reviews again.
  */
 export async function POST(req: NextRequest) {
   const parsed = tradeRequestSchema.safeParse(await req.json().catch(() => null));
@@ -27,6 +32,23 @@ export async function POST(req: NextRequest) {
   }
 
   const order = parsed.data;
+
+  // Guard: the active account must match the account the review was built for.
+  const reviewedPublicKey = (order as { reviewedPublicKey?: unknown }).reviewedPublicKey;
+  if (typeof reviewedPublicKey === "string" && reviewedPublicKey !== order.publicKey) {
+    return NextResponse.json(
+      {
+        code: TRADE_ERROR_CODES.ACCOUNT_CHANGED,
+        message:
+          "Your active wallet changed since this review was created. Review the trade again before signing.",
+        accountChanged: true,
+        activePublicKey: order.publicKey,
+        reviewedPublicKey,
+      },
+      { status: 409 }
+    );
+  }
+
   const limitRejection = checkTradeLimits(order, APP_NETWORK);
   if (limitRejection) return rejectResponse(limitRejection);
 

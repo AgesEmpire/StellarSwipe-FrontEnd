@@ -140,6 +140,10 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const quoteId = req.nextUrl.searchParams.get("quoteId");
+  // The active account the client is currently reviewing with. When supplied,
+  // a mismatch against the account the quote was issued for invalidates the
+  // review so the client must request a fresh quote before signing.
+  const activeWallet = req.nextUrl.searchParams.get("wallet");
 
   if (!quoteId) {
     return NextResponse.json({ error: "Missing quoteId parameter" }, { status: 400 });
@@ -149,6 +153,29 @@ export async function GET(req: NextRequest) {
 
   if (!quote) {
     return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+  }
+
+  if (activeWallet && activeWallet !== quote.wallet) {
+    // The active account changed since this review was created. Drop the
+    // stale quote so it cannot be reused and tell the client which account
+    // the review now belongs to.
+    quotes.delete(quoteId);
+    return NextResponse.json(
+      {
+        error: "Active account changed since this review was created",
+        status: "account-changed",
+        previousWallet: quote.wallet,
+        activeWallet,
+        // Preserve the entered amount so the client can re-quote without
+        // retyping, but never reuse the old quote's derived figures.
+        amount: quote.amount,
+        inputMode: quote.inputMode,
+        asset: quote.asset,
+        direction: quote.direction,
+        network: quote.network,
+      },
+      { status: 409 }
+    );
   }
 
   if (Date.now() >= quote.expiresAt) {
