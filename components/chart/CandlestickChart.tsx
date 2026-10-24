@@ -8,6 +8,7 @@ import {
   useChartTooltip,
 } from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
+import { ChartFallback } from "./ChartFallback";
 
 interface Candle {
   open: number;
@@ -67,7 +68,11 @@ export function CandlestickChart({
     [activeIndex]
   );
 
-  if (!candles.length) return null;
+  // #656: show a clear, styled fallback instead of an empty box when there is
+  // no data to derive candles from.
+  if (!candles.length) {
+    return <ChartFallback state="empty" compact className={className} height={height} />;
+  }
 
   const allVals = candles.flatMap((c) => [c.high, c.low]);
   const minVal = Math.min(...allVals);

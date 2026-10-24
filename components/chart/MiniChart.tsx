@@ -9,6 +9,7 @@ import {
   useChartTooltip,
 } from "@/hooks/useChartTooltip";
 import { useTooltipCollision } from "@/hooks/useTooltipCollision";
+import { ChartFallback } from "./ChartFallback";
 
 interface MiniChartProps {
   data: number[];
@@ -151,7 +152,18 @@ export function MiniChart({
     [activeIndex]
   );
 
-  if (!data.length) return null;
+  // #656: show a clear, styled fallback instead of an empty box when there is
+  // no data (empty) or only a single sample (insufficient to draw a trend).
+  if (data.length < 2) {
+    return (
+      <ChartFallback
+        state={data.length === 0 ? "empty" : "insufficient"}
+        compact
+        className={className}
+        height={height}
+      />
+    );
+  }
 
   const lineColor = isPositive ? "#22c55e" : "#ef4444";
   const areaOpacity = isPositive ? 0.15 : 0.1;
