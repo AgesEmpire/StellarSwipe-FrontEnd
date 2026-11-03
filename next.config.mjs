@@ -1,5 +1,8 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import securityHeaders from "./lib/security-headers.js";
+
+const { buildSecurityHeaders } = securityHeaders;
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -20,6 +23,14 @@ const nextConfig = {
       // Avatar images from any HTTPS source (leaderboard / provider profiles)
       { protocol: "https", hostname: "**" },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: buildSecurityHeaders(),
+      },
+    ];
   },
 };
 
