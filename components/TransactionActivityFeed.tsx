@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
+import { JournalLinkedDetails } from "@/components/JournalLinkedDetails";
 import { deleteJournalEntry, updateJournalEntry } from "@/lib/journalApi";
 import { normalizeJournalTags } from "@/lib/journalSchema";
 import { VirtualizedList } from "@/components/VirtualizedList";
@@ -183,6 +184,7 @@ export function TransactionActivityFeed() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -616,6 +618,15 @@ export function TransactionActivityFeed() {
                 {isDeleting ? "Deleting..." : "Delete"}
               </button>
 
+              <button
+                type="button"
+                onClick={() => setDetailsId(item.id)}
+                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-foreground transition hover:border-white/20 hover:bg-white/10"
+                aria-label={`View linked details for ${item.assetPair} entry`}
+              >
+                Linked details
+              </button>
+
               {item.hash ? (
                 <a
                   href={`https://stellar.expert/explorer/testnet/tx/${item.hash}`}
@@ -924,6 +935,11 @@ export function TransactionActivityFeed() {
           />
         </div>
       )}
+
+      <JournalLinkedDetails
+        entry={detailsId ? history.find((item) => item.id === detailsId) ?? null : null}
+        onClose={() => setDetailsId(null)}
+      />
 
       {/* ── Failed sync banner ──────────────────────────────────────────── */}
       {failedIds.length > 0 && (
