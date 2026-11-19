@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useBacktestPresetsStore } from "@/store/useBacktestPresetsStore";
 import { useBacktestHistoryStore } from "@/store/useBacktestHistoryStore";
 import { toast } from "@/lib/toast";
+import { BacktestNoTradesExplainer } from "@/components/BacktestNoTradesExplainer";
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -69,6 +70,8 @@ export default function BacktestTool() {
   const { presets, savePreset, overwritePreset, renamePreset, deletePreset } =
     useBacktestPresetsStore();
   const addRun = useBacktestHistoryStore((s) => s.addRun);
+  // Inputs of the run that was just saved: the form may have been edited since.
+  const latestRunParams = useBacktestHistoryStore((s) => s.runs[0]?.params);
 
   const params: BacktestParams = {
     from,
@@ -279,10 +282,11 @@ export default function BacktestTool() {
       {/* Inputs */}
       <div className="flex flex-wrap gap-4 mb-4">
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-from" className="text-xs text-foreground-muted block mb-1">
             From
           </label>
           <input
+            id="backtest-from"
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
@@ -290,8 +294,9 @@ export default function BacktestTool() {
           />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">To</label>
+          <label htmlFor="backtest-to" className="text-xs text-foreground-muted block mb-1">To</label>
           <input
+            id="backtest-to"
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
@@ -299,10 +304,11 @@ export default function BacktestTool() {
           />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-signals" className="text-xs text-foreground-muted block mb-1">
             Providers / Signals
           </label>
           <select
+            id="backtest-signals"
             multiple
             value={selected}
             onChange={(e) =>
@@ -319,10 +325,11 @@ export default function BacktestTool() {
           </select>
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-slippage" className="text-xs text-foreground-muted block mb-1">
             Slippage (bps)
           </label>
           <input
+            id="backtest-slippage"
             type="number"
             min={0}
             value={slippageBps}
@@ -331,10 +338,11 @@ export default function BacktestTool() {
           />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-fee" className="text-xs text-foreground-muted block mb-1">
             Fee (bps)
           </label>
           <input
+            id="backtest-fee"
             type="number"
             min={0}
             value={feeBps}
@@ -482,6 +490,8 @@ export default function BacktestTool() {
               </table>
             </div>
           )}
+
+          <BacktestNoTradesExplainer params={latestRunParams ?? params} result={result} />
         </div>
       ) : (
         !loading && (
