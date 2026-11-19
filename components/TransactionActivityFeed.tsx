@@ -26,6 +26,9 @@ import { RelativeTimestamp } from "@/components/RelativeTimestamp";
 import { EmptyState } from "@/components/ui/empty-state";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
 import { JournalLinkedDetails } from "@/components/JournalLinkedDetails";
+import { JournalIncompleteFilter } from "@/components/JournalIncompleteFilter";
+import { describeMissing, incompleteEntryMap } from "@/lib/journalIncomplete";
+import { useJournalCompletenessStore } from "@/store/useJournalCompletenessStore";
 import { deleteJournalEntry, updateJournalEntry } from "@/lib/journalApi";
 import { normalizeJournalTags } from "@/lib/journalSchema";
 import { VirtualizedList } from "@/components/VirtualizedList";
@@ -185,6 +188,10 @@ export function TransactionActivityFeed() {
   const [dateTo, setDateTo] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const requirements = useJournalCompletenessStore((state) => state.requirements);
+  const setRequirements = useJournalCompletenessStore((state) => state.setRequirements);
+  const incompleteMap = useMemo(() => incompleteEntryMap(history, requirements), [history, requirements]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -304,7 +311,8 @@ export function TransactionActivityFeed() {
       })
       .filter((item) =>
         tagFilters.every((tag) => (item.tags ?? []).includes(tag))
-      );
+      )
+      .filter((item) => !incompleteOnly || incompleteMap.has(item.id));
     return [...matches].sort((a, b) => {
       if (sortOrder === "oldest") return a.timestamp - b.timestamp;
       if (sortOrder === "amount")
@@ -322,6 +330,8 @@ export function TransactionActivityFeed() {
     dateTo,
     sortOrder,
     tagFilters,
+    incompleteOnly,
+    incompleteMap,
   ]);
 
   // Drop selections that are no longer visible so bulk actions never touch
@@ -342,7 +352,8 @@ export function TransactionActivityFeed() {
     dateFrom !== "" ||
     dateTo !== "" ||
     sortOrder !== "newest" ||
-    tagFilters.length > 0;
+    tagFilters.length > 0 ||
+    incompleteOnly;
 
   const clearFilters = useCallback(() => {
     setTypeFilter("ALL");
@@ -353,6 +364,7 @@ export function TransactionActivityFeed() {
     setDateTo("");
     setSortOrder("newest");
     setTagFilters([]);
+    setIncompleteOnly(false);
   }, []);
 
   // Changing any filter remounts the list so scroll position resets to the top
@@ -367,6 +379,7 @@ export function TransactionActivityFeed() {
     dateTo,
     sortOrder,
     tagFilters,
+    incompleteOnly,
   ]);
 
   // ── Selection + bulk archive / restore ─────────────────────────────────
@@ -536,6 +549,11 @@ export function TransactionActivityFeed() {
                     ))}
                   </div>
                 )}
+                {incompleteOnly && incompleteMap.has(item.id) && (
+                  <p className="mt-1 text-[11px] font-medium text-amber-300">
+                    {describeMissing(incompleteMap.get(item.id) ?? [])}
+                  </p>
+                )}
               </div>
               {isPending && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400">
@@ -654,6 +672,8 @@ export function TransactionActivityFeed() {
       selectedIds,
       handleDelete,
       toggleSelected,
+      incompleteOnly,
+      incompleteMap,
     ]
   );
 
@@ -752,6 +772,14 @@ export function TransactionActivityFeed() {
           setStatusFilter(filter.statusFilter);
           setSortOrder(filter.sortOrder);
         }}
+      />
+
+      <JournalIncompleteFilter
+        active={incompleteOnly}
+        onToggle={() => setIncompleteOnly((prev) => !prev)}
+        count={incompleteMap.size}
+        requirements={requirements}
+        onRequirementsChange={setRequirements}
       />
 
       {/* ── Asset, wallet and date filters ─────────────────────────────── */}
