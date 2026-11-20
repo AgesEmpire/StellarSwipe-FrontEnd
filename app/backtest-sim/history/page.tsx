@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { BacktestFavoriteButton } from "@/components/BacktestFavoriteButton"
 import { filterRunsByFavorite } from "@/lib/backtestFavorites"
 import { useBacktestFavoritesStore } from "@/store/useBacktestFavoritesStore"
+import { BacktestFailedRuns } from "@/components/BacktestFailedRuns"
 
 const METRICS = [
   {
@@ -177,6 +178,7 @@ export default function BacktestHistoryPage() {
 
   return (
     <div className="p-6">
+      <BacktestFailedRuns />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Backtest Run History</h1>
         <div className="flex gap-2">

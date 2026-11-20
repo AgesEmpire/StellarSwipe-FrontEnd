@@ -6,6 +6,9 @@ import Link from "next/link"
 import { useBacktestHistoryStore } from "@/store/useBacktestHistoryStore"
 import { Button } from "@/components/ui/button"
 import { BacktestNoTradesExplainer } from "@/components/BacktestNoTradesExplainer"
+import { BacktestConfigSnapshot } from "@/components/BacktestConfigSnapshot"
+import { BacktestBaselineCard } from "@/components/BacktestBaselineCard"
+import { BacktestDrawdownInspector } from "@/components/BacktestDrawdownInspector"
 
 type TradeSortOrder = "asc" | "desc"
 
@@ -70,6 +73,14 @@ export default function BacktestRunDetailPage() {
           <p className="text-xs text-gray-400 mb-1">Max Drawdown</p>
           <p className="text-lg font-semibold">{(run.result.maxDrawdown * 100).toFixed(2)}%</p>
         </div>
+      </div>
+
+      <BacktestConfigSnapshot run={run} />
+      <div className="mb-6">
+        <BacktestBaselineCard params={run.params} result={run.result} />
+      </div>
+      <div className="mb-6">
+        <BacktestDrawdownInspector result={run.result} />
       </div>
 
       <div className="mb-6 rounded border border-white/10 bg-white/5 p-3">
