@@ -67,6 +67,30 @@ npx web-push generate-vapid-keys
 
 Set the public key as `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and keep the private key server-side only (used by whatever service dispatches the push messages) — never prefix it with `NEXT_PUBLIC_` or commit it.
 
+## HTTP Security Headers & Content-Security-Policy
+
+`next.config.mjs` applies global HTTP security response headers across `/:path*` via `lib/security-headers.js`:
+
+- **`Content-Security-Policy`**:
+  - `default-src 'self'`, `base-uri 'self'`, `form-action 'self'`, `object-src 'none'`, `frame-ancestors 'none'`
+  - `script-src 'self' 'unsafe-inline'` (adds `'unsafe-eval'` only during `NODE_ENV=development` for Next.js Fast Refresh)
+  - `style-src 'self' 'unsafe-inline'` for Tailwind CSS, self-hosted `next/font`, Framer Motion, Radix primitives, and chart styles
+  - `img-src 'self' data: blob: https:` and `frame-src 'self'` for provider avatars, QR codes, and `html2canvas` / P&L card exports
+  - `font-src 'self' data:` and `worker-src 'self' blob:` for `/sw.js` push notifications and Sentry Session Replay compression workers
+  - `connect-src`: allows `'self'`, `data:`, `blob:`, Stellar Horizon & Soroban RPC defaults (`horizon.stellar.org`, `horizon-testnet.stellar.org`, `horizon-futurenet.stellar.org`, `soroban-testnet.stellar.org`, `rpc-futurenet.stellar.org`), Sentry ingest (`*.ingest.sentry.io`, `*.ingest.us.sentry.io`, `*.ingest.de.sentry.io`), plus origins automatically parsed from `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN`, `NEXT_PUBLIC_SOROBAN_RPC_URL`, `NEXT_PUBLIC_STELLAR_RPC_URL`, `NEXT_PUBLIC_HORIZON_URL`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, and `NEXT_PUBLIC_CSP_CONNECT_SRC`
+- **`X-Frame-Options: DENY`**
+- **`Referrer-Policy: strict-origin-when-cross-origin`**
+- **`Permissions-Policy`**: disables unused browser hardware/sensor APIs (`accelerometer`, `camera`, `geolocation`, `gyroscope`, `magnetometer`, `microphone`, `payment`, `usb`, etc.) while keeping clipboard access available for address/referral copy actions
+- **`X-Content-Type-Options: nosniff`**
+
+### Updating the CSP allowlist for new third-party integrations
+
+When adding a new external SDK, RPC/WebSocket provider, analytics endpoint, or asset CDN:
+
+1. For additional `fetch` / `WebSocket` / `EventSource` origins, either set `NEXT_PUBLIC_CSP_CONNECT_SRC` (comma- or space-separated origins) or add the constant origin to `DEFAULT_STELLAR_CONNECT_ORIGINS` / `resolveConnectSources()` in `lib/security-headers.js`.
+2. For external scripts, fonts, frames, or workers, extend the corresponding directive in `buildContentSecurityPolicy()` inside `lib/security-headers.js` with the narrowest origin required (avoid `*` or `unsafe-eval` in production).
+3. Update `lib/__tests__/security-headers.test.ts` and verify headers against a production build (`curl -I http://localhost:3000`).
+
 ## Storybook
 
 Storybook provides an isolated visual catalog for all core UI primitives and components.
