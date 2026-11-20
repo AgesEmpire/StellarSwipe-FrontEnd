@@ -5,6 +5,10 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { useBacktestHistoryStore } from "@/store/useBacktestHistoryStore"
 import { Button } from "@/components/ui/button"
+import { BacktestNoTradesExplainer } from "@/components/BacktestNoTradesExplainer"
+import { BacktestConfigSnapshot } from "@/components/BacktestConfigSnapshot"
+import { BacktestBaselineCard } from "@/components/BacktestBaselineCard"
+import { BacktestDrawdownInspector } from "@/components/BacktestDrawdownInspector"
 
 type TradeSortOrder = "asc" | "desc"
 
@@ -71,6 +75,14 @@ export default function BacktestRunDetailPage() {
         </div>
       </div>
 
+      <BacktestConfigSnapshot run={run} />
+      <div className="mb-6">
+        <BacktestBaselineCard params={run.params} result={run.result} />
+      </div>
+      <div className="mb-6">
+        <BacktestDrawdownInspector result={run.result} />
+      </div>
+
       <div className="mb-6 rounded border border-white/10 bg-white/5 p-3">
         <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
           Backtest Assumptions (read-only)
@@ -116,7 +128,10 @@ export default function BacktestRunDetailPage() {
       </div>
 
       {sortedTrades.length === 0 ? (
-        <p className="text-sm text-gray-400">No simulated trades for this run.</p>
+        <div className="space-y-3">
+          <p className="text-sm text-gray-400">No simulated trades for this run.</p>
+          <BacktestNoTradesExplainer params={run.params} result={run.result} inputsHref="/backtest-sim" />
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto">

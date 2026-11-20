@@ -1,17 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   runBacktest,
   type BacktestParams,
   type BacktestResult,
 } from "@/lib/backtest";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { BacktestBaselineCard } from "@/components/BacktestBaselineCard";
+import { BacktestDrawdownInspector } from "@/components/BacktestDrawdownInspector";
+import {
+  DEFAULT_BACKTEST_PARAMS,
+  diffAgainstDefaults,
+  retryEligibility,
+  type ParamDifference,
+} from "@/lib/backtestRetry";
+import { useBacktestFailedRunsStore } from "@/store/useBacktestFailedRunsStore";
 import { Check, Download, History, Pencil, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBacktestPresetsStore } from "@/store/useBacktestPresetsStore";
 import { useBacktestHistoryStore } from "@/store/useBacktestHistoryStore";
 import { toast } from "@/lib/toast";
+import { BacktestNoTradesExplainer } from "@/components/BacktestNoTradesExplainer";
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -49,12 +60,22 @@ function exportJSON(params: BacktestParams, result: BacktestResult) {
 }
 
 export default function BacktestTool() {
-  const [from, setFrom] = useState("2023-01-01");
-  const [to, setTo] = useState("2023-12-31");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [slippageBps, setSlippageBps] = useState(10);
-  const [feeBps, setFeeBps] = useState(10);
+  const [from, setFrom] = useState<string>(DEFAULT_BACKTEST_PARAMS.from);
+  const [to, setTo] = useState<string>(DEFAULT_BACKTEST_PARAMS.to);
+  const [selected, setSelected] = useState<string[]>(DEFAULT_BACKTEST_PARAMS.signals);
+  const [slippageBps, setSlippageBps] = useState<number>(DEFAULT_BACKTEST_PARAMS.slippageBps);
+  const [feeBps, setFeeBps] = useState<number>(DEFAULT_BACKTEST_PARAMS.feeBps);
   const [result, setResult] = useState<BacktestResult | null>(null);
+  // Inputs the displayed result was produced with (the form may change afterwards).
+  const [resultParams, setResultParams] = useState<BacktestParams | null>(null);
+
+  // Retry of a failed run (#1129): `?retry=<id>` restores that run's saved inputs.
+  const retryId = useSearchParams().get("retry");
+  const getFailure = useBacktestFailedRunsStore((s) => s.getFailure);
+  const recordFailure = useBacktestFailedRunsStore((s) => s.recordFailure);
+  const removeFailure = useBacktestFailedRunsStore((s) => s.removeFailure);
+  const [retryInfo, setRetryInfo] = useState<{ id: string; differences: ParamDifference[]; error: string } | null>(null);
+  const [retryProblem, setRetryProblem] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [presetName, setPresetName] = useState("");
@@ -69,6 +90,8 @@ export default function BacktestTool() {
   const { presets, savePreset, overwritePreset, renamePreset, deletePreset } =
     useBacktestPresetsStore();
   const addRun = useBacktestHistoryStore((s) => s.addRun);
+  // Inputs of the run that was just saved: the form may have been edited since.
+  const latestRunParams = useBacktestHistoryStore((s) => s.runs[0]?.params);
 
   const params: BacktestParams = {
     from,
@@ -78,15 +101,43 @@ export default function BacktestTool() {
     feeBps,
   };
 
+  useEffect(() => {
+    if (!retryId) return;
+    const failure = getFailure(retryId);
+    if (!failure) {
+      setRetryProblem("That failed run is no longer saved, so its settings cannot be restored.");
+      return;
+    }
+    const eligibility = retryEligibility(failure);
+    if (!eligibility.eligible) {
+      setRetryProblem(`This run cannot be retried: ${eligibility.reason}`);
+      return;
+    }
+    setFrom(failure.params.from);
+    setTo(failure.params.to);
+    setSelected(failure.params.signals);
+    setSlippageBps(failure.params.slippageBps ?? DEFAULT_BACKTEST_PARAMS.slippageBps);
+    setFeeBps(failure.params.feeBps ?? DEFAULT_BACKTEST_PARAMS.feeBps);
+    setRetryInfo({ id: failure.id, differences: diffAgainstDefaults(failure.params), error: failure.error });
+    setRetryProblem(null);
+  }, [retryId, getFailure]);
+
   async function handleRun() {
     setLoading(true);
     setError(null);
     try {
       const r = await runBacktest(params);
       setResult(r);
+      setResultParams(params);
       addRun(params, r);
+      if (retryInfo) {
+        removeFailure(retryInfo.id);
+        setRetryInfo(null);
+      }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Simulation failed");
+      const message = e instanceof Error ? e.message : "Simulation failed";
+      setError(message);
+      recordFailure(params, message, retryInfo?.id);
     } finally {
       setLoading(false);
     }
@@ -167,6 +218,37 @@ export default function BacktestTool() {
       <p role="status" aria-live="polite" className="sr-only" data-testid="preset-status">
         {presetStatus}
       </p>
+
+      {retryProblem && (
+        <p role="alert" className="mb-4 rounded bg-red-500/10 px-3 py-2 text-sm text-red-300" data-testid="retry-problem">
+          {retryProblem}
+        </p>
+      )}
+      {retryInfo && (
+        <div
+          role="region"
+          aria-label="Retrying a failed simulation"
+          className="mb-4 rounded border border-amber-400/30 bg-amber-400/5 p-3 text-sm"
+          data-testid="retry-banner"
+        >
+          <p className="font-medium">Settings restored from a failed simulation</p>
+          <p className="text-xs text-gray-400">It failed with: {retryInfo.error}</p>
+          {retryInfo.differences.length > 0 ? (
+            <ul className="mt-2 list-disc pl-5 text-xs text-amber-200" aria-label="Differences from current defaults">
+              {retryInfo.differences.map((d) => (
+                <li key={d.field}>
+                  {d.label}: {d.saved} (default is {d.current})
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-gray-400">These settings match the current defaults.</p>
+          )}
+          <Button size="sm" className="mt-3" onClick={handleRun} disabled={loading}>
+            {loading ? "Running…" : "Retry run"}
+          </Button>
+        </div>
+      )}
 
       {/* Presets */}
       {presets.length > 0 && (
@@ -279,10 +361,11 @@ export default function BacktestTool() {
       {/* Inputs */}
       <div className="flex flex-wrap gap-4 mb-4">
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-from" className="text-xs text-foreground-muted block mb-1">
             From
           </label>
           <input
+            id="backtest-from"
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
@@ -290,8 +373,9 @@ export default function BacktestTool() {
           />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">To</label>
+          <label htmlFor="backtest-to" className="text-xs text-foreground-muted block mb-1">To</label>
           <input
+            id="backtest-to"
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
@@ -299,10 +383,11 @@ export default function BacktestTool() {
           />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-signals" className="text-xs text-foreground-muted block mb-1">
             Providers / Signals
           </label>
           <select
+            id="backtest-signals"
             multiple
             value={selected}
             onChange={(e) =>
@@ -319,10 +404,11 @@ export default function BacktestTool() {
           </select>
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-slippage" className="text-xs text-foreground-muted block mb-1">
             Slippage (bps)
           </label>
           <input
+            id="backtest-slippage"
             type="number"
             min={0}
             value={slippageBps}
@@ -331,10 +417,11 @@ export default function BacktestTool() {
           />
         </div>
         <div>
-          <label className="text-xs text-foreground-muted block mb-1">
+          <label htmlFor="backtest-fee" className="text-xs text-foreground-muted block mb-1">
             Fee (bps)
           </label>
           <input
+            id="backtest-fee"
             type="number"
             min={0}
             value={feeBps}
@@ -455,6 +542,9 @@ export default function BacktestTool() {
             </div>
           </div>
 
+          <BacktestBaselineCard params={resultParams ?? params} result={result} />
+          <BacktestDrawdownInspector result={result} />
+
           {result.trades.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -482,6 +572,8 @@ export default function BacktestTool() {
               </table>
             </div>
           )}
+
+          <BacktestNoTradesExplainer params={latestRunParams ?? params} result={result} />
         </div>
       ) : (
         !loading && (
