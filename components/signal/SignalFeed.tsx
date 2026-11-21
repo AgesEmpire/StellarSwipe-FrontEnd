@@ -41,6 +41,7 @@ import {
   computeSplitRatioFromClientX,
 } from "@/lib/splitView";
 import { deriveSignalFeedLoading, buildShimmerDelays } from "@/lib/signalFeedLoading";
+import { PriceAlertForm } from "@/components/watchlist/PriceAlertForm";
 
 interface SignalResponse {
   items: Signal[];
@@ -946,6 +947,19 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                         ))}
                       </ul>
                     )}
+                  </section>
+                  <section
+                    aria-label="Price movement alerts"
+                    className="space-y-2 border-t border-white/10 pt-4"
+                  >
+                    <h4 className="text-xs uppercase tracking-[0.3em] text-sky-400/80">
+                      Price movement alerts
+                    </h4>
+                    <PriceAlertForm
+                      key={selectedSignal.id}
+                      symbol={selectedSignal.ticker}
+                      initialThreshold={selectedSignal.quote?.price ?? null}
+                    />
                   </section>
                 </div>
               ) : (
