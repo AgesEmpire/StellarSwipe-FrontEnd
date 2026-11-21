@@ -207,6 +207,53 @@ export function findMissingColumns(
     .map(([target]) => target);
 }
 
+// ── Malformed row highlighting (#1066) ───────────────────────────────────────
+
+/** A single validation failure on an imported CSV row. */
+export interface CSVRowError {
+  /** CSV column the failure belongs to (e.g. "Amount"). */
+  field: CSVColumn;
+  /** Human-readable validation reason. */
+  reason: string;
+}
+
+/** Maps a zod issue path segment to the CSV column it came from. */
+const SCHEMA_PATH_TO_COLUMN: Record<string, CSVColumn> = {
+  date: "Date",
+  assetpair: "Asset Pair",
+  type: "Type",
+  amount: "Amount",
+  price: "Price",
+  fee: "Fee",
+  token: "Token",
+  status: "Status",
+  outcome: "Outcome",
+  notes: "Notes",
+  tags: "Tags",
+};
+
+/**
+ * Turns zod issues into per-field row errors so the preview can point at the
+ * exact cell that needs correcting. Issues without a resolvable path are
+ * attributed to the first required column.
+ */
+export function toRowErrors(
+  issues: readonly { path: readonly (string | number)[]; message: string }[]
+): CSVRowError[] {
+  return issues.map((issue) => {
+    const key = String(issue.path[0] ?? "").toLowerCase();
+    return {
+      field: SCHEMA_PATH_TO_COLUMN[key] ?? "Date",
+      reason: issue.message,
+    };
+  });
+}
+
+/** Stable DOM id for a preview cell, used to focus it from an error list. */
+export function csvCellId(rowIndex: number, field: CSVColumn): string {
+  return `csv-cell-${rowIndex}-${field.toLowerCase().replace(/\s+/g, "-")}`;
+}
+
 // ── In-session import preview (#1068) ────────────────────────────────────────
 
 /**

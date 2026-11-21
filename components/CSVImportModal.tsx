@@ -23,7 +23,10 @@ import {
   saveCSVImportSession,
   loadCSVImportSession,
   clearCSVImportSession,
+  toRowErrors,
+  csvCellId,
   type CSVImportDraft,
+  type CSVRowError,
   type SavedCSVColumnMapping,
 } from "@/lib/csvImportDraft";
 import { DuplicateResolutionStep, type DuplicateGroup, type DuplicateResolution } from "@/components/DuplicateResolutionStep";
@@ -54,10 +57,50 @@ interface ValidationResult {
   row: Record<string, any>;
   data?: JournalEntry;
   errors?: string[];
+  // #1066 — per-field validation failures for direct navigation
+  fieldErrors?: CSVRowError[];
   isValid: boolean;
 }
 
 const REQUIRED_COLUMNS: CSVColumn[] = ["Date", "Asset Pair", "Amount", "Price", "Token"];
+
+/**
+ * #1066 — inline editor for an invalid cell. Commits on blur or Enter so the
+ * row is re-validated and the preview summary updates immediately.
+ */
+function EditableCell({
+  value,
+  label,
+  onCommit,
+}: {
+  value: string;
+  label: string;
+  onCommit: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <input
+      aria-label={label}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (draft !== value) onCommit(draft);
+        }
+      }}
+      className="w-full rounded-md border border-red-400/30 bg-slate-950 px-2 py-1 text-xs text-white outline-none focus:ring-2 focus:ring-red-400"
+    />
+  );
+}
 
 export function CSVImportModal() {
   const [open, setOpen] = useState(false);
@@ -99,6 +142,11 @@ export function CSVImportModal() {
   const [editingName, setEditingName] = useState("");
   // #1068 — whether the current state was restored from the in-session snapshot
   const [restoredFromSession, setRestoredFromSession] = useState(false);
+  // #1066 — cell the user navigated to from the error list
+  const [focusedCell, setFocusedCell] = useState<{
+    rowIndex: number;
+    field: CSVColumn;
+  } | null>(null);
 
   const bulkAddTransactions = useTransactionStore(
     (state) => state.bulkAddTransactions
@@ -123,6 +171,7 @@ export function CSVImportModal() {
     setEditingMappingId(null);
     setEditingName("");
     setRestoredFromSession(false);
+    setFocusedCell(null);
   }, []);
 
   // Load saved mappings each time the modal opens.
@@ -373,6 +422,9 @@ export function CSVImportModal() {
           errors: !parsed.success
             ? parsed.error.issues.map((msg) => msg.message)
             : undefined,
+          fieldErrors: !parsed.success
+            ? toRowErrors(parsed.error.issues)
+            : undefined,
           isValid: parsed.success,
         };
       });
@@ -383,6 +435,7 @@ export function CSVImportModal() {
     }
 
     setValidationResults(results);
+    setFocusedCell(null);
     setIsProcessing(false);
 
     // ── Duplicate detection (#780) ─────────────────────────────────────
@@ -477,6 +530,69 @@ export function CSVImportModal() {
     clearCSVImportDraft();
     clearCSVImportSession();
   };
+
+  // #1066 — every invalid row with its field + reason, for direct navigation.
+  const rowErrorList = useMemo(
+    () =>
+      validationResults.flatMap((res, rowIndex) =>
+        res.isValid
+          ? []
+          : (res.fieldErrors ?? []).map((err) => ({ rowIndex, ...err }))
+      ),
+    [validationResults]
+  );
+
+  const focusCell = useCallback((rowIndex: number, field: CSVColumn) => {
+    setFocusedCell({ rowIndex, field });
+    if (typeof document === "undefined") return;
+    const el = document.getElementById(csvCellId(rowIndex, field));
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    (el as HTMLElement | null)?.focus?.();
+  }, []);
+
+  // #1066 — correct a cell in place and re-validate only that row, so the
+  // summary updates while every other (valid) row is preserved.
+  const updateCell = useCallback(
+    (rowIndex: number, field: CSVColumn, value: string) => {
+      const source = mapping[field];
+      if (!source) return;
+      const nextRow = { ...csvData[rowIndex], [source]: value };
+      setCsvData((prev) =>
+        prev.map((row, i) => (i === rowIndex ? nextRow : row))
+      );
+
+      const mappedRow: any = {};
+      Object.entries(mapping).forEach(([target, src]) => {
+        if (src) mappedRow[target.toLowerCase().replace(" ", "")] = nextRow[src];
+      });
+      const validationData = {
+        ...mappedRow,
+        type: mappedRow.type || "MANUAL",
+        status: mappedRow.status || "SUCCEEDED",
+        outcome: mappedRow.outcome || "PENDING",
+        fee: mappedRow.fee || "0",
+      };
+      const parsed = journalEntrySchema.safeParse(validationData);
+      setValidationResults((prev) =>
+        prev.map((res, i) =>
+          i === rowIndex
+            ? {
+                row: nextRow,
+                data: parsed.success ? parsed.data : undefined,
+                errors: parsed.success
+                  ? undefined
+                  : parsed.error.issues.map((msg) => msg.message),
+                fieldErrors: parsed.success
+                  ? undefined
+                  : toRowErrors(parsed.error.issues),
+                isValid: parsed.success,
+              }
+            : res
+        )
+      );
+    },
+    [csvData, mapping]
+  );
 
   const mappingIssues = useMemo(() => {
     const issues: string[] = [];
@@ -801,6 +917,40 @@ export function CSVImportModal() {
                 </div>
               </div>
 
+              {/* #1066 — invalid rows with their field + reason; selecting one
+                  focuses the affected cell so it can be corrected in place. */}
+              {rowErrorList.length > 0 && (
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/5 p-3 text-xs">
+                  <p className="mb-2 font-medium text-red-200">
+                    {rowErrorList.length} validation{" "}
+                    {rowErrorList.length === 1 ? "error" : "errors"} — select one
+                    to jump to the cell.
+                  </p>
+                  <ul className="space-y-1">
+                    {rowErrorList.slice(0, 50).map((err, i) => (
+                      <li key={`${err.rowIndex}-${err.field}-${i}`}>
+                        <button
+                          type="button"
+                          onClick={() => focusCell(err.rowIndex, err.field)}
+                          aria-label={`Row ${err.rowIndex + 1}, ${err.field}: ${err.reason}. Focus cell.`}
+                          className={cn(
+                            "w-full rounded-lg px-2 py-1 text-left text-red-200 hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-400",
+                            focusedCell?.rowIndex === err.rowIndex &&
+                              focusedCell?.field === err.field &&
+                              "bg-red-500/15 ring-1 ring-red-400/40"
+                          )}
+                        >
+                          <span className="font-medium">
+                            Row {err.rowIndex + 1} · {err.field}
+                          </span>
+                          <span className="text-red-300/80"> — {err.reason}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="rounded-2xl border border-white/10 bg-slate-900 overflow-hidden text-xs">
                 <table className="w-full text-left">
                   <thead className="bg-white/5 border-b border-white/10">
@@ -813,59 +963,111 @@ export function CSVImportModal() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {validationResults.slice(0, 50).map((res, i) => (
-                      <tr
-                        key={i}
-                        className={cn(!res.isValid && "bg-red-400/5")}
-                      >
-                        <td className="px-3 py-2">
-                          {res.isValid ? (
-                            <CheckCircle2
-                              size={14}
-                              className="text-emerald-400"
-                            />
-                          ) : (
-                            <div className="group relative">
-                              <AlertCircle
+                    {validationResults.slice(0, 50).map((res, i) => {
+                      const cellClass = (field: CSVColumn) =>
+                        cn(
+                          "px-3 py-2",
+                          !res.isValid &&
+                            res.fieldErrors?.some((e) => e.field === field) &&
+                            "bg-red-400/10",
+                          focusedCell?.rowIndex === i &&
+                            focusedCell?.field === field &&
+                            "ring-2 ring-inset ring-red-400"
+                        );
+                      const cellProps = (field: CSVColumn) => ({
+                        id: csvCellId(i, field),
+                        tabIndex: -1,
+                        "aria-invalid":
+                          !res.isValid &&
+                          res.fieldErrors?.some((e) => e.field === field),
+                      });
+                      return (
+                        <tr
+                          key={i}
+                          className={cn(!res.isValid && "bg-red-400/5")}
+                        >
+                          <td className="px-3 py-2">
+                            {res.isValid ? (
+                              <CheckCircle2
                                 size={14}
-                                className="text-red-400 cursor-help"
+                                className="text-emerald-400"
                               />
-                              <div className="absolute left-6 top-0 hidden group-hover:block z-10 w-48 rounded-lg bg-red-950 p-2 text-[10px] shadow-xl border border-red-400/20">
-                                {res.errors?.map((err, j) => (
-                                  <p key={j}>• {err}</p>
-                                ))}
+                            ) : (
+                              <div className="group relative">
+                                <AlertCircle
+                                  size={14}
+                                  className="text-red-400 cursor-help"
+                                />
+                                <div className="absolute left-6 top-0 hidden group-hover:block z-10 w-48 rounded-lg bg-red-950 p-2 text-[10px] shadow-xl border border-red-400/20">
+                                  {res.errors?.map((err, j) => (
+                                    <p key={j}>• {err}</p>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-slate-300">
-                          {res.isValid
-                            ? res.data?.date
-                            : res.row[mapping["Date"] || ""] || "—"}
-                        </td>
-                        <td className="px-3 py-2 font-medium">
-                          {res.isValid
-                            ? res.data?.assetPair
-                            : res.row[mapping["Asset Pair"] || ""] || "—"}
-                        </td>
-                        <td className="px-3 py-2">
-                          {res.isValid
-                            ? res.data?.amount
-                            : res.row[mapping["Amount"] || ""] || "—"}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {res.isValid ? (
-                            <span className="text-emerald-400 opacity-50">
-                              Importing
-                            </span>
-                          ) : (
-                            <span className="text-red-400 opacity-50">
-                              Skipping
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                            )}
+                          </td>
+                          <td
+                            className={cn(cellClass("Date"), "text-slate-300")}
+                            {...cellProps("Date")}
+                          >
+                            {res.isValid ? (
+                              res.data?.date
+                            ) : (
+                              <EditableCell
+                                value={res.row[mapping["Date"] || ""] ?? ""}
+                                label={`Row ${i + 1} Date`}
+                                onCommit={(value) =>
+                                  updateCell(i, "Date", value)
+                                }
+                              />
+                            )}
+                          </td>
+                          <td
+                            className={cn(cellClass("Asset Pair"), "font-medium")}
+                            {...cellProps("Asset Pair")}
+                          >
+                            {res.isValid ? (
+                              res.data?.assetPair
+                            ) : (
+                              <EditableCell
+                                value={res.row[mapping["Asset Pair"] || ""] ?? ""}
+                                label={`Row ${i + 1} Asset Pair`}
+                                onCommit={(value) =>
+                                  updateCell(i, "Asset Pair", value)
+                                }
+                              />
+                            )}
+                          </td>
+                          <td
+                            className={cellClass("Amount")}
+                            {...cellProps("Amount")}
+                          >
+                            {res.isValid ? (
+                              res.data?.amount
+                            ) : (
+                              <EditableCell
+                                value={res.row[mapping["Amount"] || ""] ?? ""}
+                                label={`Row ${i + 1} Amount`}
+                                onCommit={(value) =>
+                                  updateCell(i, "Amount", value)
+                                }
+                              />
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {res.isValid ? (
+                              <span className="text-emerald-400 opacity-50">
+                                Importing
+                              </span>
+                            ) : (
+                              <span className="text-red-400 opacity-50">
+                                Skipping
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {validationResults.length > 50 && (
                       <tr>
                         <td
