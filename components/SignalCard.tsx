@@ -13,6 +13,7 @@ import {
   Bookmark,
   Check,
   ChevronDown,
+  Info,
   Minus,
   Share2,
   TrendingDown,
@@ -23,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SignalBadge } from "@/components/SignalBadge";
 import { SignalTimestamp } from "@/components/SignalTimestamp";
+import { SignalQuoteMeta } from "@/components/SignalQuoteMeta";
 import { TradeSkeleton } from "@/components/TradeSkeleton";
 import { TradeModal } from "@/components/TradeModal";
 import { SignalConflictNotice, type SignalConflictReason } from "@/components/SignalConflictNotice";
@@ -36,6 +38,10 @@ import { usePriceFormat } from "@/hooks/usePriceFormat";
 import { useSignalPrice } from "@/hooks/useSignalPrice";
 import { toast } from "sonner";
 import type { Signal as ApiSignal } from "@/lib/api";
+import {
+  SIGNAL_REVISION_FIELD_LABELS,
+  type SignalRevisionField,
+} from "@/lib/signalRevisions";
 
 interface ROIPoint {
   value: number;
@@ -59,6 +65,10 @@ interface SignalCardProps {
   hasAccess?: boolean;
   requiredStake?: number;
   conflictReason?: SignalConflictReason;
+  /** Set when the signal is past its expiry and can no longer be traded. */
+  expired?: boolean;
+  /** Set when no wallet is connected, so trade execution is unavailable. */
+  walletMissing?: boolean;
   portfolioBalance?: number;
   onTrade?: (pair: string, price: number) => void;
   onPass?: () => void;
@@ -96,6 +106,8 @@ export function SignalCard({
   hasAccess = true,
   requiredStake = 1000,
   conflictReason,
+  expired = false,
+  walletMissing = false,
   portfolioBalance,
   onTrade,
   onPass,
@@ -137,11 +149,41 @@ export function SignalCard({
     ? new Date(signalData.lastUpdated)
     : null;
   const hasSignalRevision = signalData?.hasRevision ?? false;
+  const signalQuote = signalData?.quote;
+  const signalRevision = signalData?.revision;
+  const changedFields = signalData?.changedFields ?? [];
+  const changedFieldLabels = changedFields.map(
+    (field) => SIGNAL_REVISION_FIELD_LABELS[field] ?? field
+  );
+  const changedFieldSummary = changedFieldLabels.join(", ");
+  const isFieldChanged = (field: SignalRevisionField) =>
+    changedFields.includes(field);
+  const changedFieldClass = (field: SignalRevisionField) =>
+    isFieldChanged(field)
+      ? "rounded bg-amber-500/15 px-1 text-amber-200 ring-1 ring-inset ring-amber-400/40"
+      : "";
+  const changedFieldA11y = (field: SignalRevisionField) =>
+    isFieldChanged(field) ? { "data-changed": "true" as const } : {};
+  const changedFieldSrLabel = (field: SignalRevisionField) =>
+    isFieldChanged(field) ? <span className="sr-only"> (changed)</span> : null;
   const badgeSignal =
     signalAction === "BUY" ? "BUY" : signalAction === "SELL" ? "SELL" : "NEUTRAL";
 
   const isBookmarked = bookmarks.includes(signalId);
   const bookmarkedLabel = isBookmarked ? "Remove bookmark" : "Bookmark signal";
+
+  // Inline reason shown at the point of the trade action when it can't run.
+  // Precedence: expiry, then a missing wallet, then a signal conflict.
+  const tradeUnavailableReason = expired
+    ? "Signal expired — this signal is no longer actionable."
+    : walletMissing
+    ? "Connect a wallet to execute this trade."
+    : conflictReason
+    ? "Signal conflict — refresh or choose another signal."
+    : null;
+  const tradeDisabled =
+    modalOpen || (isPremium && !hasAccess) || !!tradeUnavailableReason;
+  const tradeReasonId = `signal-trade-reason-${signalId}`;
 
   const currentPrice = executionPrice;
   const deltaValue = parseFloat((price.executionPrice - currentPrice).toFixed(4));
@@ -196,6 +238,24 @@ export function SignalCard({
 
   function handleExecuteTrade() {
     if (executingRef.current) return;
+    if (isPremium && !hasAccess) {
+      setActionAnnouncement(
+        `Cannot open trade for ${signalAction} ${signalPair}. Premium signal locked — stake at least ${requiredStake.toLocaleString()} XLM to unlock.`
+      );
+      return;
+    }
+    if (conflictReason) {
+      setActionAnnouncement(
+        `Cannot open trade for ${signalAction} ${signalPair}. Signal unavailable due to a conflict.`
+      );
+      return;
+    }
+    if (tradeUnavailableReason) {
+      setActionAnnouncement(`Trade unavailable. ${tradeUnavailableReason}`);
+      return;
+    }
+      return;
+    }
     executingRef.current = true;
     setActionAnnouncement(`Opening trade modal for ${signalAction} ${signalPair}`);
     setModalOpen(true);
@@ -218,6 +278,7 @@ export function SignalCard({
   }
 
   function handleKeyDown(e: KeyboardEvent) {
+    if (e.target !== e.currentTarget) return;
     if (e.key === "ArrowLeft") {
       e.preventDefault();
       handlePass();
@@ -334,7 +395,8 @@ export function SignalCard({
             tabIndex={0}
             onKeyDown={handleKeyDown}
             role="article"
-            aria-label={`${signalAction} signal for ${signalPair} at ${executionPrice} with ${signalConfidence}% confidence. Press Enter or right arrow to trade, left arrow to pass.`}
+            aria-label={`${signalAction} signal for ${signalPair} at ${executionPrice} with ${signalConfidence}% confidence.${signalRevision !== undefined ? ` Current revision ${signalRevision}.` : ""}${changedFieldLabels.length > 0 ? ` Changed fields: ${changedFieldSummary}.` : ""} Press Enter or right arrow to trade, left arrow to pass.`}
+            aria-keyshortcuts="Enter ArrowRight ArrowLeft"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-2">
@@ -352,17 +414,36 @@ export function SignalCard({
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
-                  <span>{signalProvider}</span>
+                  <span className={changedFieldClass("ticker")} {...changedFieldA11y("ticker")}>
+                    {signalProvider}
+                    {changedFieldSrLabel("ticker")}
+                  </span>
                   <span aria-hidden="true">·</span>
-                  <span>{signalAction}</span>
+                  <span className={changedFieldClass("action")} {...changedFieldA11y("action")}>
+                    {signalAction}
+                    {changedFieldSrLabel("action")}
+                  </span>
                   <span aria-hidden="true">·</span>
-                  <span>{signalConfidence}% confidence</span>
+                  <span className={changedFieldClass("confidence")} {...changedFieldA11y("confidence")}>
+                    {signalConfidence}% confidence
+                    {changedFieldSrLabel("confidence")}
+                  </span>
                 </div>
                 {hasSignalRevision && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded text-xs">
+                  <div className="flex flex-wrap items-center gap-1 px-2 py-1 bg-gray-50 rounded text-xs">
                     <span className="text-gray-400">Updated</span>
                     <span className="text-gray-500">{signalLastUpdated ? signalLastUpdated.toLocaleDateString() : "unknown"}</span>
+                    {signalRevision !== undefined && (
+                      <span className="text-gray-500">· Revision {signalRevision}</span>
+                    )}
                   </div>
+                )}
+                {changedFieldLabels.length > 0 && (
+                  <p className="text-xs text-amber-200">
+                    <span className="sr-only">Changed in this revision: </span>
+                    <span aria-hidden="true">Changed: </span>
+                    {changedFieldSummary}
+                  </p>
                 )}
               </div>
 
@@ -505,7 +586,10 @@ export function SignalCard({
                   style={{ overflow: "hidden" }}
                 >
                   <div className="flex flex-col gap-3 pt-1">
-                    <p className="text-sm text-muted-foreground leading-relaxed">{analysis}</p>
+                    <p className={cn("text-sm text-muted-foreground leading-relaxed", changedFieldClass("details"))} {...changedFieldA11y("details")}>
+                      {analysis}
+                      {changedFieldSrLabel("details")}
+                    </p>
                   </div>
                 </motion.div>
               )}
@@ -523,6 +607,15 @@ export function SignalCard({
               <SignalConflictNotice reason={conflictReason} onRefresh={onPass} onChooseAnother={onPass} />
             )}
 
+            {signalQuote && (
+              <SignalQuoteMeta
+                quote={signalQuote}
+                formattedPrice={
+                  signalQuote.price === null ? null : fmt(signalQuote.price)
+                }
+              />
+            )}
+
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <SignalTimestamp updatedAt={signalTimestamp} />
               <p className="text-xs text-muted-foreground" aria-hidden="true">← Pass &nbsp;|&nbsp; Enter / → Trade</p>
@@ -535,6 +628,7 @@ export function SignalCard({
                 onClick={handlePass}
                 className="flex-1"
                 aria-label={`Pass on ${signalAction} signal for ${signalPair}`}
+                aria-keyshortcuts="ArrowLeft"
               >
                 <X size={16} className="mr-1" />
                 Pass
@@ -542,14 +636,30 @@ export function SignalCard({
               <Button
                 size="sm"
                 onClick={handleExecuteTrade}
-                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason}
+                disabled={tradeDisabled}
+                aria-describedby={
+                  tradeUnavailableReason ? tradeReasonId : undefined
+                }
                 className="flex-1 active:scale-95"
-                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${tradeUnavailableReason ? ` (unavailable — ${tradeUnavailableReason})` : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+                aria-keyshortcuts="Enter ArrowRight"
               >
                 <Zap size={16} className="mr-1" />
                 {isDemoMode ? "Demo Trade" : "Execute Trade"}
               </Button>
             </div>
+
+            {tradeUnavailableReason && (
+              <p
+                id={tradeReasonId}
+                role="note"
+                tabIndex={0}
+                className="flex items-start gap-1.5 rounded-md border border-dashed border-accent-warning/40 bg-accent-warning/5 px-2 py-1.5 text-xs text-accent-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              >
+                <Info size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{tradeUnavailableReason}</span>
+              </p>
+            )}
           </article>
 
           <TradeModal

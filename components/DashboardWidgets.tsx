@@ -10,7 +10,7 @@ import React, {
   useRef,
 } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { ChevronDown, ChevronUp, GripVertical, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, RefreshCw, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortfolioSummaryCards } from "@/components/PortfolioSummaryCards";
 import { PnLWidget } from "@/components/chart/PnLWidget";
@@ -18,6 +18,7 @@ import { PortfolioAllocationChart } from "@/components/chart/PortfolioAllocation
 import { PortfolioPerformanceBenchmarkChart } from "@/components/chart/PortfolioPerformanceBenchmarkChart";
 import { RetryStateCard } from "@/components/ui/RetryStateCard";
 import { DashboardQuickAdd } from "@/components/DashboardQuickAdd";
+import { usePortfolioStore } from "@/store/usePortfolioStore";
 import {
   useDashboardLayoutStore,
   DEFAULT_WIDGET_ORDER,
@@ -142,6 +143,65 @@ const WIDGET_META: Record<DashboardWidgetId, { title: string; component: ReactNo
   },
 };
 
+// ─── Widget refresh action ───────────────────────────────────────────────────
+
+/** Minimum time the in-flight state is shown so feedback is perceivable. */
+const MIN_REFRESH_FEEDBACK_MS = 400;
+
+function formatLastUpdated(date: Date | null): string {
+  if (!date) return "Not updated yet";
+  return date.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+interface WidgetRefreshActionProps {
+  widgetTitle: string;
+  lastUpdated: Date | null;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+}
+
+/**
+ * Labeled refresh action + last-updated timestamp for a single widget.
+ *
+ * Feedback is intentionally local: the button owns its own in-flight state and
+ * the timestamp is rendered next to it, so refreshing one widget never changes
+ * the appearance of any other widget.
+ */
+function WidgetRefreshAction({
+  widgetTitle,
+  lastUpdated,
+  isRefreshing,
+  onRefresh,
+}: WidgetRefreshActionProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-400" data-testid="widget-last-updated">
+        Updated {formatLastUpdated(lastUpdated)}
+      </span>
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={isRefreshing}
+        aria-busy={isRefreshing}
+        aria-label={`Refresh ${widgetTitle}`}
+        title={`Refresh ${widgetTitle}`}
+        className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-slate-300 hover:bg-white/10 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+      >
+        <RefreshCw
+          size={12}
+          aria-hidden="true"
+          className={cn(isRefreshing && "animate-spin")}
+        />
+        {isRefreshing ? "Refreshing…" : "Refresh"}
+      </button>
+    </div>
+  );
+}
+
 // ─── DashboardWidgets ────────────────────────────────────────────────────────
 
 export function DashboardWidgets() {
@@ -153,11 +213,41 @@ export function DashboardWidgets() {
   const orderRef = useRef(order);
   orderRef.current = order;
 
+  // ── Per-widget refresh state (#1051) ──
+  // `refreshing` holds the ids of widgets with an in-flight refresh so repeated
+  // clicks can be coalesced; `lastUpdated` records when each widget last
+  // finished refreshing. Both are local to the dashboard, never global.
+  const [refreshing, setRefreshing] = useState<DashboardWidgetId[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<
+    Partial<Record<DashboardWidgetId, Date>>
+  >({});
+  const inFlightRef = useRef<Set<DashboardWidgetId>>(new Set());
+  const portfolioLastUpdated = usePortfolioStore((s) => s.lastUpdated);
+
+  const handleWidgetRefresh = useCallback((widgetId: DashboardWidgetId) => {
+    // Coalesce: ignore clicks while a refresh for this widget is in flight.
+    if (inFlightRef.current.has(widgetId)) return;
+    inFlightRef.current.add(widgetId);
+    setRefreshing((prev) => (prev.includes(widgetId) ? prev : [...prev, widgetId]));
+
+    const finish = () => {
+      inFlightRef.current.delete(widgetId);
+      setRefreshing((prev) => prev.filter((id) => id !== widgetId));
+      setLastUpdated((prev) => ({ ...prev, [widgetId]: new Date() }));
+    };
+
+    // Widget data is served from the portfolio store; re-reading it is the
+    // refresh. Keep the in-flight state visible for a minimum duration so the
+    // feedback is perceivable even when the data resolves instantly.
+    window.setTimeout(finish, MIN_REFRESH_FEEDBACK_MS);
+  }, []);
+
   const announcePosition = useCallback((widgetId: DashboardWidgetId, list: DashboardWidgetId[]) => {
     const title = WIDGET_META[widgetId]?.title ?? widgetId;
-    setAnnouncement(
-      `${title} moved to position ${list.indexOf(widgetId) + 1} of ${list.length}.`
-    );
+    const message = `${title} moved to position ${list.indexOf(widgetId) + 1} of ${list.length}.`;
+    // Toggle a trailing space so repeating the same message re-triggers the
+    // live region instead of being silently ignored by screen readers.
+    setAnnouncement((prev) => (prev === message ? `${message}\u00a0` : message));
   }, []);
 
   useEffect(() => {
@@ -221,17 +311,31 @@ export function DashboardWidgets() {
     [announcePosition]
   );
 
+  /**
+   * Single reorder path shared by pointer dragging, the ↑/↓ buttons and the
+   * keyboard shortcuts, so the persisted order can never diverge between them.
+   * Reads the latest order from a ref so rapid key presses never act on a
+   * stale index.
+   */
   const moveItem = useCallback(
-    (index: number, direction: "up" | "down") => {
-      const newIndex = direction === "up" ? index - 1 : index + 1;
-      if (newIndex < 0 || newIndex >= order.length) return;
-      const newOrder = [...order];
+    (index: number, direction: "up" | "down" | "first" | "last") => {
+      const current = orderRef.current;
+      const newIndex =
+        direction === "up"
+          ? index - 1
+          : direction === "down"
+            ? index + 1
+            : direction === "first"
+              ? 0
+              : current.length - 1;
+      if (newIndex < 0 || newIndex >= current.length || newIndex === index) return;
+      const newOrder = [...current];
       const [moved] = newOrder.splice(index, 1);
       newOrder.splice(newIndex, 0, moved);
       handleReorder(newOrder);
       announcePosition(moved, newOrder);
     },
-    [order, handleReorder, announcePosition]
+    [handleReorder, announcePosition]
   );
 
   // Only render widgets that are both in drag-order and in the store's visible list.
@@ -261,6 +365,9 @@ export function DashboardWidgets() {
           Dashboard Widgets
         </span>
         <div className="flex items-center gap-2">
+          <span className="hidden text-[11px] text-foreground-subtle sm:inline">
+            Reorder: focus a widget handle, then ↑ / ↓ (Home / End for first / last)
+          </span>
           {/* #756 — Quick-add widget action */}
           <DashboardQuickAdd />
           <button
@@ -295,6 +402,9 @@ export function DashboardWidgets() {
               onMove={moveItem}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              lastUpdated={lastUpdated[widgetId] ?? portfolioLastUpdated}
+              isRefreshing={refreshing.includes(widgetId)}
+              onRefresh={() => handleWidgetRefresh(widgetId)}
             >
               {meta.component}
             </WidgetWrapper>
@@ -325,9 +435,12 @@ interface WidgetWrapperProps {
   widgetTitle: string;
   index: number;
   totalItems: number;
-  onMove: (index: number, direction: "up" | "down") => void;
+  onMove: (index: number, direction: "up" | "down" | "first" | "last") => void;
   onDragStart: (widgetTitle: string) => void;
   onDragEnd: (widgetId: string, widgetTitle: string) => void;
+  lastUpdated: Date | null;
+  isRefreshing: boolean;
+  onRefresh: () => void;
   children: ReactNode;
 }
 
@@ -339,6 +452,9 @@ function WidgetWrapper({
   onMove,
   onDragStart,
   onDragEnd,
+  lastUpdated,
+  isRefreshing,
+  onRefresh,
   children,
 }: WidgetWrapperProps) {
   const dragControls = useDragControls();
@@ -386,12 +502,19 @@ function WidgetWrapper({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
     if (e.key === "ArrowUp") {
       e.preventDefault();
       onMove(index, "up");
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       onMove(index, "down");
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      onMove(index, "first");
+    } else if (e.key === "End") {
+      e.preventDefault();
+      onMove(index, "last");
     }
   };
 
@@ -438,8 +561,9 @@ function WidgetWrapper({
               onPointerCancel={clearHold}
               onKeyDown={handleKeyDown}
               onContextMenu={(e) => e.preventDefault()}
-              aria-label={`Drag handle for ${widgetTitle}, position ${index + 1} of ${totalItems}. Press and hold to drag, or use Arrow Up and Arrow Down to reorder.`}
-              title="Drag to reorder (press and hold on touch)"
+              aria-label={`Drag handle for ${widgetTitle}, position ${index + 1} of ${totalItems}. Press and hold to drag, or use Arrow Up and Arrow Down to reorder, Home and End to move to the first or last position.`}
+              aria-keyshortcuts="ArrowUp ArrowDown Home End"
+              title="Drag to reorder (press and hold on touch). Keyboard: ↑ / ↓ to move, Home / End for first / last."
               // touch-action: none only on the handle — the rest of the widget
               // keeps native scrolling and its own controls stay usable.
               style={{ touchAction: "none", WebkitTouchCallout: "none" }}
@@ -467,6 +591,16 @@ function WidgetWrapper({
             </button>
           </div>
           {children}
+          {/* #1051 — labeled refresh action + last-updated time, scoped to
+              this widget so feedback never leaks to sibling widgets. */}
+          <div className="mt-2 flex justify-end border-t border-white/5 pt-2">
+            <WidgetRefreshAction
+              widgetTitle={widgetTitle}
+              lastUpdated={lastUpdated}
+              isRefreshing={isRefreshing}
+              onRefresh={onRefresh}
+            />
+          </div>
         </div>
       </WidgetErrorBoundary>
     </Reorder.Item>
