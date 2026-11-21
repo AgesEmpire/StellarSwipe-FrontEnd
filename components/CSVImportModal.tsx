@@ -20,6 +20,9 @@ import {
   updateSavedMapping,
   deleteSavedMapping,
   findMissingColumns,
+  saveCSVImportSession,
+  loadCSVImportSession,
+  clearCSVImportSession,
   type CSVImportDraft,
   type SavedCSVColumnMapping,
 } from "@/lib/csvImportDraft";
@@ -94,6 +97,8 @@ export function CSVImportModal() {
   const [missingColumns, setMissingColumns] = useState<CSVColumn[]>([]);
   const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  // #1068 — whether the current state was restored from the in-session snapshot
+  const [restoredFromSession, setRestoredFromSession] = useState(false);
 
   const bulkAddTransactions = useTransactionStore(
     (state) => state.bulkAddTransactions
@@ -117,6 +122,7 @@ export function CSVImportModal() {
     setMissingColumns([]);
     setEditingMappingId(null);
     setEditingName("");
+    setRestoredFromSession(false);
   }, []);
 
   // Load saved mappings each time the modal opens.
@@ -187,6 +193,59 @@ export function CSVImportModal() {
     }
   }, [open]);
 
+  // #1068 — restore the in-session file + preview when the dialog is reopened.
+  // Only mapping/preview states are restorable; completed (summary) or
+  // canceled imports are never snapshotted, so they cannot be replayed.
+  useEffect(() => {
+    if (!open) return;
+    const session = loadCSVImportSession();
+    if (!session) return;
+    setFile(session.file);
+    setCsvData(session.csvData);
+    setHeaders(session.headers);
+    setMapping(session.mapping as Record<CSVColumn, string>);
+    setValidationResults(session.validationResults as ValidationResult[]);
+    setDuplicateGroups(session.duplicateGroups as DuplicateGroup[]);
+    setDuplicateResolutions(
+      session.duplicateResolutions as Record<string, DuplicateResolution>
+    );
+    setExcludedDuplicateRows(session.excludedDuplicateRows);
+    setStep(session.step);
+    setRestoredFromSession(true);
+  }, [open]);
+
+  // #1068 — keep the in-session snapshot in sync while the import is in
+  // progress; drop it once the import completes or is canceled.
+  useEffect(() => {
+    if (!open) return;
+    if (!file || (step !== "mapping" && step !== "preview")) {
+      clearCSVImportSession();
+      return;
+    }
+    saveCSVImportSession({
+      file,
+      csvData,
+      headers,
+      mapping,
+      step,
+      validationResults,
+      duplicateGroups,
+      duplicateResolutions,
+      excludedDuplicateRows,
+    });
+  }, [
+    open,
+    file,
+    csvData,
+    headers,
+    mapping,
+    step,
+    validationResults,
+    duplicateGroups,
+    duplicateResolutions,
+    excludedDuplicateRows,
+  ]);
+
   // Persist mapping/step progress as the user works — never the raw CSV
   // rows or file contents, only metadata needed to relink a re-selected file.
   useEffect(() => {
@@ -211,6 +270,12 @@ export function CSVImportModal() {
     clearCSVImportDraft();
     setResumableDraft(null);
   }, []);
+
+  // #1068 — explicit discard of the restored in-session import.
+  const discardSession = useCallback(() => {
+    clearCSVImportSession();
+    reset();
+  }, [reset]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -248,6 +313,7 @@ export function CSVImportModal() {
           });
           setMapping(newMapping);
           setStep("mapping");
+          setRestoredFromSession(false);
 
           // #1065 — check the new file against the active saved mapping.
           const active = savedMappings.find((m) => m.id === activeMappingId);
@@ -362,6 +428,7 @@ export function CSVImportModal() {
 
     // Route to duplicates step if any were found, otherwise go straight to preview.
     setStep(detectedGroups.length > 0 ? "duplicates" : "preview");
+    setRestoredFromSession(false);
   }, [csvData, mapping]);
 
   const handleImport = () => {
@@ -408,6 +475,7 @@ export function CSVImportModal() {
     });
     setStep("summary");
     clearCSVImportDraft();
+    clearCSVImportSession();
   };
 
   const mappingIssues = useMemo(() => {
@@ -467,7 +535,7 @@ export function CSVImportModal() {
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {step === "upload" && resumableDraft && (
+          {step === "upload" && resumableDraft && !restoredFromSession && (
             <div className="mb-4 flex flex-col gap-2 rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium text-blue-200">
@@ -488,6 +556,54 @@ export function CSVImportModal() {
                 className="shrink-0 text-blue-200 hover:text-white"
               >
                 Discard draft
+              </Button>
+            </div>
+          )}
+
+          {restoredFromSession && step === "upload" && (
+            <div className="mb-4 flex flex-col gap-2 rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-blue-200">
+                  Restored your import: {file?.name}
+                </p>
+                <p className="text-xs text-blue-300/80">
+                  {csvData.length} rows loaded. Nothing has been imported yet.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={discardSession}
+                className="shrink-0 text-blue-200 hover:text-white"
+              >
+                Discard import
+              </Button>
+            </div>
+          )}
+
+          {restoredFromSession && step !== "upload" && step !== "summary" && (
+            <div className="mb-4 flex flex-col gap-2 rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-blue-200">
+                  Restored your import preview: {file?.name}
+                </p>
+                <p className="text-xs text-blue-300/80">
+                  {validationResults.length} rows checked
+                  {validationResults.length
+                    ? ` · ${validationResults.filter((r) => r.isValid).length} valid, ${
+                        validationResults.filter((r) => !r.isValid).length
+                      } with errors`
+                    : ""}
+                  . Nothing has been imported yet.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={discardSession}
+                className="shrink-0 text-blue-200 hover:text-white"
+              >
+                Discard import
               </Button>
             </div>
           )}
@@ -826,6 +942,7 @@ export function CSVImportModal() {
                 if (step === "mapping") setStep("upload");
                 else if (step === "preview") setStep("mapping");
                 else if (step === "duplicates") setStep("preview");
+                setRestoredFromSession(false);
               }}
               className="gap-2"
             >

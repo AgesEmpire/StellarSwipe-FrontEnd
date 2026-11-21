@@ -207,6 +207,40 @@ export function findMissingColumns(
     .map(([target]) => target);
 }
 
+// ── In-session import preview (#1068) ────────────────────────────────────────
+
+/**
+ * Snapshot of an in-progress import kept in memory (never in storage) so that
+ * closing and reopening the dialog within the same session restores the file
+ * and its preview. Cleared on discard, completion and cancellation so a
+ * finished import can never be replayed from restored state.
+ */
+export interface CSVImportSession {
+  file: File;
+  csvData: Record<string, unknown>[];
+  headers: string[];
+  mapping: Partial<Record<CSVColumn, string>>;
+  step: CSVImportStep;
+  validationResults: unknown[];
+  duplicateGroups: unknown[];
+  duplicateResolutions: Record<string, string>;
+  excludedDuplicateRows: Record<string, number[]>;
+}
+
+let sessionSnapshot: CSVImportSession | null = null;
+
+export function saveCSVImportSession(session: CSVImportSession): void {
+  sessionSnapshot = session;
+}
+
+export function loadCSVImportSession(): CSVImportSession | null {
+  return sessionSnapshot;
+}
+
+export function clearCSVImportSession(): void {
+  sessionSnapshot = null;
+}
+
 /** Whether a re-selected file plausibly matches a saved draft. */
 export function fileMatchesDraft(file: File, draft: CSVImportDraft): boolean {
   return (
