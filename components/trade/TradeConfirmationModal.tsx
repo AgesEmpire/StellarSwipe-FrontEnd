@@ -6,9 +6,19 @@ import { X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AssetIssuerDetails } from "@/components/trade/AssetIssuerDetails";
+import {
+  StellarOperationList,
+  type SdkOperation,
+} from "@/components/trade/StellarOperationList";
+import { SlippageControl } from "@/components/trade/SlippageControl";
 import { useWalletStore } from "@/store/useWalletStore";
 import { useRegisterActiveFlow } from "@/hooks/useActiveFlow";
 import type { TradeAssetInfo } from "@/lib/assetIssuer";
+import {
+  DEFAULT_SLIPPAGE_PERCENT,
+  calcMinReceived,
+  formatSlippage,
+} from "@/lib/trade/slippagePresets";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +44,33 @@ export interface TradeConfirmationDetails {
   toAsset?: Omit<TradeAssetInfo, "code">;
   /** Network the order will be submitted to. Defaults to the wallet store's network. */
   network?: string;
+  /**
+   * Raw SDK operation objects from the pending transaction (#1104).
+   * When provided, they are shown before the wallet signing prompt so users
+   * can review each operation's purpose, asset, and amount.
+   * Pass `undefined` to omit the section (e.g. for single-operation trades
+   * where the trade summary already shows the full picture).
+   */
+  operations?: SdkOperation[] | null;
+  /** True while operations are still being decoded from XDR. */
+  operationsLoading?: boolean;
+  /** Set when operations could not be decoded. */
+  operationsError?: string | null;
+  /**
+   * Initial slippage tolerance in percent (#1102).
+   * Defaults to DEFAULT_SLIPPAGE_PERCENT (0.5%). When provided the user can
+   * change it via the preset buttons or custom input; the `minReceived` row
+   * is recalculated live and the quote is refreshed or invalidated.
+   */
+  slippageTolerance?: number;
+  /**
+   * Called when the user changes slippage (#1102).
+   * The parent should re-fetch or invalidate the quote as appropriate.
+   * When omitted the control is still rendered (read-only presets disabled).
+   */
+  onSlippageChange?: (slippage: number) => void;
+  /** True while a quote refresh triggered by a slippage change is in-flight. */
+  slippageRefreshing?: boolean;
   /** Used to simulate a deliberate visual regression for testing */
   _visualRegressionTest?: boolean;
 }
@@ -70,9 +107,34 @@ export function TradeConfirmationModal({
     fromAsset,
     toAsset,
     network,
+    operations,
+    operationsLoading = false,
+    operationsError = null,
+    slippageTolerance: initialSlippage,
+    onSlippageChange,
+    slippageRefreshing = false,
     _visualRegressionTest = false,
   } = details;
   const walletNetwork = useWalletStore((s) => s.network);
+
+  // ── Slippage state (#1102) ────────────────────────────────────────────────
+  // The component owns the active slippage value so the minReceived row can
+  // be recomputed locally while a quote refresh is in-flight. The parent is
+  // notified via onSlippageChange whenever the value changes and is valid.
+  const [activeSlippage, setActiveSlippage] = React.useState(
+    initialSlippage ?? DEFAULT_SLIPPAGE_PERCENT
+  );
+  // Track whether the custom input is in an invalid state so the Confirm
+  // button can be disabled until the user fixes or dismisses it.
+  const [slippageError, setSlippageError] = React.useState(false);
+
+  // Recompute minReceived locally from toAmount whenever slippage changes so
+  // users see instant feedback. Falls back to the prop value when toAmount
+  // cannot be parsed (e.g. for limit orders where it may not yet be known).
+  const computedMinReceived = React.useMemo(() => {
+    const local = calcMinReceived(toAmount, activeSlippage);
+    return local !== null ? local : minReceived;
+  }, [toAmount, activeSlippage, minReceived]);
 
   // An open review is bound to the current network; let a network switch
   // identify it and close it first (#800). Once submitting, it can't be
@@ -161,6 +223,31 @@ export function TradeConfirmationModal({
               ]}
             />
 
+            {/* Transaction operations — shown when present so users can review
+                each operation before the wallet signs (#1104). The section is
+                omitted entirely when no data is provided (backward-compatible). */}
+            {(operations !== undefined || operationsLoading || operationsError) && (
+              <StellarOperationList
+                operations={operations}
+                loading={operationsLoading}
+                error={operationsError}
+              />
+            )}
+
+            {/* Slippage tolerance — per-trade preset picker (#1102).
+                Always shown so the user can verify and adjust before signing. */}
+            <SlippageControl
+              value={activeSlippage}
+              refreshing={slippageRefreshing}
+              onChange={(payload) => {
+                if (payload.value !== null) {
+                  setActiveSlippage(payload.value);
+                  onSlippageChange?.(payload.value);
+                }
+                setSlippageError(payload.hasError);
+              }}
+            />
+
             {/* Order details */}
             <section aria-labelledby="order-details-heading">
               <h2
@@ -178,8 +265,8 @@ export function TradeConfirmationModal({
                 />
                 <Row
                   label="Min. received"
-                  hint="Minimum amount after 0.5% slippage tolerance"
-                  value={`${minReceived} ${toSymbol}`}
+                  hint={`Minimum amount after ${formatSlippage(activeSlippage)} slippage tolerance`}
+                  value={`${computedMinReceived} ${toSymbol}`}
                 />
                 <Row
                   label="Price impact"
@@ -233,7 +320,7 @@ export function TradeConfirmationModal({
           <div className="border-t bg-background px-4 pb-6 pt-3 sm:px-6 sm:pb-4 max-[900px]:landscape:pb-3 max-[900px]:landscape:pt-2">
             <Button
               onClick={onConfirm}
-              disabled={isSubmitting}
+              disabled={isSubmitting || slippageError}
               className="h-12 w-full text-base font-semibold sm:h-11 max-[900px]:landscape:h-10"
             >
               {isSubmitting
