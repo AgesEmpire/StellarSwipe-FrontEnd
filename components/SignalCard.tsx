@@ -13,6 +13,7 @@ import {
   Bookmark,
   Check,
   ChevronDown,
+  Info,
   Minus,
   Share2,
   TrendingDown,
@@ -60,6 +61,10 @@ interface SignalCardProps {
   hasAccess?: boolean;
   requiredStake?: number;
   conflictReason?: SignalConflictReason;
+  /** Set when the signal is past its expiry and can no longer be traded. */
+  expired?: boolean;
+  /** Set when no wallet is connected, so trade execution is unavailable. */
+  walletMissing?: boolean;
   portfolioBalance?: number;
   onTrade?: (pair: string, price: number) => void;
   onPass?: () => void;
@@ -97,6 +102,8 @@ export function SignalCard({
   hasAccess = true,
   requiredStake = 1000,
   conflictReason,
+  expired = false,
+  walletMissing = false,
   portfolioBalance,
   onTrade,
   onPass,
@@ -144,6 +151,19 @@ export function SignalCard({
 
   const isBookmarked = bookmarks.includes(signalId);
   const bookmarkedLabel = isBookmarked ? "Remove bookmark" : "Bookmark signal";
+
+  // Inline reason shown at the point of the trade action when it can't run.
+  // Precedence: expiry, then a missing wallet, then a signal conflict.
+  const tradeUnavailableReason = expired
+    ? "Signal expired — this signal is no longer actionable."
+    : walletMissing
+    ? "Connect a wallet to execute this trade."
+    : conflictReason
+    ? "Signal conflict — refresh or choose another signal."
+    : null;
+  const tradeDisabled =
+    modalOpen || (isPremium && !hasAccess) || !!tradeUnavailableReason;
+  const tradeReasonId = `signal-trade-reason-${signalId}`;
 
   const currentPrice = executionPrice;
   const deltaValue = parseFloat((price.executionPrice - currentPrice).toFixed(4));
@@ -198,6 +218,10 @@ export function SignalCard({
 
   function handleExecuteTrade() {
     if (executingRef.current) return;
+    if (tradeUnavailableReason) {
+      setActionAnnouncement(`Trade unavailable. ${tradeUnavailableReason}`);
+      return;
+    }
     executingRef.current = true;
     setActionAnnouncement(`Opening trade modal for ${signalAction} ${signalPair}`);
     setModalOpen(true);
@@ -553,14 +577,29 @@ export function SignalCard({
               <Button
                 size="sm"
                 onClick={handleExecuteTrade}
-                disabled={modalOpen || (isPremium && !hasAccess) || !!conflictReason}
+                disabled={tradeDisabled}
+                aria-describedby={
+                  tradeUnavailableReason ? tradeReasonId : undefined
+                }
                 className="flex-1 active:scale-95"
-                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${tradeUnavailableReason ? ` (unavailable — ${tradeUnavailableReason})` : ""}`}
               >
                 <Zap size={16} className="mr-1" />
                 {isDemoMode ? "Demo Trade" : "Execute Trade"}
               </Button>
             </div>
+
+            {tradeUnavailableReason && (
+              <p
+                id={tradeReasonId}
+                role="note"
+                tabIndex={0}
+                className="flex items-start gap-1.5 rounded-md border border-dashed border-accent-warning/40 bg-accent-warning/5 px-2 py-1.5 text-xs text-accent-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              >
+                <Info size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{tradeUnavailableReason}</span>
+              </p>
+            )}
           </article>
 
           <TradeModal
