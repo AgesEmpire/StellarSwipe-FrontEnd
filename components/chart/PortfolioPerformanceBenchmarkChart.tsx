@@ -46,6 +46,8 @@ import {
   formatAnnotationDate,
 } from "@/components/chart/ChartAnnotations";
 import { toDayKey, useChartAnnotations, type ChartAnnotation } from "@/hooks/useChartAnnotations";
+import { useCurrencyStore, EXCHANGE_RATES } from "@/store/useCurrencyStore";
+import { formatCurrency } from "@/lib/localeFormatter";
 import { LargestDailyMovements } from "./LargestDailyMovements";
 
 const CHART_ID = "portfolio-performance-benchmark";
@@ -118,6 +120,11 @@ export function PortfolioPerformanceBenchmarkChart({
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
   const [selectedMovementDay, setSelectedMovementDay] = useState<number | null>(null);
   const [editor, setEditor] = useState<EditorState>(null);
+  // #1048: the data-table view mirrors the chart's series in the user's
+  // selected display currency.
+  const [showDataTable, setShowDataTable] = useState(false);
+  const displayCurrency = useCurrencyStore((state) => state.currency);
+  const currencyRate = EXCHANGE_RATES[displayCurrency] ?? 1;
   const { annotations, addAnnotation, updateAnnotation, removeAnnotation } =
     useChartAnnotations(CHART_ID);
 
@@ -313,6 +320,24 @@ export function PortfolioPerformanceBenchmarkChart({
 
   const formatPointDate = (timestamp: number) =>
     new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  // #1048: rows for the data-table view — one per portfolio point, with the
+  // benchmark value matched by calendar day, converted to the display currency.
+  const tableRows = useMemo(() => {
+    const benchByDay = new Map(
+      benchmarkPoints.map((p) => [toDayKey(p.timestamp), p.value])
+    );
+    const startValue = portfolioPoints[0]?.value ?? 0;
+    return portfolioPoints.map((point) => {
+      const bench = benchByDay.get(toDayKey(point.timestamp));
+      return {
+        timestamp: point.timestamp,
+        portfolio: point.value * currencyRate,
+        benchmark: bench !== undefined ? bench * currencyRate : null,
+        change: formatPercentChange(point.value, startValue),
+      };
+    });
+  }, [portfolioPoints, benchmarkPoints, currencyRate]);
 
   // A single keyboard navigator covers both series: each point reports the
   // portfolio value plus, when shown, the benchmark comparison.
@@ -907,6 +932,78 @@ export function PortfolioPerformanceBenchmarkChart({
           onEdit={(annotation) => setEditor({ mode: "edit", annotation })}
           onRemove={deleteAnnotation}
         />
+
+        {/* #1048: semantic, mobile-usable data-table view of the chart series */}
+        <div className="mt-3">
+          <button
+            type="button"
+            aria-expanded={showDataTable}
+            aria-controls="portfolio-performance-data-table"
+            onClick={() => setShowDataTable((v) => !v)}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              "bg-surface-high text-foreground-muted hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            )}
+          >
+            {showDataTable ? "Hide data table" : "Show data table"}
+          </button>
+
+          {showDataTable && (
+            <div
+              id="portfolio-performance-data-table"
+              className="mt-2 max-h-64 overflow-auto rounded-lg border border-border"
+            >
+              <table className="w-full border-collapse text-left text-xs">
+                <caption className="sr-only">
+                  Portfolio performance data for the last {rangePoints} days, values
+                  in {displayCurrency}
+                  {showBenchmark ? `, with the ${benchmark.label} benchmark` : ""}.
+                </caption>
+                <thead className="sticky top-0 bg-surface-high">
+                  <tr>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-foreground-muted">
+                      Date
+                    </th>
+                    <th scope="col" className="px-2 py-1.5 text-right font-medium text-foreground-muted">
+                      Portfolio ({displayCurrency})
+                    </th>
+                    {showBenchmark && (
+                      <th scope="col" className="px-2 py-1.5 text-right font-medium text-foreground-muted">
+                        {benchmark.label} ({displayCurrency})
+                      </th>
+                    )}
+                    <th scope="col" className="px-2 py-1.5 text-right font-medium text-foreground-muted">
+                      Change
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row) => (
+                    <tr key={row.timestamp} className="border-t border-border">
+                      <th scope="row" className="whitespace-nowrap px-2 py-1.5 font-normal text-foreground">
+                        {formatPointDate(row.timestamp)}
+                      </th>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-foreground">
+                        {formatCurrency(row.portfolio, displayCurrency)}
+                      </td>
+                      {showBenchmark && (
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-foreground-muted">
+                          {row.benchmark !== null
+                            ? formatCurrency(row.benchmark, displayCurrency)
+                            : "—"}
+                        </td>
+                      )}
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-foreground-muted">
+                        {row.change}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         <p className="mt-3 text-[10px] text-foreground-muted">
           Benchmark: {benchmark.name} · Source: {benchmark.source} ·{" "}
