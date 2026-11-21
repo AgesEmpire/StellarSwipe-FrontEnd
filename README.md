@@ -160,6 +160,12 @@ To adjust a budget: edit the `assertions` block in `lighthouserc.js` and documen
 
 Lighthouse reports are uploaded as CI artifacts (`lighthouse-reports/`) for debugging failed runs.
 
+## Contributing
+
+We welcome contributions from external contributors. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for local setup, environment variables, dev/test/lint/e2e/Storybook commands, branch and
+commit conventions, and the pull request review process.
+
 ## Additional documentation
 
 Legacy implementation notes have been consolidated under `/docs` to reduce root clutter:
