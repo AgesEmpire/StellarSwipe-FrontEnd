@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Download, Share2 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -8,6 +9,8 @@ import { usePortfolioStore } from "@/store/usePortfolioStore";
 import { useXLMPriceHistory } from "@/hooks/usePriceHistory";
 import {
   computeBenchmarkSeries,
+  detectIntervalGaps,
+  type IntervalGapReport,
   type PortfolioValuePoint,
 } from "@/lib/benchmark";
 import { cn } from "@/lib/utils";
@@ -45,7 +48,10 @@ import {
   formatAnnotationDate,
 } from "@/components/chart/ChartAnnotations";
 import { toDayKey, useChartAnnotations, type ChartAnnotation } from "@/hooks/useChartAnnotations";
+import { useCurrencyStore, EXCHANGE_RATES } from "@/store/useCurrencyStore";
+import { formatCurrency } from "@/lib/localeFormatter";
 import { LargestDailyMovements } from "./LargestDailyMovements";
+import { PortfolioSnapshotDateBrowser } from "./PortfolioSnapshotDateBrowser";
 
 const CHART_ID = "portfolio-performance-benchmark";
 const PORTFOLIO_METRIC = "portfolio-value";
@@ -56,6 +62,18 @@ const RANGE_OPTIONS = [
   { points: 30, label: "30D" },
   { points: 90, label: "90D" },
 ] as const;
+
+const RANGE_URL_PARAM = "range";
+const DEFAULT_RANGE_POINTS = 30;
+
+/** Parse a `?range=` value, falling back to the default for unsupported values. */
+function parseRangeParam(raw: string | null): number {
+  if (!raw) return DEFAULT_RANGE_POINTS;
+  const parsed = Number(raw);
+  return RANGE_OPTIONS.some((option) => option.points === parsed)
+    ? parsed
+    : DEFAULT_RANGE_POINTS;
+}
 
 type EditorState =
   | { mode: "create"; timestamp: number }
@@ -68,7 +86,8 @@ interface PortfolioPerformanceBenchmarkChartProps {
 
 function createSmoothPath(
   points: { x: number; y: number }[],
-  height: number
+  height: number,
+  breakBefore: boolean[] = []
 ): string {
   if (points.length === 0) return "";
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
@@ -76,9 +95,17 @@ function createSmoothPath(
   let path = `M ${points[0].x} ${points[0].y}`;
 
   for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[Math.max(0, i - 1)];
     const p1 = points[i];
     const p2 = points[i + 1];
+
+    // #1049: never draw a segment across an interval with no data — that would
+    // present an interpolated value as real performance.
+    if (breakBefore[i + 1]) {
+      path += ` M ${p2.x} ${p2.y}`;
+      continue;
+    }
+
+    const p0 = points[Math.max(0, i - 1)];
     const p3 = points[Math.min(points.length - 1, i + 2)];
 
     const cp1x = p1.x + (p2.x - p0.x) / 6;
@@ -92,19 +119,41 @@ function createSmoothPath(
   return path;
 }
 
+function formatGapDate(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function describeGapReport(report: IntervalGapReport, label: string): string {
+  if (report.gaps.length === 0) return "";
+  const ranges = report.gaps
+    .map((gap) => `${formatGapDate(gap.from)} – ${formatGapDate(gap.to)}`)
+    .join(", ");
+  const unit = report.missingIntervals === 1 ? "interval" : "intervals";
+  return `${label}: ${report.missingIntervals} ${unit} with no data (${ranges}). The line is broken across these gaps instead of interpolating values.`;
+}
+
 export function PortfolioPerformanceBenchmarkChart({
   className,
 }: PortfolioPerformanceBenchmarkChartProps) {
   const { totalValue, assets, isLoading } = usePortfolioStore();
   const [showBenchmark, setShowBenchmark] = useState(true);
   const chartColors = useChartColors();
-  const [rangePoints, setRangePoints] = useState<number>(30);
+  const [rangePoints, setRangePoints] = useState<number>(DEFAULT_RANGE_POINTS);
   const [benchmarkId, setBenchmarkId] = useState<string>(DEFAULT_BENCHMARK_ID);
   const [benchmarkRetryKey, setBenchmarkRetryKey] = useState(0);
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
   const [selectedMovementDay, setSelectedMovementDay] = useState<number | null>(null);
+  const [selectedSnapshotDay, setSelectedSnapshotDay] = useState<number | null>(null);
   const [editor, setEditor] = useState<EditorState>(null);
+  // #1048: the data-table view mirrors the chart's series in the user's
+  // selected display currency.
+  const [showDataTable, setShowDataTable] = useState(false);
+  const displayCurrency = useCurrencyStore((state) => state.currency);
+  const currencyRate = EXCHANGE_RATES[displayCurrency] ?? 1;
   const { annotations, addAnnotation, updateAnnotation, removeAnnotation } =
     useChartAnnotations(CHART_ID);
 
@@ -117,6 +166,28 @@ export function PortfolioPerformanceBenchmarkChart({
   });
 
   const intervalMeta = CHART_INTERVALS[interval];
+
+  // #1046: keep the selected range in the URL so it can be bookmarked/shared,
+  // and restore it (including back/forward navigation) when the URL changes.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rangeParam = searchParams.get(RANGE_URL_PARAM);
+
+  useEffect(() => {
+    const next = parseRangeParam(rangeParam);
+    setRangePoints((current) => (current === next ? current : next));
+  }, [rangeParam]);
+
+  const changeRange = useCallback(
+    (points: number) => {
+      setRangePoints(points);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set(RANGE_URL_PARAM, String(points));
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
 
   // Restore the last chosen benchmark; fall back to the default if the saved
   // id is no longer offered.
@@ -182,6 +253,27 @@ export function PortfolioPerformanceBenchmarkChart({
       );
     }, [portfolioHistory, xlmHistory, totalValue]);
 
+  // #1049: detect intervals with no data so the chart can explain them and
+  // avoid drawing interpolated values as real performance.
+  const expectedIntervalMs = useMemo(() => {
+    const intervalMs =
+      intervalMeta.historyInterval === "hour"
+        ? 3_600_000
+        : intervalMeta.historyInterval === "week"
+          ? 604_800_000
+          : 86_400_000;
+    return intervalMs;
+  }, [intervalMeta.historyInterval]);
+
+  const portfolioGaps = useMemo(
+    () => detectIntervalGaps(portfolioPoints, expectedIntervalMs),
+    [portfolioPoints, expectedIntervalMs]
+  );
+  const benchmarkGaps = useMemo(
+    () => detectIntervalGaps(benchmarkPoints, expectedIntervalMs),
+    [benchmarkPoints, expectedIntervalMs]
+  );
+
   const chartData = useMemo(() => {
     if (portfolioPoints.length === 0) {
       return { portfolioPath: "", benchmarkPath: "", maxVal: 0, minVal: 0, portfolioPts: [], benchmarkPts: [] };
@@ -231,14 +323,41 @@ export function PortfolioPerformanceBenchmarkChart({
     };
   }, [portfolioPoints, benchmarkPoints]);
 
+  // #1087: the summary values follow the date picked in the snapshot browser.
+  // When no date is picked (or the picked date is no longer available) the
+  // latest point is used, so the summary never shows a stale selection.
+  const selectedSnapshotIndex = useMemo(() => {
+    if (selectedSnapshotDay === null) return null;
+    const index = portfolioPoints.findIndex(
+      (point) => toDayKey(point.timestamp) === selectedSnapshotDay
+    );
+    return index === -1 ? null : index;
+  }, [portfolioPoints, selectedSnapshotDay]);
+
+  const summaryEndIndex =
+    selectedSnapshotIndex ?? portfolioPoints.length - 1;
+
+  // #1087: the browser only offers dates the chart can actually back up.
+  const availableSnapshotDays = useMemo(
+    () =>
+      Array.from(
+        new Set(portfolioPoints.map((point) => toDayKey(point.timestamp)))
+      ).sort((a, b) => b - a),
+    [portfolioPoints]
+  );
+
   const performanceDelta = useMemo(() => {
     if (portfolioPoints.length === 0 || benchmarkPoints.length === 0)
       return null;
 
     const startPortfolio = portfolioPoints[0].value;
-    const endPortfolio = portfolioPoints[portfolioPoints.length - 1].value;
+    const endPortfolio = portfolioPoints[summaryEndIndex].value;
     const startBenchmark = benchmarkPoints[0].value;
-    const endBenchmark = benchmarkPoints[benchmarkPoints.length - 1].value;
+    const endBenchmarkIndex = Math.min(
+      summaryEndIndex,
+      benchmarkPoints.length - 1
+    );
+    const endBenchmark = benchmarkPoints[endBenchmarkIndex].value;
 
     const portfolioReturn =
       ((endPortfolio - startPortfolio) / startPortfolio) * 100;
@@ -252,7 +371,7 @@ export function PortfolioPerformanceBenchmarkChart({
         (portfolioReturn - benchmarkReturn).toFixed(2)
       ),
     };
-  }, [portfolioPoints, benchmarkPoints]);
+  }, [portfolioPoints, benchmarkPoints, summaryEndIndex]);
 
   // Pairs each portfolio point with the benchmark point closest in time, so
   // the active point can be compared against the benchmark.
@@ -278,6 +397,24 @@ export function PortfolioPerformanceBenchmarkChart({
 
   const formatPointDate = (timestamp: number) =>
     new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  // #1048: rows for the data-table view — one per portfolio point, with the
+  // benchmark value matched by calendar day, converted to the display currency.
+  const tableRows = useMemo(() => {
+    const benchByDay = new Map(
+      benchmarkPoints.map((p) => [toDayKey(p.timestamp), p.value])
+    );
+    const startValue = portfolioPoints[0]?.value ?? 0;
+    return portfolioPoints.map((point) => {
+      const bench = benchByDay.get(toDayKey(point.timestamp));
+      return {
+        timestamp: point.timestamp,
+        portfolio: point.value * currencyRate,
+        benchmark: bench !== undefined ? bench * currencyRate : null,
+        change: formatPercentChange(point.value, startValue),
+      };
+    });
+  }, [portfolioPoints, benchmarkPoints, currencyRate]);
 
   // A single keyboard navigator covers both series: each point reports the
   // portfolio value plus, when shown, the benchmark comparison.
@@ -322,8 +459,23 @@ export function PortfolioPerformanceBenchmarkChart({
     setSelectedPointIndex(null);
   }, [rangePoints]);
 
+  // Drop a snapshot selection that no longer exists in the current range so
+  // the summary never reports a date the chart cannot back up.
+  useEffect(() => {
+    if (selectedSnapshotDay === null) return;
+    const stillAvailable = portfolioPoints.some(
+      (point) => toDayKey(point.timestamp) === selectedSnapshotDay
+    );
+    if (!stillAvailable) setSelectedSnapshotDay(null);
+  }, [portfolioPoints, selectedSnapshotDay]);
+
   const selectedPoint =
     selectedPointIndex !== null ? chartData.portfolioPts[selectedPointIndex] ?? null : null;
+
+  const selectedSnapshotPoint =
+    selectedSnapshotIndex !== null
+      ? portfolioPoints[selectedSnapshotIndex] ?? null
+      : null;
 
   // Handle selection from LargestDailyMovements component
   const handleSelectMovement = useCallback(
@@ -443,6 +595,11 @@ export function PortfolioPerformanceBenchmarkChart({
           <EmptyState
             title="No portfolio history yet"
             description={`Once you hold at least one asset, we'll chart your performance against the ${benchmark.name} benchmark here.`}
+            action={
+              <Button asChild size="sm" variant="outline">
+                <a href="/app">Add your first asset</a>
+              </Button>
+            }
             className="h-48 rounded-xl bg-transparent py-6"
           />
         </CardContent>
@@ -466,6 +623,11 @@ export function PortfolioPerformanceBenchmarkChart({
           <EmptyState
             title="Not enough history yet"
             description={`We need a bit more price history before we can chart your performance against the ${benchmark.name} benchmark. Check back shortly.`}
+            action={
+              <Button asChild size="sm" variant="outline">
+                <a href="/performance">View performance details</a>
+              </Button>
+            }
             className="h-48 rounded-xl bg-transparent py-6"
           />
         </CardContent>
@@ -483,6 +645,30 @@ export function PortfolioPerformanceBenchmarkChart({
           <h2 className="text-base font-semibold text-foreground">
             Portfolio Performance vs {benchmark.label} Benchmark
           </h2>
+          {/* Range selector — synced with the URL so ranges are shareable */}
+          <div
+            role="group"
+            aria-label="Chart range"
+            className="flex items-center gap-1"
+          >
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.points}
+                type="button"
+                aria-pressed={rangePoints === option.points}
+                onClick={() => changeRange(option.points)}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                  rangePoints === option.points
+                    ? "bg-blue-500 text-white"
+                    : "bg-surface-high text-foreground-muted hover:text-foreground"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           {/* Interval selector — stable layout, loading state preserved */}
           <ChartIntervalSelector
             supportedIntervals={[...SUPPORTED_INTERVALS]}
@@ -760,7 +946,11 @@ export function PortfolioPerformanceBenchmarkChart({
             </div>
             <div className="mt-3 grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-foreground-muted">Portfolio return</span>
+                <span className="text-foreground-muted">
+                  {selectedSnapshotIndex !== null
+                    ? "Portfolio return to selected date"
+                    : "Portfolio return"}
+                </span>
                 <p
                   className={cn(
                     "font-mono",
@@ -775,7 +965,11 @@ export function PortfolioPerformanceBenchmarkChart({
               </div>
               {showBenchmark ? (
                 <div>
-                  <span className="text-foreground-muted">XLM return</span>
+                  <span className="text-foreground-muted">
+                    {selectedSnapshotIndex !== null
+                      ? "XLM return to selected date"
+                      : "XLM return"}
+                  </span>
                   <p className="font-mono text-blue-400">
                     {performanceDelta.benchmarkReturn >= 0 ? "+" : ""}
                     {performanceDelta.benchmarkReturn}%
@@ -784,7 +978,11 @@ export function PortfolioPerformanceBenchmarkChart({
               ) : (
                 <div aria-hidden="true" className="opacity-0 select-none">
                   {/* Placeholder to preserve grid layout when benchmark is hidden */}
-                  <span className="text-foreground-muted">XLM return</span>
+                  <span className="text-foreground-muted">
+                    {selectedSnapshotIndex !== null
+                      ? "XLM return to selected date"
+                      : "XLM return"}
+                  </span>
                   <p className="font-mono">—</p>
                 </div>
               )}
@@ -794,9 +992,13 @@ export function PortfolioPerformanceBenchmarkChart({
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-foreground-muted">
           <span aria-live="polite">
-            {selectedPoint
-              ? `Selected: ${formatAnnotationDate(toDayKey(selectedPoint.timestamp))}`
-              : "Select a point to add a note."}
+            {selectedSnapshotPoint
+              ? `Snapshot date: ${formatAnnotationDate(
+                  toDayKey(selectedSnapshotPoint.timestamp)
+                )} · $${selectedSnapshotPoint.value.toFixed(2)}`
+              : selectedPoint
+                ? `Selected: ${formatAnnotationDate(toDayKey(selectedPoint.timestamp))}`
+                : "Select a point to add a note."}
           </span>
           <AddAnnotationButton
             disabled={!selectedPoint || editor !== null}
@@ -830,6 +1032,13 @@ export function PortfolioPerformanceBenchmarkChart({
         )}
 
         {/* Largest Daily Movements */}
+        <PortfolioSnapshotDateBrowser
+          availableDays={availableSnapshotDays}
+          selectedDay={selectedSnapshotDay}
+          onSelectDay={setSelectedSnapshotDay}
+          className="mt-3"
+        />
+
         <LargestDailyMovements
           portfolioHistory={portfolioPoints}
           chartPortfolioPts={chartData.portfolioPts}
@@ -848,6 +1057,78 @@ export function PortfolioPerformanceBenchmarkChart({
           onEdit={(annotation) => setEditor({ mode: "edit", annotation })}
           onRemove={deleteAnnotation}
         />
+
+        {/* #1048: semantic, mobile-usable data-table view of the chart series */}
+        <div className="mt-3">
+          <button
+            type="button"
+            aria-expanded={showDataTable}
+            aria-controls="portfolio-performance-data-table"
+            onClick={() => setShowDataTable((v) => !v)}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              "bg-surface-high text-foreground-muted hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            )}
+          >
+            {showDataTable ? "Hide data table" : "Show data table"}
+          </button>
+
+          {showDataTable && (
+            <div
+              id="portfolio-performance-data-table"
+              className="mt-2 max-h-64 overflow-auto rounded-lg border border-border"
+            >
+              <table className="w-full border-collapse text-left text-xs">
+                <caption className="sr-only">
+                  Portfolio performance data for the last {rangePoints} days, values
+                  in {displayCurrency}
+                  {showBenchmark ? `, with the ${benchmark.label} benchmark` : ""}.
+                </caption>
+                <thead className="sticky top-0 bg-surface-high">
+                  <tr>
+                    <th scope="col" className="px-2 py-1.5 font-medium text-foreground-muted">
+                      Date
+                    </th>
+                    <th scope="col" className="px-2 py-1.5 text-right font-medium text-foreground-muted">
+                      Portfolio ({displayCurrency})
+                    </th>
+                    {showBenchmark && (
+                      <th scope="col" className="px-2 py-1.5 text-right font-medium text-foreground-muted">
+                        {benchmark.label} ({displayCurrency})
+                      </th>
+                    )}
+                    <th scope="col" className="px-2 py-1.5 text-right font-medium text-foreground-muted">
+                      Change
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row) => (
+                    <tr key={row.timestamp} className="border-t border-border">
+                      <th scope="row" className="whitespace-nowrap px-2 py-1.5 font-normal text-foreground">
+                        {formatPointDate(row.timestamp)}
+                      </th>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-foreground">
+                        {formatCurrency(row.portfolio, displayCurrency)}
+                      </td>
+                      {showBenchmark && (
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-foreground-muted">
+                          {row.benchmark !== null
+                            ? formatCurrency(row.benchmark, displayCurrency)
+                            : "—"}
+                        </td>
+                      )}
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-foreground-muted">
+                        {row.change}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         <p className="mt-3 text-[10px] text-foreground-muted">
           Benchmark: {benchmark.name} · Source: {benchmark.source} ·{" "}

@@ -34,6 +34,9 @@ import {
   type CsvPreset,
   type MultiYearSummaryRow,
   TAX_RATES,
+  TAX_REPORTING_TIME_ZONE,
+  taxDateKey,
+  taxYearOf,
   CSV_PRESETS,
   computeTaxReport,
   computeMultiYearSummary,
@@ -227,6 +230,16 @@ function MultiYearComparisonTable({
 type ExportKind = "csv" | "pdf" | "turbotax" | "taxact" | "multi-csv";
 type ExportState = "idle" | "generating" | "ready" | "failed";
 
+/** Options captured when the export review opens (#1056). */
+interface ReviewOptions {
+  kind: ExportKind;
+  jurisdiction: TaxJurisdiction;
+  selectedYear: number;
+  selectedYears: number[];
+  csvPreset: CsvPreset;
+  formatOptions: TaxFormatOptions;
+}
+
 export function TaxReportingTool() {
   const { history } = useTransactionStore();
   const [jurisdiction, setJurisdiction] = useState<TaxJurisdiction>("US");
@@ -241,6 +254,9 @@ export function TaxReportingTool() {
   const [csvPreset, setCsvPreset] = useState<CsvPreset>("generic");
   const [formatOptions, setFormatOptions] = useState<TaxFormatOptions>(DEFAULT_TAX_FORMAT);
   const [pendingExport, setPendingExport] = useState<ExportKind | null>(null);
+  // #1056 Options are snapshotted when the review opens so the summary always
+  // matches the file that gets generated, even if the form changes underneath.
+  const [reviewOptions, setReviewOptions] = useState<ReviewOptions | null>(null);
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [lastExport, setLastExport] = useState<ExportKind | null>(null);
   // PDF preview (#781): options are kept here so they survive closing the
@@ -287,7 +303,7 @@ export function TaxReportingTool() {
   const yearTransactions = useMemo(
     () =>
       transactions.filter(
-        (tx) => new Date(tx.timestamp).getFullYear() === selectedYear
+        (tx) => taxYearOf(tx.timestamp) === selectedYear
       ),
     [transactions, selectedYear]
   );
@@ -295,17 +311,65 @@ export function TaxReportingTool() {
   // #893 Validate the export the user is previewing.
   const exportValidation = useMemo(
     () =>
-      pendingExport
+      reviewOptions
         ? validateTaxExport({
             transactions,
-            years: pendingExport === "multi-csv" ? selectedYears : [selectedYear],
-            jurisdiction,
-            format: pendingExport,
+            years:
+              reviewOptions.kind === "multi-csv"
+                ? reviewOptions.selectedYears
+                : [reviewOptions.selectedYear],
+            jurisdiction: reviewOptions.jurisdiction,
+            format: reviewOptions.kind,
             assignments: categoryAssignments,
           })
         : null,
-    [pendingExport, transactions, selectedYears, selectedYear, jurisdiction, categoryAssignments]
+    [reviewOptions, transactions, categoryAssignments]
   );
+
+  // #1056 Report computed from the reviewed options, so the summary and the
+  // generated file always agree.
+  const reviewReport = useMemo(
+    () =>
+      reviewOptions
+        ? computeTaxReport(
+            transactions,
+            reviewOptions.selectedYear,
+            reviewOptions.jurisdiction
+          )
+        : null,
+    [reviewOptions, transactions]
+  );
+
+  const reviewMultiYearRows = useMemo(
+    () =>
+      reviewOptions?.kind === "multi-csv"
+        ? computeMultiYearSummary(
+            transactions,
+            [...reviewOptions.selectedYears].sort((a, b) => b - a),
+            reviewOptions.jurisdiction
+          )
+        : [],
+    [reviewOptions, transactions]
+  );
+
+  /** Opens the review step with a snapshot of the current options. */
+  function openReview(kind: ExportKind) {
+    setReviewOptions({
+      kind,
+      jurisdiction,
+      selectedYear,
+      selectedYears: [...selectedYears],
+      csvPreset,
+      formatOptions: { ...formatOptions },
+    });
+    setPendingExport(kind);
+  }
+
+  /** Closes the review so the user can change options; selections are kept. */
+  function editOptions() {
+    setPendingExport(null);
+    setTimeout(() => document.getElementById("jurisdiction-select")?.focus(), 0);
+  }
 
   const rates = TAX_RATES[jurisdiction];
   const netGainLoss = currentReport.totalGainLoss;
@@ -629,6 +693,26 @@ export function TaxReportingTool() {
             </div>
           )}
 
+          {/* Reporting timezone (#1060) */}
+          <div className="flex flex-col gap-1.5 justify-end">
+            <span className="text-xs font-medium text-foreground-muted flex items-center gap-1">
+              <Globe size={11} aria-hidden="true" />
+              Reporting Timezone
+            </span>
+            <p
+              className="text-xs text-foreground-muted"
+              data-testid="tax-reporting-timezone"
+            >
+              <span className="font-semibold text-foreground">
+                {TAX_REPORTING_TIME_ZONE}
+              </span>{" "}
+              — {selectedYear} runs{" "}
+              {taxDateKey(Date.parse(`${selectedYear}-01-01T00:00:00Z`))} to{" "}
+              {taxDateKey(Date.parse(`${selectedYear}-12-31T00:00:00Z`))} in this
+              timezone, even if your local timezone differs.
+            </p>
+          </div>
+
           {/* Tax rate info */}
           <div className="flex flex-col gap-1.5 justify-end">
             <p className="text-xs text-foreground-muted">
@@ -681,7 +765,8 @@ export function TaxReportingTool() {
             </h3>
             <p className="text-xs text-foreground-muted mt-0.5">
               Select the years you want to compare. All years use the{" "}
-              {TAX_RATES[jurisdiction].label} ({jurisdiction}) rates.
+              {TAX_RATES[jurisdiction].label} ({jurisdiction}) rates and are
+              interpreted in the {TAX_REPORTING_TIME_ZONE} reporting timezone.
             </p>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
@@ -915,7 +1000,7 @@ export function TaxReportingTool() {
                           className="border-b border-border/50 last:border-0"
                         >
                           <td className="py-2 pr-4 text-foreground-muted">
-                            {entry.date.toISOString().split("T")[0]}
+                            {taxDateKey(entry.date.getTime())}
                           </td>
                           <td className="py-2 pr-4 font-mono font-medium text-foreground">
                             {entry.assetPair}

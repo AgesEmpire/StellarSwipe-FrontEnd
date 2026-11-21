@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+  type KeyboardEvent,
+} from "react";
 import Papa from "papaparse";
 import { z } from "zod";
 import {
@@ -55,6 +62,8 @@ type Step = "upload" | "mapping" | "preview" | "duplicates" | "summary";
 
 interface ValidationResult {
   row: Record<string, any>;
+  /** 1-based row number in the uploaded file (header excluded). */
+  rowNumber: number;
   data?: JournalEntry;
   errors?: string[];
   // #1066 — per-field validation failures for direct navigation
@@ -63,6 +72,19 @@ interface ValidationResult {
 }
 
 const REQUIRED_COLUMNS: CSVColumn[] = ["Date", "Asset Pair", "Amount", "Price", "Token"];
+
+// #1069 — preview table keyboard navigation
+const PREVIEW_ROW_LIMIT = 50;
+const PREVIEW_COLUMNS = ["Status", "Date", "Pair", "Amount", "Action"] as const;
+const PREVIEW_COLUMN_COUNT = PREVIEW_COLUMNS.length;
+
+function previewCellId(row: number, col: number) {
+  return `csv-preview-cell-${row}-${col}`;
+}
+
+function previewRowErrorId(row: number) {
+  return `csv-preview-row-${row}-errors`;
+}
 
 /**
  * #1066 — inline editor for an invalid cell. Commits on blur or Enter so the
@@ -100,6 +122,7 @@ function EditableCell({
       className="w-full rounded-md border border-red-400/30 bg-slate-950 px-2 py-1 text-xs text-white outline-none focus:ring-2 focus:ring-red-400"
     />
   );
+}
 }
 
 export function CSVImportModal() {
@@ -152,6 +175,72 @@ export function CSVImportModal() {
     (state) => state.bulkAddTransactions
   );
 
+  // #1069 — roving tabindex grid state for the preview table
+  const previewTableRef = useRef<HTMLTableElement | null>(null);
+  const [activeCell, setActiveCell] = useState({ row: 0, col: 0 });
+  const [announcement, setAnnouncement] = useState("");
+
+  const previewRowCount = Math.min(validationResults.length, PREVIEW_ROW_LIMIT);
+
+  const focusCell = useCallback((row: number, col: number) => {
+    const nextRow = Math.max(0, Math.min(row, previewRowCount - 1));
+    const nextCol = Math.max(0, Math.min(col, PREVIEW_COLUMN_COUNT - 1));
+    setActiveCell({ row: nextRow, col: nextCol });
+    const cell = previewTableRef.current?.querySelector<HTMLElement>(
+      `[data-preview-cell="${nextRow}-${nextCol}"]`
+    );
+    cell?.focus();
+    setAnnouncement(
+      `Row ${nextRow + 1} of ${previewRowCount}, column ${nextCol + 1} of ${PREVIEW_COLUMN_COUNT}: ${PREVIEW_COLUMNS[nextCol]}`
+    );
+  }, [previewRowCount]);
+
+  const handlePreviewKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTableElement>) => {
+      const target = event.target as HTMLElement | null;
+      const cell = target?.closest<HTMLElement>("[data-preview-cell]");
+      if (!cell) return;
+      const [row, col] = cell.dataset.previewCell!.split("-").map(Number);
+      let nextRow = row;
+      let nextCol = col;
+
+      switch (event.key) {
+        case "ArrowRight":
+          nextCol = col + 1;
+          break;
+        case "ArrowLeft":
+          nextCol = col - 1;
+          break;
+        case "ArrowDown":
+          nextRow = row + 1;
+          break;
+        case "ArrowUp":
+          nextRow = row - 1;
+          break;
+        case "Home":
+          nextCol = event.ctrlKey ? 0 : col;
+          nextRow = event.ctrlKey ? 0 : row;
+          break;
+        case "End":
+          nextCol = event.ctrlKey ? PREVIEW_COLUMN_COUNT - 1 : col;
+          nextRow = event.ctrlKey ? previewRowCount - 1 : row;
+          break;
+        case "PageDown":
+          nextRow = row + 10;
+          break;
+        case "PageUp":
+          nextRow = row - 10;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      focusCell(nextRow, nextCol);
+    },
+    [focusCell, previewRowCount]
+  );
+
   // Reset in-memory component state only — the persisted draft (if any)
   // survives so the modal can offer to resume next time it's opened.
   const reset = useCallback(() => {
@@ -172,6 +261,8 @@ export function CSVImportModal() {
     setEditingName("");
     setRestoredFromSession(false);
     setFocusedCell(null);
+    setActiveCell({ row: 0, col: 0 });
+    setAnnouncement("");
   }, []);
 
   // Load saved mappings each time the modal opens.
@@ -330,7 +421,7 @@ export function CSVImportModal() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (!selectedFile.name.endsWith(".csv")) {
+    if (!selectedFile.name.toLowerCase().endsWith(".csv")) {
       toast.error("Please upload a CSV file");
       return;
     }
@@ -340,7 +431,23 @@ export function CSVImportModal() {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        setCsvData(results.data);
+        const rows = (results.data as any[]).filter(
+          (row) =>
+            row &&
+            typeof row === "object" &&
+            Object.values(row).some(
+              (value) => value !== null && String(value).trim() !== ""
+            )
+        );
+
+        if (rows.length === 0) {
+          toast.error(
+            "This file is empty or is not a valid CSV. Please upload a CSV file with a header row and at least one entry."
+          );
+          return;
+        }
+
+        setCsvData(rows);
         if (results.meta.fields) {
           setHeaders(results.meta.fields);
 
@@ -399,7 +506,8 @@ export function CSVImportModal() {
     for (let i = 0; i < csvData.length; i += chunkSize) {
       const chunk = csvData.slice(i, i + chunkSize);
 
-      const chunkResults = chunk.map((row) => {
+      const chunkResults = chunk.map((row, index) => {
+        const rowNumber = i + index + 1;
         const mappedRow: any = {};
         Object.entries(mapping).forEach(([target, source]) => {
           if (source)
@@ -418,6 +526,7 @@ export function CSVImportModal() {
         const parsed = journalEntrySchema.safeParse(validationData);
         return {
           row,
+          rowNumber,
           data: parsed.success ? parsed.data : undefined,
           errors: !parsed.success
             ? parsed.error.issues.map((msg) => msg.message)
@@ -598,6 +707,13 @@ export function CSVImportModal() {
     const issues: string[] = [];
     const missing = REQUIRED_COLUMNS.filter((col) => !mapping[col]);
     if (missing.length) issues.push(`Missing required mappings: ${missing.join(", ")}.`);
+    const missingHeaders = REQUIRED_COLUMNS.filter(
+      (col) => !headers.some((h) => h.toLowerCase() === col.toLowerCase())
+    );
+    if (missingHeaders.length)
+      issues.push(
+        `Missing required columns: ${missingHeaders.join(", ")}. Add these columns to your CSV and re-upload.`
+      );
     const selected = Object.values(mapping).filter(Boolean);
     const duplicates = [...new Set(selected.filter((source, index) => selected.indexOf(source) !== index))];
     if (duplicates.length) issues.push(`Duplicate source columns: ${duplicates.join(", ")}. Choose each source only once.`);
@@ -950,111 +1066,163 @@ export function CSVImportModal() {
                   </ul>
                 </div>
               )}
-
+              <p id="csv-preview-instructions" className="text-xs text-slate-500">
+                Use the arrow keys to move between cells, Home/End to jump to the
+                start or end of a row, and Ctrl+Home/Ctrl+End to jump to the first
+                or last cell. Tab moves out of the table.
+              </p>
+              <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                className="sr-only"
+              >
+                {announcement}
+              </div>
               <div className="rounded-2xl border border-white/10 bg-slate-900 overflow-hidden text-xs">
-                <table className="w-full text-left">
+                <table
+                  ref={previewTableRef}
+                  className="w-full text-left"
+                  aria-label="CSV import preview"
+                  aria-describedby="csv-preview-instructions"
+                  aria-rowcount={previewRowCount + 1}
+                  aria-colcount={PREVIEW_COLUMN_COUNT}
+                  onKeyDown={handlePreviewKeyDown}
+                >
+                  <caption className="sr-only">
+                    CSV import preview: {previewRowCount} of{" "}
+                    {validationResults.length} rows, {PREVIEW_COLUMN_COUNT}{" "}
+                    columns.
+                  </caption>
                   <thead className="bg-white/5 border-b border-white/10">
                     <tr>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Date</th>
-                      <th className="px-3 py-2">Pair</th>
-                      <th className="px-3 py-2">Amount</th>
-                      <th className="px-3 py-2 text-right">Action</th>
+                      {PREVIEW_COLUMNS.map((label, col) => (
+                        <th
+                          key={label}
+                          id={`csv-preview-header-${col}`}
+                          scope="col"
+                          aria-colindex={col + 1}
+                          className={cn(
+                            "px-3 py-2",
+                            label === "Action" && "text-right"
+                          )}
+                        >
+                          {label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {validationResults.slice(0, 50).map((res, i) => {
-                      const cellClass = (field: CSVColumn) =>
-                        cn(
-                          "px-3 py-2",
-                          !res.isValid &&
-                            res.fieldErrors?.some((e) => e.field === field) &&
-                            "bg-red-400/10",
-                          focusedCell?.rowIndex === i &&
-                            focusedCell?.field === field &&
-                            "ring-2 ring-inset ring-red-400"
-                        );
-                      const cellProps = (field: CSVColumn) => ({
-                        id: csvCellId(i, field),
-                        tabIndex: -1,
-                        "aria-invalid":
-                          !res.isValid &&
-                          res.fieldErrors?.some((e) => e.field === field),
+                    {validationResults.slice(0, PREVIEW_ROW_LIMIT).map((res, i) => {
+                      const rowNumber = i + 1;
+                      const isActiveRow = activeCell.row === i;
+                      const cellProps = (col: number) => ({
+                        id: previewCellId(i, col),
+                        "data-preview-cell": `${i}-${col}`,
+                        tabIndex: isActiveRow && activeCell.col === col ? 0 : -1,
+                        "aria-colindex": col + 1,
+                        onFocus: () => setActiveCell({ row: i, col }),
                       });
                       return (
                         <tr
                           key={i}
+                          aria-rowindex={rowNumber + 1}
+                          aria-rowcount={previewRowCount + 1}
                           className={cn(!res.isValid && "bg-red-400/5")}
                         >
                           <td className="px-3 py-2">
+                      });
+                      return (
+                        <tr
+                          key={i}
+                          aria-rowindex={rowNumber + 1}
+                          aria-rowcount={previewRowCount + 1}
+                          className={cn(!res.isValid && "bg-red-400/5")}
+                        >
+                          <td
+                            {...cellProps(0)}
+                            className="px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          >
                             {res.isValid ? (
                               <CheckCircle2
                                 size={14}
                                 className="text-emerald-400"
+                                aria-hidden="true"
                               />
                             ) : (
                               <div className="group relative">
                                 <AlertCircle
                                   size={14}
                                   className="text-red-400 cursor-help"
+                                  aria-hidden="true"
                                 />
                                 <div className="absolute left-6 top-0 hidden group-hover:block z-10 w-48 rounded-lg bg-red-950 p-2 text-[10px] shadow-xl border border-red-400/20">
+                                  <p className="font-semibold">Row {res.rowNumber}</p>
                                   {res.errors?.map((err, j) => (
                                     <p key={j}>• {err}</p>
                                   ))}
                                 </div>
                               </div>
                             )}
+                            <span className="sr-only">
+                              {res.isValid
+                                ? `Row ${rowNumber} is valid and will be imported.`
+                                : `Row ${rowNumber} has validation errors and will be skipped.`}
+                            </span>
+                            {!res.isValid && res.errors?.length ? (
+                              <ul
+                                id={previewRowErrorId(i)}
+                                className="sr-only"
+                              >
+                                {res.errors.map((err, j) => (
+                                  <li key={j}>{err}</li>
+                                ))}
+                              </ul>
+                            ) : null}
                           </td>
                           <td
-                            className={cn(cellClass("Date"), "text-slate-300")}
-                            {...cellProps("Date")}
+                            {...cellProps(1)}
+                            aria-describedby={
+                              !res.isValid && res.errors?.length
+                                ? previewRowErrorId(i)
+                                : undefined
+                            }
+                            className="px-3 py-2 text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                           >
-                            {res.isValid ? (
-                              res.data?.date
-                            ) : (
-                              <EditableCell
-                                value={res.row[mapping["Date"] || ""] ?? ""}
-                                label={`Row ${i + 1} Date`}
-                                onCommit={(value) =>
-                                  updateCell(i, "Date", value)
-                                }
-                              />
-                            )}
+                            {res.isValid
+                              ? res.data?.date
+                              : res.row[mapping["Date"] || ""] || "—"}
                           </td>
                           <td
-                            className={cn(cellClass("Asset Pair"), "font-medium")}
-                            {...cellProps("Asset Pair")}
+                            {...cellProps(2)}
+                            aria-describedby={
+                              !res.isValid && res.errors?.length
+                                ? previewRowErrorId(i)
+                                : undefined
+                            }
+                            className="px-3 py-2 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                           >
-                            {res.isValid ? (
-                              res.data?.assetPair
-                            ) : (
-                              <EditableCell
-                                value={res.row[mapping["Asset Pair"] || ""] ?? ""}
-                                label={`Row ${i + 1} Asset Pair`}
-                                onCommit={(value) =>
-                                  updateCell(i, "Asset Pair", value)
-                                }
-                              />
-                            )}
+                            {res.isValid
+                              ? res.data?.assetPair
+                              : res.row[mapping["Asset Pair"] || ""] || "—"}
                           </td>
                           <td
-                            className={cellClass("Amount")}
-                            {...cellProps("Amount")}
+                            {...cellProps(3)}
+                            aria-describedby={
+                              !res.isValid && res.errors?.length
+                                ? previewRowErrorId(i)
+                                : undefined
+                            }
+                            className="px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                           >
-                            {res.isValid ? (
-                              res.data?.amount
-                            ) : (
-                              <EditableCell
-                                value={res.row[mapping["Amount"] || ""] ?? ""}
-                                label={`Row ${i + 1} Amount`}
-                                onCommit={(value) =>
-                                  updateCell(i, "Amount", value)
-                                }
-                              />
-                            )}
+                            {res.isValid
+                              ? res.data?.amount
+                              : res.row[mapping["Amount"] || ""] || "—"}
                           </td>
-                          <td className="px-3 py-2 text-right">
+                          <td
+                            {...cellProps(4)}
+                            className="px-3 py-2 text-right focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          >
                             {res.isValid ? (
                               <span className="text-emerald-400 opacity-50">
                                 Importing
@@ -1068,13 +1236,14 @@ export function CSVImportModal() {
                         </tr>
                       );
                     })}
-                    {validationResults.length > 50 && (
+                    {validationResults.length > PREVIEW_ROW_LIMIT && (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={PREVIEW_COLUMN_COUNT}
                           className="px-3 py-4 text-center text-slate-500"
                         >
-                          + {validationResults.length - 50} more rows
+                          + {validationResults.length - PREVIEW_ROW_LIMIT} more
+                          rows
                         </td>
                       </tr>
                     )}
