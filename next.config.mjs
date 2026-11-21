@@ -16,9 +16,21 @@ const nextConfig = {
     instrumentationHook: !isStorybook,
   },
   images: {
+    // #436: explicit avatar/image host allowlist — no wildcard hostnames.
+    // Only hosts listed here may be optimised by next/image. Arbitrary
+    // user-supplied avatar URLs are rejected client-side by
+    // `isAllowedAvatarUrl` (lib/avatarHosts.ts) and fall back to initials.
+    // To add a provider avatar host safely: add the exact hostname (and path
+    // prefix if the CDN is shared) to BOTH this list and lib/avatarHosts.ts,
+    // then document it in docs/avatar-host-allowlist.md.
     remotePatterns: [
-      // Avatar images from any HTTPS source (leaderboard / provider profiles)
-      { protocol: "https", hostname: "**" },
+      // Generated identicon/avatar service used by leaderboard + provider profiles
+      { protocol: "https", hostname: "api.dicebear.com", pathname: "/7.x/**" },
+      // GitHub-hosted avatars (provider profiles linked to GitHub accounts)
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      // Gravatar (email-derived avatars)
+      { protocol: "https", hostname: "secure.gravatar.com" },
+      { protocol: "https", hostname: "www.gravatar.com" },
     ],
   },
 };
