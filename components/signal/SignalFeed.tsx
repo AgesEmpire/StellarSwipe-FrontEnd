@@ -54,6 +54,8 @@ const PAGE_SIZE = 10;
 const DESKTOP_BREAKPOINT = "(min-width: 1024px)";
 const MIN_LIST_PANE_WIDTH = 320;
 const MIN_DETAIL_PANE_WIDTH = 340;
+/** #1034: sessionStorage key holding the feed's saved scroll offset */
+const FEED_POSITION_STORAGE_KEY = "signal-feed-scroll-position";
 
 interface SignalFeedProps {
   /** Server-fetched first page — eliminates the client waterfall on initial load */
@@ -180,6 +182,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     filteredSignals: signals,
     filteredCount,
     hasActiveFilters,
+    querySignature,
   } = useSearchFilter({ signals: activeSignals, snoozeTick });
 
   const selectedSignal = useMemo(
@@ -352,22 +355,10 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     const container = parentRef.current;
     if (!container) return;
 
-    // Restore scroll position from sessionStorage
-    const STORAGE_KEY = "signal-feed-scroll-position";
-    try {
-      const savedPosition = sessionStorage.getItem(STORAGE_KEY);
-      if (savedPosition) {
-        const position = parseInt(savedPosition, 10);
-        container.scrollTop = position;
-      }
-    } catch (e) {
-      // Ignore storage errors
-    }
-
     // Save scroll position on unmount
     const handleScroll = () => {
       try {
-        sessionStorage.setItem(STORAGE_KEY, container.scrollTop.toString());
+        sessionStorage.setItem(FEED_POSITION_STORAGE_KEY, container.scrollTop.toString());
       } catch (e) {
         // Ignore storage errors
       }
@@ -378,12 +369,56 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       container.removeEventListener("scroll", handleScroll);
       // Save final position on unmount
       try {
-        sessionStorage.setItem(STORAGE_KEY, container.scrollTop.toString());
+        sessionStorage.setItem(FEED_POSITION_STORAGE_KEY, container.scrollTop.toString());
       } catch (e) {
         // Ignore storage errors
       }
     };
   }, []);
+
+  // #1034: remember which query the saved position belongs to, so a query
+  // change starts the feed from the top instead of restoring a stale offset.
+  const lastQuerySignatureRef = useRef(querySignature);
+  useEffect(() => {
+    if (lastQuerySignatureRef.current === querySignature) return;
+    lastQuerySignatureRef.current = querySignature;
+    try {
+      sessionStorage.removeItem(FEED_POSITION_STORAGE_KEY);
+    } catch (e) {
+      // Ignore storage errors
+    }
+    const container = parentRef.current;
+    if (container) container.scrollTop = 0;
+  }, [querySignature]);
+
+  // #1034: restore the saved offset once the virtualized list has rendered
+  // enough rows to make that offset reachable. Focus is never moved here.
+  const restoredPositionRef = useRef(false);
+  useEffect(() => {
+    if (restoredPositionRef.current) return;
+    const container = parentRef.current;
+    if (!container || signals.length === 0) return;
+
+    let savedPosition = 0;
+    try {
+      savedPosition = parseInt(
+        sessionStorage.getItem(FEED_POSITION_STORAGE_KEY) ?? "0",
+        10
+      );
+    } catch (e) {
+      savedPosition = 0;
+    }
+    if (!Number.isFinite(savedPosition) || savedPosition <= 0) {
+      restoredPositionRef.current = true;
+      return;
+    }
+
+    // Wait until the virtualizer has measured enough rows to reach the offset.
+    if (container.scrollHeight - container.clientHeight < savedPosition) return;
+
+    container.scrollTop = savedPosition;
+    restoredPositionRef.current = true;
+  }, [signals.length, virtualizer, hasNextPage, isFetchingNextPage, loadMore]);
 
   // #321: periodically drop expired snoozes so snoozed signals are
   // automatically returned to the feed once their snooze period elapses.
