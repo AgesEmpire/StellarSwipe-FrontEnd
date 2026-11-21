@@ -13,6 +13,12 @@ export interface PortfolioAsset {
   unrealizedPnL?: number;
   quotePrice?: number;
   quoteLastUpdated?: Date;
+  /**
+   * Connected wallet this holding belongs to. Undefined means the holding's
+   * wallet attribution is unavailable — such holdings are never attributed to
+   * a specific wallet filter.
+   */
+  walletAddress?: string;
 }
 
 export interface PortfolioState {
@@ -22,6 +28,9 @@ export interface PortfolioState {
   totalUnrealizedPnL: number;
   isLoading: boolean;
   lastUpdated: Date | null;
+  /** Selected wallet filter; null means "all wallets". */
+  walletFilter: string | null;
+  setWalletFilter: (walletAddress: string | null) => void;
   setAssets: (assets: PortfolioAsset[]) => void;
   setLoading: (loading: boolean) => void;
   updateAsset: (symbol: string, value: number) => void;
@@ -38,6 +47,8 @@ export const usePortfolioStore = create<PortfolioState>()(
       totalUnrealizedPnL: 0,
       isLoading: false,
       lastUpdated: null,
+      walletFilter: null,
+      setWalletFilter: (walletAddress) => set({ walletFilter: walletAddress }),
       setAssets: (assets) => {
         const totalValue = assets.reduce((sum, asset) => sum + asset.value, 0);
         const totalRealizedPnL = assets.reduce(
@@ -103,3 +114,28 @@ export const usePortfolioStore = create<PortfolioState>()(
     { name: "portfolio-store" }
   )
 );
+
+/**
+ * Filter holdings to a selected wallet.
+ *
+ * - `null` / `undefined` filter → all holdings (no filtering).
+ * - A wallet filter only matches holdings explicitly attributed to that wallet;
+ *   holdings with unknown wallet attribution are excluded rather than being
+ *   presented as belonging to the selected wallet.
+ */
+export function filterAssetsByWallet(
+  assets: PortfolioAsset[],
+  walletAddress: string | null | undefined
+): PortfolioAsset[] {
+  if (!walletAddress) return assets;
+  return assets.filter((asset) => asset.walletAddress === walletAddress);
+}
+
+/** Distinct wallet addresses present in the holdings, in first-seen order. */
+export function getHoldingWalletAddresses(assets: PortfolioAsset[]): string[] {
+  const seen = new Set<string>();
+  for (const asset of assets) {
+    if (asset.walletAddress) seen.add(asset.walletAddress);
+  }
+  return Array.from(seen);
+}

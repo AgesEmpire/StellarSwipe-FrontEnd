@@ -1,23 +1,46 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { usePortfolioStore } from "@/store/usePortfolioStore";
+import { usePortfolio } from "@/hooks/usePortfolio";
 import { usePrivacyStore, PRIVACY_MASK } from "@/store/usePrivacyStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
+import { PortfolioWalletFilter } from "@/components/PortfolioWalletFilter";
+import { filterAssetsByWallet } from "@/store/usePortfolioStore";
 
 export function PortfolioSummaryCards() {
-  const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL, isLoading } =
-    usePortfolioStore();
+  const {
+    assets: allAssets,
+    totalRealizedPnL,
+    totalUnrealizedPnL,
+    isLoading,
+    walletFilter,
+    setWalletFilter,
+    connectedWallets,
+  } = usePortfolio();
   const { privacyMode } = usePrivacyStore();
+
+  const assets = filterAssetsByWallet(allAssets, walletFilter);
+  const totalValue = assets.reduce((sum, asset) => sum + asset.value, 0);
 
   // Empty state: no assets and not mid-load
   if (!isLoading && assets.length === 0) {
     return (
       <Card className="w-full">
         <CardContent className="p-0">
-          <PortfolioEmptyState variant="summary" />
+          {walletFilter ? (
+            <PortfolioEmptyState
+              variant="summary"
+              heading="No holdings for this wallet"
+              body="This wallet has no holdings in the current portfolio data. Try another wallet or show all wallets."
+              ctaLabel="Show all wallets"
+              ctaHref="#"
+              onCtaClick={() => setWalletFilter(null)}
+            />
+          ) : (
+            <PortfolioEmptyState variant="summary" />
+          )}
         </CardContent>
       </Card>
     );
@@ -68,6 +91,12 @@ export function PortfolioSummaryCards() {
         <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
           Portfolio snapshot
         </p>
+        <PortfolioWalletFilter
+          className="mb-3"
+          wallets={connectedWallets}
+          value={walletFilter}
+          onChange={setWalletFilter}
+        />
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
           {stats.map(({ label, value, sub, icon: Icon, className }) => (
             <div key={label} className="flex flex-col gap-1">
