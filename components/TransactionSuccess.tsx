@@ -2,12 +2,14 @@
 
 import { useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, ArrowRight, Eye, X, Bell, BellOff } from "lucide-react";
+import { CheckCircle, ArrowRight, Eye, X, Bell, BellOff, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTransactionStore } from "@/store/useTransactionStore";
 import { showNotification } from "@/lib/notifications";
 import { useNotificationPreference } from "@/hooks/useNotificationPreference";
 import analyticsService from "@/services/analytics";
+import { toast } from "@/lib/toast";
+import { downloadTradeReceipt, getTransactionExplorerUrl } from "@/lib/tradeReceipt";
 
 const AUTO_DISMISS_MS = 8000;
 
@@ -19,6 +21,16 @@ export function TransactionSuccess() {
   const handleViewPortfolio = useCallback(() => {
     clearSuccess();
   }, [clearSuccess]);
+
+  const handleDownloadReceipt = useCallback(() => {
+    if (!success) return;
+    try {
+      downloadTradeReceipt(success);
+      toast.success("Receipt downloaded");
+    } catch {
+      toast.error("Couldn't generate receipt", { description: "Please try again." });
+    }
+  }, [success]);
 
   const handleContinueSwiping = useCallback(
     () => clearSuccess(),
@@ -163,7 +175,7 @@ export function TransactionSuccess() {
                   Transaction
                 </span>
                 <a
-                  href={`https://stellar.expert/explorer/testnet/tx/${success.hash}`}
+                  href={getTransactionExplorerUrl(success.hash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs font-mono text-accent-success transition-colors hover:opacity-80"
@@ -173,6 +185,15 @@ export function TransactionSuccess() {
                 </a>
               </div>
             </motion.div>
+
+            <Button
+              onClick={handleDownloadReceipt}
+              variant="outline"
+              className="mb-2 w-full gap-2"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Download receipt
+            </Button>
 
             <motion.div
               className="flex flex-col gap-2 sm:flex-row"
