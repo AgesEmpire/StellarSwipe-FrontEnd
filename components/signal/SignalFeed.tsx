@@ -583,6 +583,19 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
       {/* Recently Viewed Strip */}
       <RecentlyViewedStrip />
 
+      {/* #1028: first-session walkthrough anchor — a deliberate decision point
+          that never submits a trade. */}
+      <div
+        data-tour="feed-decide"
+        className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-foreground-muted"
+      >
+        <span className="font-semibold text-foreground">Deciding?</span>
+        <span>
+          Bookmark, compare or dismiss a signal — no trade is placed from this
+          walkthrough.
+        </span>
+      </div>
+
       {/* Mobile bottom sheet */}
       <SignalFilterBottomSheet
         open={filterSheetOpen}
@@ -695,6 +708,9 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                     >
                       <article
                         tabIndex={0}
+                        data-tour={
+                          virtualRow.index === 0 ? "feed-review" : undefined
+                        }
                         onClick={() => {
                           addView(signal.id);
                           setSelectedSignalId(signal.id);
@@ -869,6 +885,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
             />
             <aside
               aria-label="Selected signal details"
+              data-tour="feed-details"
               className="hidden min-h-[70vh] rounded-2xl border border-white/10 bg-slate-950/70 p-4 lg:block"
             >
               {selectedSignal ? (
