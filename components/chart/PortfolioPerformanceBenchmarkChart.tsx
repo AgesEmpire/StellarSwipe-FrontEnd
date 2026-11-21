@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Download, Share2 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,6 +58,18 @@ const RANGE_OPTIONS = [
   { points: 90, label: "90D" },
 ] as const;
 
+const RANGE_URL_PARAM = "range";
+const DEFAULT_RANGE_POINTS = 30;
+
+/** Parse a `?range=` value, falling back to the default for unsupported values. */
+function parseRangeParam(raw: string | null): number {
+  if (!raw) return DEFAULT_RANGE_POINTS;
+  const parsed = Number(raw);
+  return RANGE_OPTIONS.some((option) => option.points === parsed)
+    ? parsed
+    : DEFAULT_RANGE_POINTS;
+}
+
 type EditorState =
   | { mode: "create"; timestamp: number }
   | { mode: "edit"; annotation: ChartAnnotation }
@@ -98,7 +111,7 @@ export function PortfolioPerformanceBenchmarkChart({
   const { totalValue, assets, isLoading } = usePortfolioStore();
   const [showBenchmark, setShowBenchmark] = useState(true);
   const chartColors = useChartColors();
-  const [rangePoints, setRangePoints] = useState<number>(30);
+  const [rangePoints, setRangePoints] = useState<number>(DEFAULT_RANGE_POINTS);
   const [benchmarkId, setBenchmarkId] = useState<string>(DEFAULT_BENCHMARK_ID);
   const [benchmarkRetryKey, setBenchmarkRetryKey] = useState(0);
   const [snapshotOpen, setSnapshotOpen] = useState(false);
@@ -117,6 +130,28 @@ export function PortfolioPerformanceBenchmarkChart({
   });
 
   const intervalMeta = CHART_INTERVALS[interval];
+
+  // #1046: keep the selected range in the URL so it can be bookmarked/shared,
+  // and restore it (including back/forward navigation) when the URL changes.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rangeParam = searchParams.get(RANGE_URL_PARAM);
+
+  useEffect(() => {
+    const next = parseRangeParam(rangeParam);
+    setRangePoints((current) => (current === next ? current : next));
+  }, [rangeParam]);
+
+  const changeRange = useCallback(
+    (points: number) => {
+      setRangePoints(points);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set(RANGE_URL_PARAM, String(points));
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
 
   // Restore the last chosen benchmark; fall back to the default if the saved
   // id is no longer offered.
@@ -483,6 +518,30 @@ export function PortfolioPerformanceBenchmarkChart({
           <h2 className="text-base font-semibold text-foreground">
             Portfolio Performance vs {benchmark.label} Benchmark
           </h2>
+          {/* Range selector — synced with the URL so ranges are shareable */}
+          <div
+            role="group"
+            aria-label="Chart range"
+            className="flex items-center gap-1"
+          >
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.points}
+                type="button"
+                aria-pressed={rangePoints === option.points}
+                onClick={() => changeRange(option.points)}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                  rangePoints === option.points
+                    ? "bg-blue-500 text-white"
+                    : "bg-surface-high text-foreground-muted hover:text-foreground"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           {/* Interval selector — stable layout, loading state preserved */}
           <ChartIntervalSelector
             supportedIntervals={[...SUPPORTED_INTERVALS]}
