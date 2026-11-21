@@ -11,6 +11,8 @@ import {
   Loader2,
   AlertCircle,
   Download,
+  Search,
+  X,
 } from "lucide-react";
 import { useTransactionStore } from "@/store/useTransactionStore";
 import {
@@ -29,6 +31,11 @@ import { JournalEntryForm } from "@/components/JournalEntryForm";
 import { JournalLinkedDetails } from "@/components/JournalLinkedDetails";
 import { JournalIncompleteFilter } from "@/components/JournalIncompleteFilter";
 import { describeMissing, incompleteEntryMap } from "@/lib/journalIncomplete";
+import {
+  highlightJournalText,
+  matchesJournalSearch,
+  parseJournalSearchQuery,
+} from "@/lib/journalSearch";
 import { useJournalCompletenessStore } from "@/store/useJournalCompletenessStore";
 import { deleteJournalEntry, updateJournalEntry } from "@/lib/journalApi";
 import { normalizeJournalTags } from "@/lib/journalSchema";
@@ -40,8 +47,7 @@ import { PrivateValue } from "@/components/PrivateValue";
 import { JournalReminderChip } from "@/components/JournalReminderChip";
 import { JournalReminderDialog } from "@/components/JournalReminderDialog";
 import { JournalRevisionCompare } from "@/components/JournalRevisionCompare";
-import { generateJournalExport } from "@/lib/journalExport";
-import { triggerDownload } from "@/lib/taxUtils";
+import { downloadJournalExport } from "@/lib/journalExport";
 
 const TYPE_OPTIONS = [
   { label: "All", value: "ALL" },
@@ -162,6 +168,28 @@ const LOAD_MORE_THRESHOLD = 300;
  */
 const LIST_CONTAINER_HEIGHT = "min(60vh, 800px)";
 
+/** Renders `text` with every search-term match wrapped in a `<mark>`. */
+function HighlightedText({ text, terms }: { text: string; terms: readonly string[] }) {
+  const segments = highlightJournalText(text, terms);
+  if (segments.length === 1 && !segments[0].match) return <>{text}</>;
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.match ? (
+          <mark
+            key={index}
+            className="rounded bg-amber-400/30 px-0.5 text-amber-100"
+          >
+            {segment.text}
+          </mark>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        )
+      )}
+    </>
+  );
+}
+
 export function TransactionActivityFeed() {
   const history = useTransactionStore((state) => state.history);
   const pendingIds = useTransactionStore((state) => state.pendingIds);
@@ -198,6 +226,13 @@ export function TransactionActivityFeed() {
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  // Free-text search over notes and visible metadata; never persisted so a
+  // reload always shows the full (filtered) journal again.
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchTerms = useMemo(
+    () => parseJournalSearchQuery(searchQuery),
+    [searchQuery]
+  );
   const requirements = useJournalCompletenessStore((state) => state.requirements);
   const setRequirements = useJournalCompletenessStore((state) => state.setRequirements);
   const incompleteMap = useMemo(() => incompleteEntryMap(history, requirements), [history, requirements]);
@@ -321,7 +356,8 @@ export function TransactionActivityFeed() {
       .filter((item) =>
         tagFilters.every((tag) => (item.tags ?? []).includes(tag))
       )
-      .filter((item) => !incompleteOnly || incompleteMap.has(item.id));
+      .filter((item) => !incompleteOnly || incompleteMap.has(item.id))
+      .filter((item) => matchesJournalSearch(item, searchTerms));
     return [...matches].sort((a, b) => {
       if (sortOrder === "oldest") return a.timestamp - b.timestamp;
       if (sortOrder === "amount")
@@ -341,6 +377,7 @@ export function TransactionActivityFeed() {
     tagFilters,
     incompleteOnly,
     incompleteMap,
+    searchTerms,
   ]);
 
   // Drop selections that are no longer visible so bulk actions never touch
@@ -362,7 +399,8 @@ export function TransactionActivityFeed() {
     dateTo !== "" ||
     sortOrder !== "newest" ||
     tagFilters.length > 0 ||
-    incompleteOnly;
+    incompleteOnly ||
+    searchTerms.length > 0;
 
   const clearFilters = useCallback(() => {
     setTypeFilter("ALL");
@@ -374,6 +412,7 @@ export function TransactionActivityFeed() {
     setSortOrder("newest");
     setTagFilters([]);
     setIncompleteOnly(false);
+    setSearchQuery("");
   }, []);
 
   // Changing any filter remounts the list so scroll position resets to the top
@@ -389,6 +428,7 @@ export function TransactionActivityFeed() {
     sortOrder,
     tagFilters,
     incompleteOnly,
+    searchTerms,
   ]);
 
   // ── Selection + bulk archive / restore ─────────────────────────────────
@@ -492,34 +532,47 @@ export function TransactionActivityFeed() {
     );
   }, []);
 
-  // Exports exactly the selected entries; an empty selection or a generation
-  // failure is reported instead of downloading anything.
+  // Exports exactly the selected entries; an empty selection, a generation
+  // failure or a blocked download is reported with a next step instead of
+  // success feedback.
   const handleExportSelected = useCallback(() => {
     const selected = history.filter((item) => selectedIds.includes(item.id));
-    const result = generateJournalExport(selected);
+    const result = downloadJournalExport(selected);
     if (!result.ok) {
-      toast.error(
-        result.reason === "empty-selection" ? "Nothing selected to export" : "Export failed",
-        { description: result.message, duration: 4000 }
-      );
+      if (result.reason === "empty-selection") {
+        toast.error("Nothing selected to export", {
+          description: result.message,
+          duration: 4000,
+        });
+        return;
+      }
+      if (result.reason === "download-blocked") {
+        toast.error("Download blocked", {
+          description: `${result.message} Allow downloads for this site, then select the entries and export again.`,
+          duration: 6000,
+        });
+        return;
+      }
+      toast.error("Export failed", {
+        description: `${result.message} Try exporting again, or select fewer entries.`,
+        duration: 6000,
+      });
       return;
     }
-    try {
-      triggerDownload(result.json, result.filename, "application/json");
-      toast.success(`Exported ${result.count} ${result.count === 1 ? "entry" : "entries"}`, {
-        description: result.filename,
+    toast.success(
+      `Exported ${result.count} ${result.count === 1 ? "entry" : "entries"}`,
+      {
+        description: `${result.filename} was saved to your downloads.`,
         duration: 3000,
-      });
-    } catch (err) {
-      toast.error("Export failed", {
-        description: err instanceof Error ? err.message : "The file could not be downloaded.",
-        duration: 4000,
-      });
-    }
+      }
+    );
   }, [history, selectedIds]);
 
   // Clears only the tag selection so type, status and sort stay as they are.
   const clearTagFilters = useCallback(() => setTagFilters([]), []);
+
+  // Clears only the search box; filters and selected tags are preserved.
+  const clearSearch = useCallback(() => setSearchQuery(""), []);
 
   // ── Virtual activity list (#777) ───────────────────────────────────────
   // The hook computes the visible slice of `filtered` based on scroll
@@ -567,10 +620,13 @@ export function TransactionActivityFeed() {
               />
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {item.assetPair}
+                  <HighlightedText text={item.assetPair} terms={searchTerms} />
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {item.type.replace("_", " ")}
+                  <HighlightedText
+                    text={item.type.replace("_", " ")}
+                    terms={searchTerms}
+                  />
                 </p>
                 {item.tags && item.tags.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
@@ -579,10 +635,15 @@ export function TransactionActivityFeed() {
                         key={tag}
                         className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2 py-0.5 text-[10px] text-blue-300"
                       >
-                        #{tag}
+                        #<HighlightedText text={tag} terms={searchTerms} />
                       </span>
                     ))}
                   </div>
+                )}
+                {item.notes && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    <HighlightedText text={item.notes} terms={searchTerms} />
+                  </p>
                 )}
                 {incompleteOnly && incompleteMap.has(item.id) && (
                   <p className="mt-1 text-[11px] font-medium text-amber-300">

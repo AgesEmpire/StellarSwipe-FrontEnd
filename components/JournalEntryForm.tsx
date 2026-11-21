@@ -2,11 +2,24 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
-import { journalEntrySchema, normalizeJournalTags, type JournalEntry } from "@/lib/journalSchema";
-import { createJournalEntry, updateJournalEntry, JournalApiError } from "@/lib/journalApi";
+import {
+  journalEntrySchema,
+  normalizeJournalTags,
+  normalizeJournalLinks,
+  isSafeJournalLinkUrl,
+  MAX_JOURNAL_LINKS,
+  type JournalEntry,
+  type JournalReferenceLink,
+} from "@/lib/journalSchema";
+import {
+  createJournalEntry,
+  updateJournalEntry,
+  fetchJournalEntry,
+  JournalApiError,
+} from "@/lib/journalApi";
 import { Button } from "@/components/ui/button";
 import { ValidationSummary } from "@/components/forms/ValidationSummary";
-import { Plus, AlertCircle, Loader2, X } from "lucide-react";
+import { Plus, AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useSubmitGuard } from "@/hooks/useSubmitGuard";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
@@ -15,6 +28,7 @@ import { useKeyboardInset, useKeepFocusedFieldVisible } from "@/hooks/useKeyboar
 import { JournalTagPicker } from "@/components/JournalTagPicker";
 import { useJournalDraftStore } from "@/store/useJournalDraftStore";
 import { findJournalEntryByHash } from "@/lib/journalFromTransaction";
+import { JOURNAL_TEMPLATES, applyJournalTemplate } from "@/lib/journalTemplates";
 
 type AutosaveStatus = "idle" | "saving" | "saved" | "offline" | "failed";
 
@@ -100,8 +114,15 @@ export function JournalEntryForm({
     outcome: (editEntry?.outcome as JournalEntry["outcome"]) || "PENDING",
     notes: editEntry?.notes ?? "",
     tags: editEntry?.tags ?? [],
+    links: editEntry?.links ?? [],
   });
   const [tagInput, setTagInput] = useState("");
+  // Reference links (#1064): the row being typed plus its inline errors.
+  const [linkDraft, setLinkDraft] = useState<JournalReferenceLink>({ label: "", url: "" });
+  const [linkErrors, setLinkErrors] = useState<{ label?: string; url?: string }>({});
+  // Template the current draft was started from (#1061). Purely informational:
+  // applying a template only pre-fills fields, it never saves anything.
+  const [templateId, setTemplateId] = useState("");
 
   // Transaction this draft was started from (#1118). Kept in a ref for the
   // submit callbacks and mirrored in state for the banner.
@@ -111,6 +132,11 @@ export function JournalEntryForm({
   const consumeDraft = useJournalDraftStore((s) => s.consume);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Fields the user has left (blurred) at least once. Only those show inline
+  // errors before the first submit attempt, so a fresh form stays quiet.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  // Set once a save succeeds so the user gets explicit success feedback.
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   // ── Autosave & recovery ────────────────────────────────────────────
   const draftKey = `${DRAFT_PREFIX}${editEntry?.id ?? "new"}`;
@@ -124,6 +150,9 @@ export function JournalEntryForm({
   // back the revision it was made against.
   const baseRevisionRef = useRef<number | undefined>(editEntry?.revision);
   const [hasConflict, setHasConflict] = useState(false);
+  // Newer server copy found when a save was rejected as stale. Shown to the
+  // user so they can review it instead of silently overwriting it.
+  const [conflictVersion, setConflictVersion] = useState<TransactionHistoryItem | null>(null);
   // True once the user has attempted to submit, so the validation summary
   // only appears after a failed submit — never on first render.
   const [submitted, setSubmitted] = useState(false);
@@ -249,23 +278,47 @@ export function JournalEntryForm({
   const resetForm = useCallback(() => {
     linkedRef.current = null;
     setLinkedInfo(null);
+    setTemplateId("");
     setFormData({
       date: new Date().toISOString().split("T")[0],
       type: "MANUAL",
       status: "SUCCEEDED",
       outcome: "PENDING",
       tags: [],
+      links: [],
     });
     setTagInput("");
+    setLinkDraft({ label: "", url: "" });
+    setLinkErrors({});
     setErrors({});
+    setTouched({});
     setSubmitted(false);
     setSubmitError(null);
+    setSubmitSuccess(null);
     setHasConflict(false);
     setIsDirty(false);
     setAutosaveStatus("idle");
     setRecoverableDraft(null);
     clearDraft(draftKey);
   }, [draftKey]);
+
+  /**
+   * Pre-fills the editor from a starter template (#1061). Only the fields the
+   * template defines are written; nothing is submitted and no existing entry
+   * is modified — the user still edits and saves the entry themselves.
+   */
+  const applyTemplate = useCallback(
+    (id: string) => {
+      const template = JOURNAL_TEMPLATES.find((t) => t.id === id);
+      if (!template) return;
+      setFormData((prev) => applyJournalTemplate(template, prev));
+      setTemplateId(template.id);
+      setErrors({});
+      setSubmitted(false);
+      setIsDirty(true);
+    },
+    []
+  );
 
   // ------------------------------------------------------------------
   // Core submission logic (extracted so retry does not reuse events)
@@ -300,6 +353,7 @@ export function JournalEntryForm({
    */
   const updateField = useCallback((field: keyof JournalEntry, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    setSubmitSuccess(null);
     setErrors((prev) => {
       if (!(field in prev)) return prev;
       const next = { ...prev };
@@ -342,6 +396,7 @@ export function JournalEntryForm({
    * errors inline — before the user ever attempts to submit.
    */
   const validateField = useCallback((field: keyof JournalEntry) => {
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
     const current = {
       ...formDataRef.current,
       fee: formDataRef.current.fee || "0",
@@ -360,6 +415,13 @@ export function JournalEntryForm({
       return next;
     });
   }, []);
+
+  /** Inline error for a field — hidden until it was blurred or submit failed. */
+  const fieldError = useCallback(
+    (field: keyof JournalEntry) =>
+      submitted || touched[field] ? errors[field] : undefined,
+    [errors, submitted, touched]
+  );
 
   /** Summary entries (with element ids) for the ValidationSummary panel. */
   const summaryErrors = useMemo(() => {
@@ -418,6 +480,7 @@ export function JournalEntryForm({
         clearDraft(draftKey);
         linkedRef.current = null;
         setLinkedInfo(null);
+        setSubmitSuccess(`Saved ${data.assetPair} — ${data.amount} ${data.token} to your journal.`);
         toast.success("Transaction added to journal", {
           description: `${data.assetPair} — ${data.amount} ${data.token}`,
           duration: 2500,
@@ -481,6 +544,7 @@ export function JournalEntryForm({
         store.getState().clearPending(entry.id);
         clearDraft(draftKey);
         setAutosaveStatus("idle");
+        setSubmitSuccess(`Saved changes to ${data.assetPair}.`);
         toast.success("Journal entry updated", {
           description: `${data.assetPair} — changes saved.`,
           duration: 2500,
@@ -496,6 +560,12 @@ export function JournalEntryForm({
         if (err instanceof JournalApiError && err.code === "CONFLICT") {
           // Edits stay in the form and draft; the user decides whether to overwrite.
           setHasConflict(true);
+          // Load the newer stored version so it can be reviewed, not just replaced.
+          try {
+            setConflictVersion(await fetchJournalEntry(entry.id));
+          } catch {
+            setConflictVersion(null);
+          }
           throw err;
         }
         toast.error("Update failed", {
@@ -520,7 +590,9 @@ export function JournalEntryForm({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setSubmitError(null);
+      setSubmitSuccess(null);
       setHasConflict(false);
+      setConflictVersion(null);
       if (autosaveStatus === "failed") setAutosaveStatus("saving");
       setSubmitted(true);
 
@@ -544,7 +616,9 @@ export function JournalEntryForm({
   const overwriteConflict = useCallback(async () => {
     if (!editEntry) return;
     setSubmitError(null);
+    setSubmitSuccess(null);
     setHasConflict(false);
+    setConflictVersion(null);
     const data = validateCurrentForm();
     if (!data) return;
 
@@ -576,6 +650,17 @@ export function JournalEntryForm({
     } else {
       persistDraft();
     }
+  };
+
+  // Inline error for a field, only once it was blurred or submit was attempted.
+  const renderFieldError = (field: keyof JournalEntry, id: string) => {
+    const message = fieldError(field);
+    if (!message) return null;
+    return (
+      <p id={id} role="alert" className="text-xs text-red-400">
+        {message}
+      </p>
+    );
   };
 
   return (
@@ -657,16 +742,62 @@ export function JournalEntryForm({
         </div>
       )}
 
+      {submitSuccess && (
+        <div
+          className="mb-4 flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
+          role="status"
+          aria-live="polite"
+          data-testid="journal-submit-success"
+        >
+          <CheckCircle2 size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{submitSuccess}</span>
+        </div>
+      )}
+
       {submitError && (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
-          <span>{submitError}</span>
+          <span className="flex-1">
+            {submitError} Your entry was not saved — check the details and try again.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={retrySave}
+            disabled={isSubmitting}
+            data-testid="journal-submit-retry"
+          >
+            Try again
+          </Button>
         </div>
       )}
 
       {hasConflict && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300" data-testid="journal-conflict">
-          <span className="flex-1">Keep your edits instead of the newer version?</span>
+          <span className="flex-1">
+            This entry was changed elsewhere after you opened it. Your edits are
+            still here — review the newer version before choosing.
+          </span>
+          {conflictVersion && (
+            <dl
+              className="w-full space-y-1 text-xs text-amber-200/80"
+              data-testid="journal-conflict-newer-version"
+            >
+              <div className="flex gap-2">
+                <dt className="font-medium">Newer version:</dt>
+                <dd>
+                  {conflictVersion.assetPair} — {conflictVersion.amount}{" "}
+                  {conflictVersion.token}
+                  {conflictVersion.notes ? ` · ${conflictVersion.notes}` : ""}
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="font-medium">Saved at:</dt>
+                <dd>{new Date(conflictVersion.timestamp).toLocaleString()}</dd>
+              </div>
+            </dl>
+          )}
           <Button type="button" size="sm" onClick={overwriteConflict} disabled={isSubmitting} data-testid="journal-conflict-overwrite">
             Overwrite with my edits
           </Button>
@@ -686,6 +817,30 @@ export function JournalEntryForm({
         request is sent regardless of which path triggered submission.
       */}
       <form ref={formRef} id="journal-entry-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1 sm:col-span-2">
+          <label htmlFor="journal-entry-template" className="text-xs font-medium text-slate-400">
+            Start from a template
+          </label>
+          <select
+            id="journal-entry-template"
+            value={templateId}
+            onChange={(e) => applyTemplate(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            disabled={isSubmitting}
+            aria-describedby="journal-entry-template-hint"
+          >
+            <option value="">Blank entry</option>
+            {JOURNAL_TEMPLATES.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name} — {template.description}
+              </option>
+            ))}
+          </select>
+          <p id="journal-entry-template-hint" className="text-[10px] text-slate-500">
+            Applying a template only fills in the fields below. Nothing is saved
+            until you press Save.
+          </p>
+        </div>
         <div className="space-y-1">
           <label htmlFor="journal-entry-date" className="text-xs font-medium text-slate-400">Date</label>
           <input
@@ -696,10 +851,10 @@ export function JournalEntryForm({
             onBlur={() => validateField("date")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
-            aria-invalid={!!errors.date}
-            aria-describedby={errors.date ? "journal-entry-date-error" : undefined}
+            aria-invalid={!!fieldError("date")}
+            aria-describedby={fieldError("date") ? "journal-entry-date-error" : undefined}
           />
-          {errors.date && <p id="journal-entry-date-error" className="text-[10px] text-red-400">{errors.date}</p>}
+          {renderFieldError("date", "journal-entry-date-error")}
         </div>
 
         <div className="space-y-1">
@@ -713,10 +868,10 @@ export function JournalEntryForm({
             onBlur={() => validateField("assetPair")}
             className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={isSubmitting}
-            aria-invalid={!!errors.assetPair}
-            aria-describedby={errors.assetPair ? "journal-entry-asset-pair-error" : undefined}
+            aria-invalid={!!fieldError("assetPair")}
+            aria-describedby={fieldError("assetPair") ? "journal-entry-asset-pair-error" : undefined}
           />
-          {errors.assetPair && <p id="journal-entry-asset-pair-error" className="text-[10px] text-red-400">{errors.assetPair}</p>}
+          {renderFieldError("assetPair", "journal-entry-asset-pair-error")}
         </div>
 
         <div className="space-y-1">

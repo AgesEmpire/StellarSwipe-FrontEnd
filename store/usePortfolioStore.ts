@@ -14,9 +14,8 @@ export interface PortfolioAsset {
   quotePrice?: number;
   quoteLastUpdated?: Date;
   /**
-   * Connected wallet this holding belongs to. Undefined means the holding's
-   * wallet attribution is unavailable — such holdings are never attributed to
-   * a specific wallet filter.
+   * Wallet that holds this asset. Undefined means the holding's wallet is not
+   * known — it must never be attributed to a wallet as fact.
    */
   walletAddress?: string;
   /**
