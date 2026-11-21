@@ -218,8 +218,22 @@ export function SignalCard({
 
   function handleExecuteTrade() {
     if (executingRef.current) return;
+    if (isPremium && !hasAccess) {
+      setActionAnnouncement(
+        `Cannot open trade for ${signalAction} ${signalPair}. Premium signal locked — stake at least ${requiredStake.toLocaleString()} XLM to unlock.`
+      );
+      return;
+    }
+    if (conflictReason) {
+      setActionAnnouncement(
+        `Cannot open trade for ${signalAction} ${signalPair}. Signal unavailable due to a conflict.`
+      );
+      return;
+    }
     if (tradeUnavailableReason) {
       setActionAnnouncement(`Trade unavailable. ${tradeUnavailableReason}`);
+      return;
+    }
       return;
     }
     executingRef.current = true;
@@ -244,6 +258,7 @@ export function SignalCard({
   }
 
   function handleKeyDown(e: KeyboardEvent) {
+    if (e.target !== e.currentTarget) return;
     if (e.key === "ArrowLeft") {
       e.preventDefault();
       handlePass();
@@ -361,6 +376,7 @@ export function SignalCard({
             onKeyDown={handleKeyDown}
             role="article"
             aria-label={`${signalAction} signal for ${signalPair} at ${executionPrice} with ${signalConfidence}% confidence. Press Enter or right arrow to trade, left arrow to pass.`}
+            aria-keyshortcuts="Enter ArrowRight ArrowLeft"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex flex-col gap-2">
@@ -570,6 +586,7 @@ export function SignalCard({
                 onClick={handlePass}
                 className="flex-1"
                 aria-label={`Pass on ${signalAction} signal for ${signalPair}`}
+                aria-keyshortcuts="ArrowLeft"
               >
                 <X size={16} className="mr-1" />
                 Pass
@@ -582,7 +599,8 @@ export function SignalCard({
                   tradeUnavailableReason ? tradeReasonId : undefined
                 }
                 className="flex-1 active:scale-95"
-                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${tradeUnavailableReason ? ` (unavailable — ${tradeUnavailableReason})` : ""}`}
+                aria-label={`Execute trade: ${signalAction} signal for ${signalPair} at ${executionPrice}${isDemoMode ? " (demo)" : ""}${isPremium && !hasAccess ? " (locked — stake required)" : ""}${tradeUnavailableReason ? ` (unavailable — ${tradeUnavailableReason})` : ""}${conflictReason ? " (unavailable — signal conflict)" : ""}`}
+                aria-keyshortcuts="Enter ArrowRight"
               >
                 <Zap size={16} className="mr-1" />
                 {isDemoMode ? "Demo Trade" : "Execute Trade"}
