@@ -3,7 +3,12 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
 import { journalEntrySchema, normalizeJournalTags, type JournalEntry } from "@/lib/journalSchema";
-import { createJournalEntry, updateJournalEntry, JournalApiError } from "@/lib/journalApi";
+import {
+  createJournalEntry,
+  updateJournalEntry,
+  fetchJournalEntry,
+  JournalApiError,
+} from "@/lib/journalApi";
 import { Button } from "@/components/ui/button";
 import { ValidationSummary } from "@/components/forms/ValidationSummary";
 import { Plus, AlertCircle, Loader2, X } from "lucide-react";
@@ -128,6 +133,9 @@ export function JournalEntryForm({
   // back the revision it was made against.
   const baseRevisionRef = useRef<number | undefined>(editEntry?.revision);
   const [hasConflict, setHasConflict] = useState(false);
+  // Newer server copy found when a save was rejected as stale. Shown to the
+  // user so they can review it instead of silently overwriting it.
+  const [conflictVersion, setConflictVersion] = useState<TransactionHistoryItem | null>(null);
   // True once the user has attempted to submit, so the validation summary
   // only appears after a failed submit — never on first render.
   const [submitted, setSubmitted] = useState(false);
@@ -519,6 +527,12 @@ export function JournalEntryForm({
         if (err instanceof JournalApiError && err.code === "CONFLICT") {
           // Edits stay in the form and draft; the user decides whether to overwrite.
           setHasConflict(true);
+          // Load the newer stored version so it can be reviewed, not just replaced.
+          try {
+            setConflictVersion(await fetchJournalEntry(entry.id));
+          } catch {
+            setConflictVersion(null);
+          }
           throw err;
         }
         toast.error("Update failed", {
@@ -544,6 +558,7 @@ export function JournalEntryForm({
       e.preventDefault();
       setSubmitError(null);
       setHasConflict(false);
+      setConflictVersion(null);
       if (autosaveStatus === "failed") setAutosaveStatus("saving");
       setSubmitted(true);
 
@@ -568,6 +583,7 @@ export function JournalEntryForm({
     if (!editEntry) return;
     setSubmitError(null);
     setHasConflict(false);
+    setConflictVersion(null);
     const data = validateCurrentForm();
     if (!data) return;
 
@@ -689,7 +705,29 @@ export function JournalEntryForm({
 
       {hasConflict && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300" data-testid="journal-conflict">
-          <span className="flex-1">Keep your edits instead of the newer version?</span>
+          <span className="flex-1">
+            This entry was changed elsewhere after you opened it. Your edits are
+            still here — review the newer version before choosing.
+          </span>
+          {conflictVersion && (
+            <dl
+              className="w-full space-y-1 text-xs text-amber-200/80"
+              data-testid="journal-conflict-newer-version"
+            >
+              <div className="flex gap-2">
+                <dt className="font-medium">Newer version:</dt>
+                <dd>
+                  {conflictVersion.assetPair} — {conflictVersion.amount}{" "}
+                  {conflictVersion.token}
+                  {conflictVersion.notes ? ` · ${conflictVersion.notes}` : ""}
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="font-medium">Saved at:</dt>
+                <dd>{new Date(conflictVersion.timestamp).toLocaleString()}</dd>
+              </div>
+            </dl>
+          )}
           <Button type="button" size="sm" onClick={overwriteConflict} disabled={isSubmitting} data-testid="journal-conflict-overwrite">
             Overwrite with my edits
           </Button>
