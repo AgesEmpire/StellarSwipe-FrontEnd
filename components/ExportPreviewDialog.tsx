@@ -37,6 +37,13 @@ interface ExportPreviewDialogProps {
   blockingErrors?: ExportPreviewIssue[];
   /** Label for the dismiss action, e.g. "Back to review". */
   cancelLabel?: string;
+  /**
+   * Optional handler for adjusting export settings (e.g. re-showing hidden
+   * columns or clearing filters). When provided, the review offers an
+   * "Adjust settings" action next to the dismiss button.
+   */
+  onAdjustSettings?: () => void;
+  adjustSettingsLabel?: string;
   onConfirm: () => Promise<void> | void;
 }
 
@@ -107,6 +114,8 @@ export function ExportPreviewDialog({
   warnings = [],
   blockingErrors = [],
   cancelLabel = "Cancel",
+  onAdjustSettings,
+  adjustSettingsLabel = "Adjust settings",
   onConfirm,
 }: ExportPreviewDialogProps) {
   const [state, setState] = useState<ExportPreviewState>("idle");
@@ -202,6 +211,18 @@ export function ExportPreviewDialog({
         )}
 
         <DialogFooter>
+          {onAdjustSettings && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                handleOpenChange(false);
+                onAdjustSettings();
+              }}
+              disabled={state === "working"}
+            >
+              {adjustSettingsLabel}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => handleOpenChange(false)}
