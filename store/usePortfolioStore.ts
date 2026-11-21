@@ -19,7 +19,23 @@ export interface PortfolioAsset {
    * a specific wallet filter.
    */
   walletAddress?: string;
+  /**
+   * Stellar asset issuer's trustline authorization state for this holding.
+   * Undefined means the state could not be determined — never assume it is
+   * authorized, and never present it as tradeable.
+   */
+  trustlineAuthorization?: TrustlineAuthorizationState;
 }
+
+/**
+ * Trustline authorization states reported by a Stellar asset issuer.
+ * `unknown` is used when the state is unavailable or unrecognised.
+ */
+export type TrustlineAuthorizationState =
+  | "authorized"
+  | "unauthorized"
+  | "authorized-to-maintain-liabilities"
+  | "unknown";
 
 export interface PortfolioState {
   assets: PortfolioAsset[];
