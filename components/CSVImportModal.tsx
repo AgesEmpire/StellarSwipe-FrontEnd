@@ -67,7 +67,12 @@ export function CSVImportModal() {
     ValidationResult[]
   >([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [summary, setSummary] = useState({ imported: 0, skipped: 0 });
+  const [summary, setSummary] = useState({
+    imported: 0,
+    skipped: 0,
+    skippedDuplicates: 0,
+    skippedInvalid: 0,
+  });
   const [resumableDraft, setResumableDraft] = useState<CSVImportDraft | null>(
     null
   );
@@ -75,6 +80,10 @@ export function CSVImportModal() {
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [duplicateResolutions, setDuplicateResolutions] = useState<
     Record<string, DuplicateResolution>
+  >({});
+  // #1067 — rows the user excluded individually, keyed by duplicate group
+  const [excludedDuplicateRows, setExcludedDuplicateRows] = useState<
+    Record<string, number[]>
   >({});
   // #1065 — saved named column mappings
   const [savedMappings, setSavedMappings] = useState<SavedCSVColumnMapping[]>(
@@ -99,9 +108,10 @@ export function CSVImportModal() {
     setHeaders([]);
     setMapping({} as any);
     setValidationResults([]);
-    setSummary({ imported: 0, skipped: 0 });
+    setSummary({ imported: 0, skipped: 0, skippedDuplicates: 0, skippedInvalid: 0 });
     setDuplicateGroups([]);
     setDuplicateResolutions({});
+    setExcludedDuplicateRows({});
     setMappingName("");
     setActiveMappingId(null);
     setMissingColumns([]);
@@ -314,10 +324,12 @@ export function CSVImportModal() {
     // Group rows that share the same fingerprint to surface them as
     // duplicates the user should resolve before committing.
     const fingerprintCounts: Record<string, number> = {};
-    results.forEach((r) => {
+    const fingerprintRows: Record<string, number[]> = {};
+    results.forEach((r, index) => {
       if (!r.isValid || !r.data) return;
       const key = `${r.data.date}__${r.data.assetPair}`;
       fingerprintCounts[key] = (fingerprintCounts[key] ?? 0) + 1;
+      (fingerprintRows[key] ??= []).push(index);
     });
 
     const detectedGroups: DuplicateGroup[] = Object.entries(fingerprintCounts)
@@ -329,10 +341,17 @@ export function CSVImportModal() {
           description: `${pair} — ${date}`,
           incomingCount: count,
           existingCount: 0, // could cross-check against store; 0 for now
+          // #1067 — surface the fields that caused the match
+          matchedFields: [
+            { field: "Date", value: date },
+            { field: "Asset Pair", value: pair },
+          ],
+          rowIndices: fingerprintRows[key] ?? [],
         };
       });
 
     setDuplicateGroups(detectedGroups);
+    setExcludedDuplicateRows({});
 
     // Seed resolutions with the default ("skip") for each detected group.
     const seedResolutions: Record<string, DuplicateResolution> = {};
@@ -348,8 +367,8 @@ export function CSVImportModal() {
   const handleImport = () => {
     const validRows = validationResults.filter((r) => r.isValid && r.data);
 
-    // Apply duplicate resolutions (#780): exclude rows whose fingerprint maps
-    // to "skip". Rows with "update" or "keep" (or no duplicate group) pass through.
+    // Apply duplicate resolutions (#780) and per-row exclusions (#1067):
+    // exclude rows whose fingerprint maps to "skip" or that the user excluded.
     const acceptedRows = validRows.filter((r) => {
       if (!r.data) return false;
       const key = `${r.data.date}__${r.data.assetPair}`;
@@ -358,6 +377,9 @@ export function CSVImportModal() {
       if (resolution === "skip" && duplicateGroups.some((g) => g.key === key)) {
         return false;
       }
+      // Rows the user explicitly excluded in the duplicate review step.
+      const rowIndex = validationResults.indexOf(r);
+      if ((excludedDuplicateRows[key] ?? []).includes(rowIndex)) return false;
       return true;
     });
 
@@ -376,9 +398,13 @@ export function CSVImportModal() {
     }));
 
     bulkAddTransactions(transactions);
+    const skippedInvalid = validationResults.length - validRows.length;
+    const skippedDuplicates = validRows.length - acceptedRows.length;
     setSummary({
       imported: transactions.length,
-      skipped: validationResults.length - transactions.length,
+      skipped: skippedInvalid + skippedDuplicates,
+      skippedDuplicates,
+      skippedInvalid,
     });
     setStep("summary");
     clearCSVImportDraft();
@@ -748,6 +774,19 @@ export function CSVImportModal() {
               onChange={(key, resolution) =>
                 setDuplicateResolutions((prev) => ({ ...prev, [key]: resolution }))
               }
+              excludedRows={excludedDuplicateRows}
+              onToggleRow={(key, rowIndex, excluded) =>
+                setExcludedDuplicateRows((prev) => {
+                  const current = prev[key] ?? [];
+                  return {
+                    ...prev,
+                    [key]: excluded
+                      ? [...current.filter((i) => i !== rowIndex), rowIndex]
+                      : current.filter((i) => i !== rowIndex),
+                  };
+                })
+              }
+              invalidCount={validationResults.filter((r) => !r.isValid).length}
             />
           )}
 
@@ -760,8 +799,10 @@ export function CSVImportModal() {
               <p className="text-slate-400 mb-6 max-w-sm">
                 Successfully imported <strong>{summary.imported}</strong>{" "}
                 entries.
-                {summary.skipped > 0 &&
-                  ` ${summary.skipped} rows were skipped due to validation errors.`}
+                {summary.skippedDuplicates > 0 &&
+                  ` ${summary.skippedDuplicates} duplicate rows were skipped.`}
+                {summary.skippedInvalid > 0 &&
+                  ` ${summary.skippedInvalid} rows were skipped due to validation errors.`}
               </p>
               <Button
                 onClick={() => {
