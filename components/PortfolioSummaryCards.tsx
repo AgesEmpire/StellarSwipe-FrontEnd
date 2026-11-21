@@ -6,6 +6,7 @@ import { usePrivacyStore, PRIVACY_MASK } from "@/store/usePrivacyStore";
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortfolioEmptyState } from "@/components/PortfolioEmptyState";
+import { XlmBalanceBreakdown } from "@/components/XlmBalanceBreakdown";
 
 export function PortfolioSummaryCards() {
   const { assets, totalValue, totalRealizedPnL, totalUnrealizedPnL, isLoading } =
@@ -85,6 +86,13 @@ export function PortfolioSummaryCards() {
             </div>
           ))}
         </div>
+
+        <XlmBalanceBreakdown
+          totalXlm={xlmAsset?.value ?? null}
+          subentryCount={xlmAsset?.subentryCount ?? null}
+          isLoading={isLoading}
+          privacyMode={privacyMode}
+        />
 
         {/* Quote status overlay */}
         {hasStaleQuotes && (
