@@ -15,6 +15,7 @@ import { FeedDensityToggle, FeedLayoutToggle } from "@/components/FeedDensityTog
 import { useFeedDensityStore } from "@/store/useFeedDensityStore";
 import { ExpiredSignalBanner } from "@/components/ExpiredSignalBanner";
 import { useSignalFilterStore } from "@/store/useSignalFilterStore";
+import { useToastStore } from "@/store/useToastStore";
 import { useFollowedProvidersStore } from "@/store/useFollowedProvidersStore";
 import { useRecentlyViewedStore } from "@/store/useRecentlyViewedStore";
 import { useSnoozeStore } from "@/store/useSnoozeStore";
@@ -184,6 +185,20 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
     hasActiveFilters,
     querySignature,
   } = useSearchFilter({ signals: activeSignals, snoozeTick });
+
+  // #1036: one-action reset for every non-default feed filter.
+  const enqueueToast = useToastStore((s) => s.enqueue);
+  const handleResetFilters = useCallback(() => {
+    resetFilters();
+    clearSearch();
+    enqueueToast({
+      tone: "info",
+      title: "Filters reset",
+      description: "Showing the default signal feed.",
+      duration: 4000,
+    });
+    refetch();
+  }, [resetFilters, clearSearch, enqueueToast, refetch]);
 
   const selectedSignal = useMemo(
     () => signals.find((signal) => signal.id === selectedSignalId) ?? null,
@@ -497,6 +512,16 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
           {/* #574: last-updated / stale status, with a manual refresh action */}
           <div className="flex items-center gap-2">
             <SyncStatusIndicator status={syncStatus} />
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                aria-label="Reset all signal filters to defaults"
+                className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-[11px] font-medium text-sky-200 transition-colors hover:border-sky-400/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              >
+                Reset filters
+              </button>
+            )}
             <button
               type="button"
               onClick={() => refetch()}
@@ -707,7 +732,7 @@ export function SignalFeed({ initialData }: SignalFeedProps = {}) {
                 <SignalEmptyState
                   variant={hasActiveFilters ? "no-results" : "no-signals"}
                   onRefresh={() => refetch()}
-                  onClearFilters={hasActiveFilters ? resetFilters : undefined}
+                  onClearFilters={hasActiveFilters ? handleResetFilters : undefined}
                 />
               )
             ) : (
