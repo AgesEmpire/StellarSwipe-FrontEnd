@@ -18,6 +18,7 @@ import {
   Search,
   ThumbsUp,
   Shield,
+  Flag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,6 +28,8 @@ import { UnfollowDialog } from "@/components/UnfollowDialog";
 import { useUnfollowDialog } from "@/hooks/useUnfollowDialog";
 import { useFollowedProvidersStore } from "@/store/useFollowedProvidersStore";
 import { usePaginationClamp } from "@/hooks/usePaginationClamp";
+import { ReportDataDialog } from "@/components/provider/ReportDataDialog";
+import { CopyButton } from "@/components/ui/copy-button";
 
 const SIGNALS_PER_PAGE = 5;
 
@@ -174,8 +177,18 @@ export default function ProviderProfilePage() {
   });
   const paginatedSignals = signals.slice(offset, offset + SIGNALS_PER_PAGE);
 
+  // Canonical, shareable profile URL — no query parameters or fragments.
+  const profileUrl = useMemo(() => {
+    const path = `/provider/${encodeURIComponent(providerId ?? "")}`;
+    if (typeof window === "undefined") return path;
+    return `${window.location.origin}${path}`;
+  }, [providerId]);
+
   // Performance history range selection.
   const [range, setRange] = useState<RangeKey>("30d");
+
+  // Report-data action state.
+  const [reportOpen, setReportOpen] = useState(false);
   const selectedRange = RANGE_OPTIONS.find((r) => r.key === range) ?? RANGE_OPTIONS[1];
 
   const performanceSeries = useMemo(
@@ -336,6 +349,21 @@ export default function ProviderProfilePage() {
           Back
         </button>
 
+        {/* Share / copy canonical profile link */}
+        <section
+          className="flex flex-wrap items-center justify-between gap-2"
+          aria-label="Share provider profile"
+        >
+          <h1 className="text-lg font-semibold text-foreground">
+            {provider.name ?? provider.address ?? "Provider profile"}
+          </h1>
+          <CopyButton
+            value={profileUrl}
+            label="Copy profile link"
+            showValueOnError
+          />
+        </section>
+
         {/* Performance history chart */}
         <section
           className="rounded-lg border border-gray-800 bg-gray-900 p-4"
@@ -413,6 +441,41 @@ export default function ProviderProfilePage() {
             </>
           )}
         </section>
+
+        {/* Report-data action */}
+        <section
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-900 p-4"
+          aria-labelledby="report-data-heading"
+        >
+          <div>
+            <h2
+              id="report-data-heading"
+              className="text-sm font-semibold text-foreground"
+            >
+              Something look wrong?
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Report incorrect provider data. Reports are reviewed by our team and
+              do not change data instantly.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setReportOpen(true)}
+          >
+            <Flag className="h-4 w-4" aria-hidden="true" />
+            Report data
+          </Button>
+        </section>
+
+        <ReportDataDialog
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+          providerId={providerId ?? ""}
+          defaultPageContext={`Provider profile · ${selectedRange.label} performance`}
+        />
 
         {/* … rest of profile content unchanged … */}
       </main>

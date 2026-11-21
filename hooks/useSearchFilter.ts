@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Signal } from "@/lib/signals";
+import { signalMatchesQuery } from "@/lib/signalSearch";
 import {
   useSignalFilterStore,
   useSignalFilterHydrated,
@@ -35,6 +36,8 @@ export interface UseSearchFilterResult {
   hasActiveFilters: boolean;
   /** The fully-filtered, sorted signal list */
   filteredSignals: Signal[];
+  /** Stable signature of every active filter — changes whenever the query changes */
+  querySignature: string;
 }
 
 /**
@@ -127,14 +130,18 @@ export function useSearchFilter({
 
     if (provider.trim()) {
       const q = provider.trim().toLowerCase();
-      filtered = filtered.filter((s) => s.ticker.toLowerCase().includes(q));
+      filtered = filtered.filter(
+        (s) =>
+          s.ticker.toLowerCase().includes(q) ||
+          (s.provider ?? "").toLowerCase().includes(q)
+      );
     }
 
     if (searchTerm) {
+      // #156: search covers pairs, providers, strategy tags and descriptions.
       filtered = filtered.filter(
         (s) =>
-          s.ticker.toLowerCase().includes(searchTerm) ||
-          s.details.toLowerCase().includes(searchTerm) ||
+          signalMatchesQuery(s, searchTerm) ||
           s.action.toLowerCase().includes(searchTerm)
       );
     }
@@ -201,6 +208,18 @@ export function useSearchFilter({
     followedOnly ||
     searchValue.trim() !== "";
 
+  // #1034: a single string that changes whenever the effective query changes,
+  // so consumers can reset saved feed state without deep-comparing filters.
+  const querySignature = [
+    direction,
+    asset,
+    provider,
+    debouncedSearch,
+    bookmarkedOnly ? "1" : "0",
+    followedOnly ? "1" : "0",
+    sortOrder,
+  ].join("|");
+
   return {
     searchValue,
     setSearchValue,
@@ -208,5 +227,6 @@ export function useSearchFilter({
     filteredCount: filteredSignals.length,
     hasActiveFilters,
     filteredSignals,
+    querySignature,
   };
 }

@@ -293,11 +293,11 @@ function ChartPaletteRow() {
 }
 
 function ReplayOnboardingRow() {
-  const reset = useOnboardingStore((s) => s.reset);
+  const restart = useOnboardingStore((s) => s.restart);
   const replayTour = useGuidedTourStore((s) => s.replay);
 
   const handleReplay = () => {
-    reset();
+    restart();
     replayTour();
   };
 
@@ -307,7 +307,8 @@ function ReplayOnboardingRow() {
         <p className="text-xs font-medium text-foreground">Guided tour</p>
         <p className="text-xs text-foreground-muted">
           Replays the intro walkthrough and the contextual spotlight tour of
-          the wallet, signal feed, and comparison view.
+          the wallet, signal feed, comparison view, and the guided
+          first-session signal review.
         </p>
       </div>
       <Button size="sm" variant="outline" className="gap-1.5" onClick={handleReplay}>

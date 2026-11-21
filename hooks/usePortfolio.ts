@@ -4,12 +4,16 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@/hooks/useWallet";
 import { usePortfolioStore, type PortfolioAsset } from "@/store/usePortfolioStore";
+import { useWalletStore } from "@/store/useWalletStore";
 function withPercentages(
-  assets: Omit<PortfolioAsset, "percentage">[]
+  assets: Omit<PortfolioAsset, "percentage">[],
+  walletAddress?: string
 ): PortfolioAsset[] {
   const total = assets.reduce((sum, a) => sum + a.value, 0);
   return assets.map((a) => ({
     ...a,
+    // Only attribute holdings to a wallet when the wallet is actually known.
+    walletAddress: a.walletAddress ?? walletAddress,
     percentage: total > 0 ? Math.round((a.value / total) * 1000) / 10 : 0,
   }));
 }
@@ -17,6 +21,16 @@ function withPercentages(
 export function usePortfolio() {
   const { publicKey, connected } = useWallet();
   const store = usePortfolioStore();
+  const connectedWallets = useWalletStore((s) => s.wallets);
+
+  // Reset a wallet filter that no longer refers to a connected wallet so the
+  // view never claims to be filtered by an unavailable account.
+  useEffect(() => {
+    const filter = store.walletFilter;
+    if (filter && !connectedWallets.some((w) => w.publicKey === filter)) {
+      store.setWalletFilter(null);
+    }
+  }, [connectedWallets, store]);
 
   // Initialize with demo data if store is empty
   useEffect(() => {
@@ -139,5 +153,8 @@ export function usePortfolio() {
     totalValue: store.totalValue,
     isLoading: store.isLoading,
     refetch,
+    walletFilter: store.walletFilter,
+    setWalletFilter: store.setWalletFilter,
+    connectedWallets: connectedWallets.map((w) => w.publicKey),
   };
 }

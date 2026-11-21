@@ -12,6 +12,7 @@ import {
   Copy,
   Loader2,
   LogOut,
+  Pencil,
   PlusCircle,
   RefreshCw,
   UserCircle2,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClipboard } from "@/hooks/useClipboard";
+import { NICKNAME_MAX_LENGTH, normalizeNickname } from "@/store/useWalletStore";
 
 function truncate(key: string) {
   return `${key.slice(0, 6)}...${key.slice(-4)}`;
@@ -30,6 +32,7 @@ export function WalletDropdown() {
     wallets,
     activePublicKey,
     switchWallet,
+    setWalletNickname,
     connectAnother,
     disconnect,
     disconnectAll,
@@ -45,11 +48,45 @@ export function WalletDropdown() {
   // Account switcher state
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
+  // Nickname editor state — one wallet at a time.
+  const [editingNicknameFor, setEditingNicknameFor] = useState<string | null>(null);
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+  const nicknameInputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const truncated = publicKey ? truncate(publicKey) : "";
+  const activeNickname =
+    wallets.find((w) => w.publicKey === activePublicKey)?.nickname ?? null;
+
+  function startEditingNickname(key: string, current?: string) {
+    setEditingNicknameFor(key);
+    setNicknameDraft(current ?? "");
+    setNicknameError(null);
+    requestAnimationFrame(() => nicknameInputRef.current?.focus());
+  }
+
+  function cancelEditingNickname() {
+    setEditingNicknameFor(null);
+    setNicknameDraft("");
+    setNicknameError(null);
+  }
+
+  function saveNickname(key: string) {
+    const normalized = normalizeNickname(nicknameDraft);
+    if (nicknameDraft.trim().length > 0 && !normalized) {
+      setNicknameError("Enter a nickname or clear the field to remove it.");
+      return;
+    }
+    try {
+      setWalletNickname(key, nicknameDraft);
+      cancelEditingNickname();
+    } catch {
+      setNicknameError("Could not save nickname. Please try again.");
+    }
+  }
 
   const handleCopy = useCallback(async () => {
     if (!publicKey) return;
@@ -158,7 +195,7 @@ export function WalletDropdown() {
           switchingTo
             ? "Switching wallet account…"
             : publicKey
-            ? `Wallet menu for ${truncated}`
+            ? `Wallet menu for ${activeNickname ? `${activeNickname}, ` : ""}${truncated}`
             : "Wallet menu"
         }
         className="font-mono gap-2"
@@ -178,6 +215,11 @@ export function WalletDropdown() {
           />
         </span>
         <span className="max-w-[9rem] truncate sm:max-w-none">{truncated}</span>
+        {activeNickname && (
+          <span className="max-w-[7rem] truncate font-sans text-xs text-muted-foreground">
+            {activeNickname}
+          </span>
+        )}
         {switchingTo && (
           <span className="hidden text-[10px] font-sans text-yellow-600 dark:text-yellow-300 sm:inline">
             Switching…
@@ -367,22 +409,39 @@ export function WalletDropdown() {
             {copied ? "Copied!" : isCopyError ? "Retry" : "Copy address"}
           </button>
 
+          {/* Accessible status announcement for screen readers */}
+          <span role="status" aria-live="polite" className="sr-only">
+            {copied ? "Wallet address copied to clipboard" : ""}
+          </span>
+
           {/* Manual-copy fallback — only shown when clipboard API fails */}
           {isCopyError && copyError && (
             <div
               role="alert"
-              className="mx-2 flex items-start gap-2 rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-[11px] leading-snug text-yellow-700 dark:text-yellow-300"
+              className="mx-2 flex flex-col gap-1.5 rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-[11px] leading-snug text-yellow-700 dark:text-yellow-300"
             >
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="flex-1">{copyError}</span>
-              <button
-                type="button"
-                aria-label="Dismiss copy error"
-                onClick={resetCopy}
-                className="shrink-0 rounded p-0.5 hover:bg-yellow-500/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="flex-1">{copyError}</span>
+                <button
+                  type="button"
+                  aria-label="Dismiss copy error"
+                  onClick={resetCopy}
+                  className="shrink-0 rounded p-0.5 hover:bg-yellow-500/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              {publicKey && (
+                <input
+                  type="text"
+                  readOnly
+                  value={publicKey}
+                  aria-label="Wallet address to copy manually"
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="w-full select-all rounded border border-yellow-500/30 bg-background px-1.5 py-1 font-mono text-[11px] text-foreground"
+                />
+              )}
             </div>
           )}
 
