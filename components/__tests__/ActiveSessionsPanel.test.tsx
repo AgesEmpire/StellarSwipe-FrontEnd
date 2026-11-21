@@ -22,6 +22,7 @@ import {
   fireEvent,
   waitFor,
   act,
+  within,
 } from "@testing-library/react";
 import { ActiveSessionsPanel } from "@/components/ActiveSessionsPanel";
 import type { Session } from "@/lib/sessionUtils";
@@ -499,5 +500,63 @@ describe("ActiveSessionsPanel – states", () => {
     );
 
     expect(screen.queryByTestId("sessions-empty")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Device / browser context (#832)
+// ---------------------------------------------------------------------------
+
+describe("ActiveSessionsPanel – session context", () => {
+  it("shows device, browser, status and a locale timestamp for the current session", () => {
+    const session = { ...CURRENT_SESSION, device: "macOS", browser: "Chrome 128" };
+    render(
+      <ActiveSessionsPanel sessions={[session]} onRevoke={noop} onRevokeAll={noop} />
+    );
+    const row = within(screen.getByTestId("session-row-sess_current"));
+    expect(row.getByText("macOS")).toBeTruthy();
+    expect(row.getByText("Chrome 128")).toBeTruthy();
+    expect(row.getByText("Current session")).toBeTruthy();
+    const time = row.getByText(/Just now|just now/i).closest("time")!;
+    expect(time.getAttribute("dateTime")).toBe(session.lastActiveAt);
+    expect(time.getAttribute("title")).toBe(
+      new Date(session.lastActiveAt).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    );
+  });
+
+  it("labels a remote session as another device", () => {
+    render(
+      <ActiveSessionsPanel
+        sessions={[{ ...SESSION_A, device: "Windows 11", browser: "Firefox" }]}
+        onRevoke={noop}
+        onRevokeAll={noop}
+      />
+    );
+    const row = within(screen.getByTestId("session-row-sess_a"));
+    expect(row.getByText("Other device")).toBeTruthy();
+    expect(row.getByText("Firefox")).toBeTruthy();
+  });
+
+  it("labels missing metadata honestly", () => {
+    render(
+      <ActiveSessionsPanel
+        sessions={[
+          { ...SESSION_B, deviceLabel: "", location: "", lastActiveAt: "bogus" },
+        ]}
+        onRevoke={noop}
+        onRevokeAll={noop}
+      />
+    );
+    const row = within(screen.getByTestId("session-row-sess_b"));
+    expect(row.getByText("Unknown device")).toBeTruthy();
+    expect(row.getByText("Location unavailable")).toBeTruthy();
+    expect(row.getAllByText("Not reported")).toHaveLength(2);
+    expect(row.getByText(/Unavailable/)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Revoke session on Unknown device" })
+    ).toBeTruthy();
   });
 });

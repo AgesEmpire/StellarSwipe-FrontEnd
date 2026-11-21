@@ -45,6 +45,7 @@ export function SignalFilterBottomSheet({
   const [asset, setAsset] = useState(store.asset);
   const [provider, setProvider] = useState(store.provider);
   const [bookmarkedOnly, setBookmarkedOnly] = useState(store.bookmarkedOnly);
+  const [followedOnly, setFollowedOnly] = useState(store.followedOnly);
   const [draftTimeframe, setDraftTimeframe] = useState<Timeframe>(timeframe);
 
   useEffect(() => {
@@ -54,11 +55,16 @@ export function SignalFilterBottomSheet({
     setAsset(current.asset);
     setProvider(current.provider);
     setBookmarkedOnly(current.bookmarkedOnly);
+    setFollowedOnly(current.followedOnly);
     setDraftTimeframe(timeframe);
   }, [open, timeframe]);
 
   const isActive =
-    direction !== "ALL" || asset !== "" || provider !== "" || bookmarkedOnly;
+    direction !== "ALL" ||
+    asset !== "" ||
+    provider !== "" ||
+    bookmarkedOnly ||
+    followedOnly;
 
   const handleReset = () => {
     // Reset only clears the draft — nothing changes until Apply.
@@ -66,6 +72,7 @@ export function SignalFilterBottomSheet({
     setAsset("");
     setProvider("");
     setBookmarkedOnly(false);
+    setFollowedOnly(false);
   };
 
   const handleApply = () => {
@@ -73,6 +80,7 @@ export function SignalFilterBottomSheet({
     store.setAsset(asset);
     store.setProvider(provider);
     store.setBookmarkedOnly(bookmarkedOnly);
+    store.setFollowedOnly(followedOnly);
     if (draftTimeframe !== timeframe) onTimeframeChange?.(draftTimeframe);
     onClose();
   };
@@ -90,19 +98,35 @@ export function SignalFilterBottomSheet({
         </span>
       }
       headerExtra={
-        <button
-          type="button"
-          onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
-          aria-pressed={bookmarkedOnly}
-          className={cn(
-            "rounded-full px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
-            bookmarkedOnly
-              ? "bg-sky-500/15 text-sky-300 border border-sky-500/40"
-              : "bg-white/5 text-slate-300 border border-white/10 hover:border-white/20 hover:text-white"
-          )}
-        >
-          Bookmarked
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
+            aria-pressed={bookmarkedOnly}
+            className={cn(
+              "rounded-full px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+              bookmarkedOnly
+                ? "bg-sky-500/15 text-sky-300 border border-sky-500/40"
+                : "bg-white/5 text-slate-300 border border-white/10 hover:border-white/20 hover:text-white"
+            )}
+          >
+            Bookmarked
+          </button>
+          <button
+            type="button"
+            onClick={() => setFollowedOnly(!followedOnly)}
+            aria-pressed={followedOnly}
+            aria-label="Show followed providers only"
+            className={cn(
+              "rounded-full px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+              followedOnly
+                ? "bg-sky-500/15 text-sky-300 border border-sky-500/40"
+                : "bg-white/5 text-slate-300 border border-white/10 hover:border-white/20 hover:text-white"
+            )}
+          >
+            Followed
+          </button>
+        </div>
       }
       footer={
         <div className="flex items-center gap-2">
@@ -266,6 +290,7 @@ export function SignalFilterBottomSheet({
                     direction !== "ALL" && `Direction: ${direction}`,
                     asset && `Market: ${asset}`,
                     provider && `Provider: ${provider}`,
+                    followedOnly && `Followed providers only`,
                   ]
                     .filter(Boolean)
                     .join(" · ")}

@@ -13,6 +13,12 @@ export interface CopyButtonProps
   label?: string;
   /** How long (ms) the "Copied!" state persists. Default: 2000 */
   resetDelay?: number;
+  /**
+   * When true, the manual-copy fallback renders the value in a read-only,
+   * selectable input so the user can copy it by hand after a clipboard
+   * failure. Default: false (hint text only).
+   */
+  showValueOnError?: boolean;
 }
 
 /**
@@ -43,7 +49,7 @@ export interface CopyButtonProps
  * @see {@link https://storybook.stellarswipe.dev/?path=/docs/ui-copybutton--docs Storybook — CopyButton}
  */
 const CopyButton = React.forwardRef<HTMLButtonElement, CopyButtonProps>(
-  ({ value, label = "Copy", resetDelay = 2000, className, ...props }, ref) => {
+  ({ value, label = "Copy", resetDelay = 2000, showValueOnError = false, className, ...props }, ref) => {
     const { copied, status, errorMessage, copy, reset } = useClipboard({ resetDelay });
 
     const isCopied = status === "copied";
@@ -101,18 +107,43 @@ const CopyButton = React.forwardRef<HTMLButtonElement, CopyButtonProps>(
           </span>
         </button>
 
+        {/* Accessible status announcement for screen readers */}
+        <span role="status" aria-live="polite" className="sr-only">
+          {isCopied ? "Copied to clipboard" : ""}
+        </span>
+
         {/*
           Manual-copy fallback — shown only when the clipboard API fails.
           The hint tells the user *how* to copy without exposing the value
-          in a persistent notification or log.
+          in a persistent notification or log. The value is rendered in a
+          selectable, read-only input so it can be copied by hand.
         */}
         {isError && errorMessage && (
-          <p
+          <div
             role="alert"
-            className="max-w-xs rounded border border-yellow-500/20 bg-yellow-500/5 px-2 py-1.5 text-[11px] leading-snug text-yellow-700 dark:text-yellow-300"
+            className="flex max-w-xs flex-col gap-1.5 rounded border border-yellow-500/20 bg-yellow-500/5 px-2 py-1.5 text-[11px] leading-snug text-yellow-700 dark:text-yellow-300"
           >
-            {errorMessage}
-          </p>
+            <p>{errorMessage}</p>
+            <input
+              type="text"
+              readOnly
+              value={value}
+              aria-label="Value to copy manually"
+              onFocus={(e) => e.currentTarget.select()}
+              className="w-full select-all rounded border border-yellow-500/30 bg-background px-1.5 py-1 font-mono text-[11px] text-foreground"
+            />
+          </div>
+        )}
+
+        {isError && showValueOnError && (
+          <input
+            type="text"
+            readOnly
+            value={value}
+            aria-label="Copy manually"
+            onFocus={(event) => event.currentTarget.select()}
+            className="w-full max-w-xs rounded border border-input bg-background px-2 py-1 text-[11px] text-foreground"
+          />
         )}
       </div>
     );

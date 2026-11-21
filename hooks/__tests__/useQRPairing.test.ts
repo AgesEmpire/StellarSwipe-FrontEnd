@@ -9,7 +9,11 @@
  */
 
 import { renderHook, act } from "@testing-library/react";
-import { useQRPairing } from "@/hooks/useQRPairing";
+import {
+  useQRPairing,
+  formatCountdown,
+  describeCountdown,
+} from "@/hooks/useQRPairing";
 import { useWalletStore } from "@/store/useWalletStore";
 
 const QR_TTL_MS = 120_000;
@@ -25,6 +29,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 function pendingResponse(): Response {
   return new Response(null, { status: 404 });
 }
+
+/** A fetch response the test resolves manually, to simulate a slow network. */
+function deferredResponse() {
+  let resolve!: (r: Response) => void;
+  const promise = new Promise<Response>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+const PUBLIC_KEY = "GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRS";
 
 /** Advance fake timers and flush pending promise reactions from the poll. */
 async function advance(ms: number) {
@@ -207,5 +222,187 @@ describe("useQRPairing", () => {
     await advance(QR_TTL_MS);
     expect(fetchSpy.mock.calls.length).toBe(callsAtCancel);
     expect(result.current.status).toBe("idle");
+  });
+  describe("countdown formatting (#801)", () => {
+    it("formats a readable m:ss label", () => {
+      expect(formatCountdown(120)).toBe("2:00");
+      expect(formatCountdown(65)).toBe("1:05");
+      expect(formatCountdown(9)).toBe("0:09");
+      expect(formatCountdown(-3)).toBe("0:00");
+    });
+
+    it("describes the countdown in words for screen readers", () => {
+      expect(describeCountdown(120)).toBe("2 minutes");
+      expect(describeCountdown(61)).toBe("1 minute 1 second");
+      expect(describeCountdown(30)).toBe("30 seconds");
+      expect(describeCountdown(0)).toBe("0 seconds");
+    });
+  });
+
+  it("exposes the expiry time of the current code", () => {
+    const { result } = renderHook(() => useQRPairing());
+    const before = Date.now();
+
+    act(() => {
+      result.current.startSession();
+    });
+
+    expect(result.current.expiresAt).toBe(before + QR_TTL_MS);
+  });
+
+  it("requestNewCode after expiry replaces the old code and restarts the countdown", async () => {
+    const { result } = renderHook(() => useQRPairing());
+
+    act(() => {
+      result.current.startSession();
+    });
+    const firstUri = result.current.uri;
+
+    await advance(QR_TTL_MS);
+    expect(result.current.status).toBe("expired");
+
+    act(() => {
+      result.current.requestNewCode();
+    });
+
+    expect(result.current.status).toBe("pending");
+    expect(result.current.uri).not.toBe(firstUri);
+    expect(result.current.secondsLeft).toBe(QR_TTL_MS / 1000);
+
+    // The new code counts down and polls normally.
+    const callsAtRenewal = fetchSpy.mock.calls.length;
+    await advance(POLL_MS * 2);
+    expect(result.current.secondsLeft).toBe(QR_TTL_MS / 1000 - 4);
+    expect(fetchSpy.mock.calls.length).toBeGreaterThan(callsAtRenewal);
+  });
+
+  it("ignores a paired response that arrives after the code expired", async () => {
+    const { result } = renderHook(() => useQRPairing());
+
+    act(() => {
+      result.current.startSession();
+    });
+
+    // Let the last poll before expiry hang.
+    await advance(QR_TTL_MS - POLL_MS - 1);
+    const slow = deferredResponse();
+    fetchSpy.mockReturnValueOnce(slow.promise);
+    await advance(1); // poll fires at TTL - POLL_MS, request in flight
+    await advance(POLL_MS); // TTL reached → expired
+
+    expect(result.current.status).toBe("expired");
+
+    // The wallet answers late.
+    await act(async () => {
+      slow.resolve(jsonResponse({ status: "paired", publicKey: PUBLIC_KEY }));
+    });
+    await advance(0);
+
+    expect(result.current.status).toBe("expired");
+    expect(result.current.publicKey).toBeNull();
+    expect(useWalletStore.getState().isConnected).toBe(false);
+    expect(useWalletStore.getState().publicKey).toBeNull();
+  });
+
+  it("ignores a late response from a replaced session and keeps the new code", async () => {
+    const { result } = renderHook(() => useQRPairing());
+
+    act(() => {
+      result.current.startSession();
+    });
+    const firstSessionId = result.current.sessionId;
+
+    const slow = deferredResponse();
+    fetchSpy.mockReturnValueOnce(slow.promise);
+    await advance(POLL_MS); // first session's poll is in flight
+
+    act(() => {
+      result.current.regenerate();
+    });
+    const secondSessionId = result.current.sessionId;
+    const secondUri = result.current.uri;
+    expect(secondSessionId).not.toBe(firstSessionId);
+
+    // Old session's response resolves after the replacement.
+    await act(async () => {
+      slow.resolve(jsonResponse({ status: "paired", publicKey: PUBLIC_KEY }));
+    });
+    await advance(0);
+
+    expect(result.current.status).toBe("pending");
+    expect(result.current.sessionId).toBe(secondSessionId);
+    expect(result.current.uri).toBe(secondUri);
+    expect(useWalletStore.getState().isConnected).toBe(false);
+
+    // The new session can still pair normally.
+    fetchSpy.mockResolvedValue(jsonResponse({ status: "paired", publicKey: PUBLIC_KEY }));
+    await advance(POLL_MS);
+
+    expect(result.current.status).toBe("paired");
+    expect(result.current.sessionId).toBe(secondSessionId);
+    expect(useWalletStore.getState().publicKey).toBe(PUBLIC_KEY);
+  });
+
+  it("ignores a late response after cancel", async () => {
+    const { result } = renderHook(() => useQRPairing());
+
+    act(() => {
+      result.current.startSession();
+    });
+
+    const slow = deferredResponse();
+    fetchSpy.mockReturnValueOnce(slow.promise);
+    await advance(POLL_MS);
+
+    act(() => {
+      result.current.cancel();
+    });
+
+    await act(async () => {
+      slow.resolve(jsonResponse({ status: "paired", publicKey: PUBLIC_KEY }));
+    });
+    await advance(0);
+
+    expect(result.current.status).toBe("idle");
+    expect(useWalletStore.getState().isConnected).toBe(false);
+  });
+
+  it("does not start overlapping polls while a request is in flight", async () => {
+    const { result } = renderHook(() => useQRPairing());
+
+    act(() => {
+      result.current.startSession();
+    });
+
+    const slow = deferredResponse();
+    fetchSpy.mockReturnValueOnce(slow.promise);
+    await advance(POLL_MS);
+    const callsWhileInFlight = fetchSpy.mock.calls.length;
+
+    await advance(POLL_MS * 3);
+    expect(fetchSpy.mock.calls.length).toBe(callsWhileInFlight);
+
+    await act(async () => {
+      slow.resolve(pendingResponse());
+    });
+    await advance(POLL_MS);
+    expect(fetchSpy.mock.calls.length).toBe(callsWhileInFlight + 1);
+  });
+
+  it("moves to the scanning state when the wallet reports a scan", async () => {
+    const { result } = renderHook(() => useQRPairing());
+
+    act(() => {
+      result.current.startSession();
+    });
+
+    fetchSpy.mockResolvedValue(jsonResponse({ status: "scanning" }));
+    await advance(POLL_MS);
+
+    expect(result.current.status).toBe("scanning");
+
+    // A scanned-but-unapproved code still expires.
+    await advance(QR_TTL_MS);
+    expect(result.current.status).toBe("expired");
   });
 });

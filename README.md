@@ -1,23 +1,48 @@
-# StellarSwipe-FrontEnd
+# Project
 
-[![CI](https://github.com/AgesEmpire/StellarSwipe-FrontEnd/actions/workflows/ci.yml/badge.svg)](https://github.com/AgesEmpire/StellarSwipe-FrontEnd/actions/workflows/ci.yml)
+## API Versioning
 
-## Overview
+This server exposes a versioned REST API using **URI-based versioning**.
 
-Modern, responsive web app featuring:
+- The current stable version is **v1**.
+- Requests without an explicit version resolve to the **default version (v1)**.
+- Requests for an unsupported version (e.g. `/v2/...`) return a predictable `404 Not Found` instead of silently falling through to another version.
 
-- Infinite scrolling signal feed
-- Gamified swipe mechanics (Framer Motion drag gestures)
-- Freighter wallet integration
-- Real-time dashboard & trade execution
+### Examples
 
-Connects to Soroban contracts for on-chain actions.
+| Request | Resolves to |
+| --- | --- |
+| `GET /health` | default version (`v1`) |
+| `GET /v1/health` | explicit `v1` |
+| `GET /v2/health` | `404 Not Found` (unsupported version) |
 
-## Security
+### Adding a new version
 
 Found a vulnerability? Please don't open a public issue — see
 [SECURITY.md](SECURITY.md) for how to report it privately, supported
 versions, and our disclosure policy.
+
+## Security Headers & CSP
+
+`next.config.mjs` sets HTTP security headers on every route via `async headers()`:
+`Content-Security-Policy`, `X-Frame-Options: DENY`, `Referrer-Policy:
+strict-origin-when-cross-origin` and a restrictive `Permissions-Policy`
+(camera, microphone, geolocation, sensors, payment, USB, etc. disabled).
+
+CSP sources currently allowed (update the constants in `next.config.mjs` when
+adding a third-party integration):
+
+| Directive | Sources |
+| --- | --- |
+| `script-src` | `'self' 'unsafe-inline' 'unsafe-eval'`, `https://*.sentry.io`, `https://*.ingest.sentry.io` |
+| `connect-src` | `'self'`, Sentry ingest, Stellar Horizon (`horizon.stellar.org`, `horizon-testnet.stellar.org`, `horizon-futurenet.stellar.org`), Soroban RPC (`soroban-testnet.stellar.org`, `soroban-mainnet.stellar.org`), `https://stellar.expert`, and the matching `wss://` Horizon/Soroban WebSocket origins |
+| `img-src` | `'self' data: blob: https:` (avatars, chart snapshots) |
+| `style-src` | `'self' 'unsafe-inline'` |
+| `worker-src` | `'self' blob:` (service worker / push notifications) |
+| `frame-ancestors` | `'none'` |
+
+Verify locally with `curl -I http://localhost:3000` against a production build
+(`npm run build && npm start`).
 
 ## Tech Stack
 
@@ -135,6 +160,12 @@ To adjust a budget: edit the `assertions` block in `lighthouserc.js` and documen
 
 Lighthouse reports are uploaded as CI artifacts (`lighthouse-reports/`) for debugging failed runs.
 
+## Contributing
+
+We welcome contributions from external contributors. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for local setup, environment variables, dev/test/lint/e2e/Storybook commands, branch and
+commit conventions, and the pull request review process.
+
 ## Additional documentation
 
 Legacy implementation notes have been consolidated under `/docs` to reduce root clutter:
@@ -206,3 +237,76 @@ Both runners execute automatically in CI on every push/PR. The **Test (Jest)** s
 
 <!-- handsoff-issue-708 -->
 - #708: Improve comparison view on narrow screens
+
+<!-- handsoff-issue-810 -->
+- #810: Preview estimated proceeds before closing a position
+
+<!-- handsoff-issue-811 -->
+- #811: Manage active price alerts with pause, edit, and trigger history
+
+<!-- handsoff-issue-812 -->
+- #812: Show signal source evidence in the expanded signal view
+
+<!-- handsoff-issue-453 -->
+- #453: Add Storybook stories for CommandPalette, ApiKeyManager, CSVImportModal, WalletDropdown, and QRPairingPanel
+
+<!-- handsoff-issue-818 -->
+- #818: Add keyboard inspection for individual comparison chart points
+
+<!-- handsoff-issue-819 -->
+- #819: Duplicate a journal entry as a starting point for a new trade note
+
+<!-- handsoff-issue-821 -->
+- #821: Link journal entries to transaction receipts
+
+<!-- handsoff-issue-835 -->
+- #835: Add a participant detail panel to the leaderboard
+
+<!-- handsoff-issue-822 -->
+- #822: Add suggested tags while editing journal entries
+
+<!-- handsoff-issue-826 -->
+- #826: Run a tax-report preflight for missing transaction data
+
+<!-- handsoff-issue-827 -->
+- #827: Add a transaction line-item review to tax report previews
+
+<!-- handsoff-issue-828 -->
+- #828: Set an expiration date when creating an API key
+
+<!-- handsoff-issue-803 -->
+- #803: Filter transaction activity by asset, direction, and status
+
+<!-- handsoff-issue-936 -->
+- #936: Rotate refresh credentials and detect reuse
+
+<!-- handsoff-issue-937 -->
+- #937: Add backend endpoints to list and revoke active sessions
+
+<!-- handsoff-issue-946 -->
+- #946: Add account profile read and update endpoints
+
+<!-- handsoff-issue-862 -->
+- #862: Separate realized and unrealized P&L in the portfolio summary
+
+<!-- handsoff-issue-863 -->
+- #863: Add lot-level cost basis details to position views
+
+<!-- handsoff-issue-864 -->
+- #864: Add configurable columns to the portfolio holdings table
+
+<!-- handsoff-issue-913 -->
+- #913: Validate NestJS environment configuration at startup
+
+<!-- handsoff-issue-926 -->
+- #926: Instrument NestJS requests with distributed tracing context
+
+<!-- handsoff-issue-867 -->
+- #867: Annotate deposits and withdrawals on portfolio performance charts
+
+<!-- handsoff-issue-868 -->
+- #868: Drill into portfolio holdings from allocation chart segments
+
+1. Bump the default version in the NestJS bootstrap (`app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' })`).
+2. Annotate controllers/handlers with `@Version('2')` where the new version applies.
+3. Add e2e coverage for the new version alongside the existing default/explicit/unsupported cases.

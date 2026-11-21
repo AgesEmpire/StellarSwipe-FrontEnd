@@ -13,10 +13,12 @@ const BacktestTool = dynamic(() => import("../../components/BacktestTool"), {
 });
 
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { RouteBreadcrumb } from "@/components/RouteBreadcrumb";
 
 function BacktestPageInner() {
   return (
     <div className="p-6">
+      <RouteBreadcrumb />
       <h1 className="text-2xl font-bold mb-4">Signal Backtesting Simulation</h1>
       <BacktestTool />
     </div>

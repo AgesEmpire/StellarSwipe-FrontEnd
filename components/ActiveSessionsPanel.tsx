@@ -42,6 +42,7 @@ import {
   type Session,
   formatLastActive,
   canRevoke,
+  formatTimestamp,
   otherSessionCount,
   optimisticRevoke,
   optimisticRevokeAll,
@@ -107,10 +108,12 @@ function SessionRow({
   onEndCurrent,
 }: SessionRowProps) {
   const revokable = canRevoke(session);
+  const deviceLabel = session.deviceLabel || "Unknown device";
+  const lastActiveExact = formatTimestamp(session.lastActiveAt);
 
   return (
     <div
-      className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0"
+      className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3 border-b border-border last:border-0"
       data-testid={`session-row-${session.id}`}
     >
       {/* Session info */}
@@ -122,7 +125,7 @@ function SessionRow({
             aria-hidden="true"
           />
           <span className="text-sm font-medium text-foreground truncate">
-            {session.deviceLabel}
+            {deviceLabel}
           </span>
           {session.isCurrent && (
             <span
@@ -141,9 +144,18 @@ function SessionRow({
             aria-hidden="true"
           />
           <span className="text-xs text-foreground-muted truncate">
-            {session.location}
+            {session.location || "Location unavailable"}
           </span>
         </div>
+
+        <dl className="grid grid-cols-[auto_1fr] gap-x-2 text-xs text-foreground-muted">
+          <dt>Device:</dt>
+          <dd>{session.device || "Not reported"}</dd>
+          <dt>Browser:</dt>
+          <dd>{session.browser || "Not reported"}</dd>
+          <dt>Status:</dt>
+          <dd>{session.isCurrent ? "Current session" : "Other device"}</dd>
+        </dl>
 
         <div className="flex items-center gap-1.5">
           <Clock
@@ -152,7 +164,14 @@ function SessionRow({
             aria-hidden="true"
           />
           <span className="text-xs text-foreground-muted">
-            Last active: {formatLastActive(session.lastActiveAt)}
+            Last active:{" "}
+            {lastActiveExact ? (
+              <time dateTime={session.lastActiveAt} title={lastActiveExact}>
+                {formatLastActive(session.lastActiveAt)} ({lastActiveExact})
+              </time>
+            ) : (
+              "Unavailable"
+            )}
           </span>
         </div>
       </div>
@@ -164,7 +183,7 @@ function SessionRow({
           size="sm"
           disabled={revoking}
           onClick={() => onRevoke(session.id)}
-          aria-label={`Revoke session on ${session.deviceLabel}`}
+          aria-label={`Revoke session on ${deviceLabel}`}
           className="shrink-0 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/60 disabled:opacity-50"
         >
           {revoking ? (

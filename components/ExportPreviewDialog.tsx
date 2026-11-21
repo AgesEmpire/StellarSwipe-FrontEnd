@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,12 @@ export interface ExportPreviewItem {
   value: string;
 }
 
+export interface ExportPreviewIssue {
+  message: string;
+  /** Identifiers of affected records, shown so users can find and fix them. */
+  recordIds?: string[];
+}
+
 interface ExportPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,7 +31,71 @@ interface ExportPreviewDialogProps {
   items: ExportPreviewItem[];
   confirmLabel: string;
   successMessage?: string;
+  /** Non-blocking validation warnings shown before download. */
+  warnings?: ExportPreviewIssue[];
+  /** Blocking errors — when present, the confirm action is disabled. */
+  blockingErrors?: ExportPreviewIssue[];
+  /** Label for the dismiss action, e.g. "Back to review". */
+  cancelLabel?: string;
+  /**
+   * Optional handler for adjusting export settings (e.g. re-showing hidden
+   * columns or clearing filters). When provided, the review offers an
+   * "Adjust settings" action next to the dismiss button.
+   */
+  onAdjustSettings?: () => void;
+  adjustSettingsLabel?: string;
+  /** Optional action that closes the dialog so the user can change options. */
+  editLabel?: string;
+  onEdit?: () => void;
   onConfirm: () => Promise<void> | void;
+}
+
+const MAX_RECORD_IDS = 5;
+
+function IssueList({
+  tone,
+  heading,
+  issues,
+}: {
+  tone: "error" | "warning";
+  heading: string;
+  issues: ExportPreviewIssue[];
+}) {
+  const isError = tone === "error";
+  return (
+    <div
+      role={isError ? "alert" : undefined}
+      data-testid={isError ? "export-blocking-errors" : "export-warnings"}
+      className={
+        isError
+          ? "rounded-lg border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-300"
+          : "rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-300"
+      }
+    >
+      <p className="mb-1 flex items-center gap-2 font-medium">
+        {isError ? (
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+        ) : (
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+        )}
+        {heading}
+      </p>
+      <ul className="list-disc space-y-1 pl-5 text-xs">
+        {issues.map((issue) => (
+          <li key={issue.message}>
+            {issue.message}
+            {issue.recordIds && issue.recordIds.length > 0 && (
+              <span className="block font-mono opacity-80">
+                Affected: {issue.recordIds.slice(0, MAX_RECORD_IDS).join(", ")}
+                {issue.recordIds.length > MAX_RECORD_IDS &&
+                  ` and ${issue.recordIds.length - MAX_RECORD_IDS} more`}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 type ExportPreviewState = "idle" | "working" | "success" | "error";
@@ -44,6 +114,13 @@ export function ExportPreviewDialog({
   items,
   confirmLabel,
   successMessage = "Export ready — check your downloads.",
+  warnings = [],
+  blockingErrors = [],
+  cancelLabel = "Cancel",
+  editLabel,
+  onEdit,
+  onAdjustSettings,
+  adjustSettingsLabel = "Adjust settings",
   onConfirm,
 }: ExportPreviewDialogProps) {
   const [state, setState] = useState<ExportPreviewState>("idle");
@@ -59,7 +136,10 @@ export function ExportPreviewDialog({
     }
   };
 
+  const isBlocked = blockingErrors.length > 0;
+
   const handleConfirm = async () => {
+    if (isBlocked) return;
     setState("working");
     setErrorMessage(null);
     try {
@@ -101,6 +181,18 @@ export function ExportPreviewDialog({
           ))}
         </dl>
 
+        {isBlocked && (
+          <IssueList
+            tone="error"
+            heading="Resolve these issues before downloading"
+            issues={blockingErrors}
+          />
+        )}
+
+        {warnings.length > 0 && (
+          <IssueList tone="warning" heading="Review before exporting" issues={warnings} />
+        )}
+
         {state === "success" && (
           <div
             role="status"
@@ -124,16 +216,30 @@ export function ExportPreviewDialog({
         )}
 
         <DialogFooter>
+          {editLabel && onEdit && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (state === "working") return;
+                onEdit();
+                handleOpenChange(false);
+              }}
+              disabled={state === "working"}
+            >
+              {editLabel}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => handleOpenChange(false)}
             disabled={state === "working"}
           >
-            Cancel
+            {cancelLabel}
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={state === "working" || state === "success"}
+            disabled={state === "working" || state === "success" || isBlocked}
+            aria-disabled={isBlocked || undefined}
             className="gap-2"
           >
             {state === "working" ? (

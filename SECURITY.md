@@ -7,9 +7,9 @@ maintained release branches. Only the latest commit on `main` (what's
 deployed in production) is supported with security fixes.
 
 | Version         | Supported          |
-| --------------- | ------------------- |
-| `main` (latest) | :white_check_mark:  |
-| older commits   | :x:                 |
+| --------------- | ------------------ |
+| `main` (latest) | :white_check_mark: |
+| older commits   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -52,3 +52,35 @@ We follow coordinated disclosure. Please give us a reasonable window to
 investigate and remediate a confirmed issue before any public disclosure.
 We'll credit reporters (unless you prefer to remain anonymous) once a fix
 ships.
+
+## Wallet Challenge Security
+
+Wallet login challenges are single-use and bound to their original context.
+Each signed challenge is tied to the wallet address, domain, and Stellar
+network it was issued for, and is consumed exactly once on verification.
+Replaying a challenge, reusing it across a different wallet, domain, or
+network, or presenting an expired challenge is rejected. Concurrent reuse of
+the same challenge allows at most one successful login.
+
+## Session Credentials
+
+Once wallet ownership is verified, the server issues two credentials:
+
+- **Access credential** — short-lived and configurable via
+  `AUTH_ACCESS_TTL_SECONDS` (defaults to a few minutes). It is the only
+  credential accepted on authenticated API requests and is expected to
+  expire quickly so a leaked token has a small blast radius.
+- **Refresh credential** — longer-lived and used solely to mint a new access
+  credential. It is never returned in a form that can be read by client
+  JavaScript: it is delivered as an `HttpOnly`, `Secure`, `SameSite` cookie
+  and validated server-side on each refresh. Refresh credentials are rotated
+  on use, and a refresh that fails validation (expired, revoked, or bound to
+  a different wallet) is rejected without issuing a new access credential.
+
+All claims in issued credentials are derived from the trusted server-side
+identity established during challenge verification (the verified wallet
+address, the resolved Stellar network, and the server's own issuer/audience
+settings). Client-supplied values are never trusted as claim sources, so a
+caller cannot escalate or impersonate by crafting request fields. Issuance
+and expiry behavior — including access-credential expiry and refresh
+rejection after expiry — is covered by automated tests.

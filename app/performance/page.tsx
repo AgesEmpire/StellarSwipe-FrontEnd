@@ -3,13 +3,14 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { PerformanceDashboard } from "@/components/performance/PerformanceDashboard";
 import { NetworkErrorState } from "@/components/NetworkErrorState";
+import { RouteBreadcrumb } from "@/components/RouteBreadcrumb";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const FRESHNESS_THRESHOLD_MS = 5 * 60 * 1000;
 
 type RefreshStatus = "idle" | "pending" | "success" | "error";
 
-type FreshnessState = "loading" | "fresh" | "stale" | "unavailable";
+type FreshnessState = "loading" | "fresh" | "stale";
 
 const STALE_AFTER_MS = 5 * 60 * 1000;
 
@@ -43,9 +44,7 @@ function MetricFreshness({ timestamp }: { timestamp: number | null }) {
   const label =
     state === "loading"
       ? "Loading"
-      : state === "unavailable"
-        ? "Unavailable"
-        : formatFreshness(timestamp as number);
+      : formatFreshness(timestamp as number);
 
   const exact =
     timestamp === null
@@ -55,9 +54,7 @@ function MetricFreshness({ timestamp }: { timestamp: number | null }) {
   const tone =
     state === "stale"
       ? "text-amber-600"
-      : state === "unavailable"
-        ? "text-foreground-muted"
-        : "text-foreground-muted";
+      : "text-foreground-muted";
 
   return (
     <span
@@ -120,8 +117,6 @@ function PerformanceDashboardSkeleton() {
     </div>
   );
 }
-  );
-}
 
 export default function PerformancePage() {
   const { isOnline } = useNetworkStatus();
@@ -178,6 +173,7 @@ export default function PerformancePage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <RouteBreadcrumb />
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">

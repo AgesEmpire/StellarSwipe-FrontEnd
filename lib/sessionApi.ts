@@ -8,7 +8,7 @@
  * endpoints once the API is available.
  */
 
-import type { Session } from "./sessionUtils";
+import type { AccountActivity, Session } from "./sessionUtils";
 
 export class SessionApiError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -54,4 +54,12 @@ export async function revokeSession(sessionId: string): Promise<void> {
 export async function revokeAllOtherSessions(): Promise<void> {
   const res = await fetch("/api/sessions/revoke-others", { method: "POST" });
   await handleResponse<void>(res);
+}
+
+/**
+ * Fetch recent sign-in and session events for the authenticated user.
+ */
+export async function fetchAccountActivity(): Promise<AccountActivity[]> {
+  const res = await fetch("/api/account/activity");
+  return handleResponse<AccountActivity[]>(res);
 }

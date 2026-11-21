@@ -8,11 +8,17 @@ import {
   signTransaction,
 } from "@stellar/freighter-api";
 import { useWalletStore } from "@/store/useWalletStore";
+import { useActiveFlowsStore } from "@/store/useActiveFlowsStore";
 import { NETWORK_PASSPHRASE } from "@/lib/stellar";
 import { walletToast } from "@/lib/walletToast";
 import { traceWorker } from "@/src/tracing/worker-tracing.service";
 import analyticsService from "@/services/analytics";
+import { AUDIT_ACTIONS, recordAuditEntry } from "@/services/auditTrail";
 import type { WalletConnectErrorReason } from "@/components/WalletConnectErrorModal";
+import {
+  classifyWalletConnectionError,
+  toConnectErrorReason,
+} from "@/lib/walletConnectionErrors";
 import * as Sentry from "@sentry/nextjs";
 
 const CONNECT_TIMEOUT_MS = 20000;
@@ -54,6 +60,18 @@ function isUserRejection(err: unknown): boolean {
   );
 }
 
+/**
+ * Classifies a connection failure into a recovery reason (#1076).
+ * User rejection is toast-only; every other reason opens the recovery modal.
+ */
+function resolveConnectError(err: unknown): {
+  reason: WalletConnectErrorReason;
+  info: ReturnType<typeof classifyWalletConnectionError>;
+} {
+  const info = classifyWalletConnectionError(err);
+  return { reason: toConnectErrorReason(info.reason), info };
+}
+
 export function useWallet() {
   const {
     publicKey,
@@ -65,6 +83,7 @@ export function useWallet() {
     disconnect,
     setActiveWallet,
     disconnectAll,
+    setWalletNickname,
   } = useWalletStore();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
@@ -85,7 +104,7 @@ export function useWallet() {
         setConnectError("not_found");
         analyticsService.track("wallet_connect_failed", {
           wallet_type: "freighter",
-          reason: "not_found",
+          reason: "wallet_not_found",
         });
         return;
       }
@@ -102,29 +121,29 @@ export function useWallet() {
         new CustomEvent("wallet-connected", { detail: { publicKey: key } })
       );
     } catch (err) {
-      if (isUserRejection(err)) {
+      const { reason, info } = resolveConnectError(err);
+      if (info.reason === "user_rejected") {
         walletToast.denied();
         analyticsService.track("wallet_connect_failed", {
           wallet_type: "freighter",
           reason: "user_rejected",
         });
-      } else if (isTimeout(err)) {
+      } else if (info.reason === "timeout") {
         walletToast.timeout();
-        setConnectError("timeout");
+        setConnectError(reason);
         analyticsService.track("wallet_connect_failed", {
           wallet_type: "freighter",
           reason: "timeout",
         });
       } else {
         walletToast.connectError();
-        setConnectError("error");
+        setConnectError(reason);
         Sentry.captureException(err);
         analyticsService.track("wallet_connect_failed", {
           wallet_type: "freighter",
-          reason: "error",
+          reason: info.reason,
         });
-      }
-    } finally {
+      }    } finally {
       setIsConnecting(false);
     }
   }
@@ -137,13 +156,40 @@ export function useWallet() {
       throw new Error("Wallet not connected");
     }
     setIsSigning(true);
+    const passphrase = networkPassphrase ?? NETWORK_PASSPHRASE;
+    // A pending signature is network-bound; surface it to the network switch
+    // confirmation (#800). It can't be cancelled from the app — the user
+    // finishes or rejects it in the wallet.
+    const flowId = `signing-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    useActiveFlowsStore.getState().registerFlow({
+      id: flowId,
+      kind: "signing",
+      label: "Transaction waiting for your wallet signature",
+    });
     try {
       const result = await signTransaction(transactionXdr, {
-        networkPassphrase: networkPassphrase ?? NETWORK_PASSPHRASE,
+        networkPassphrase: passphrase,
         address: publicKey,
+      });
+      // Sensitive action — audit it. Neither the XDR nor the resulting
+      // signature is recorded.
+      recordAuditEntry({
+        actor: publicKey,
+        action: AUDIT_ACTIONS.TRANSACTION_SIGNED,
+        target: publicKey,
+        metadata: { networkPassphrase: passphrase },
       });
       return typeof result === "string" ? result : result.signedTxXdr;
     } catch (err) {
+      recordAuditEntry({
+        actor: publicKey,
+        action: AUDIT_ACTIONS.TRANSACTION_SIGN_FAILED,
+        target: publicKey,
+        metadata: {
+          networkPassphrase: passphrase,
+          reason: isUserRejection(err) ? "user_rejected" : "error",
+        },
+      });
       if (isUserRejection(err)) {
         walletToast.signingDenied();
         throw err;
@@ -152,6 +198,7 @@ export function useWallet() {
       Sentry.captureException(err);
       throw err;
     } finally {
+      useActiveFlowsStore.getState().unregisterFlow(flowId);
       setIsSigning(false);
     }
   }
@@ -176,14 +223,15 @@ export function useWallet() {
         new CustomEvent("wallet-connected", { detail: { publicKey: key } })
       );
     } catch (err) {
-      if (isUserRejection(err)) {
+      const { reason, info } = resolveConnectError(err);
+      if (info.reason === "user_rejected") {
         walletToast.denied();
-      } else if (isTimeout(err)) {
+      } else if (info.reason === "timeout") {
         walletToast.timeout();
-        setConnectError("timeout");
+        setConnectError(reason);
       } else {
         walletToast.connectError();
-        setConnectError("error");
+        setConnectError(reason);
         Sentry.captureException(err);
       }
     } finally {
@@ -218,6 +266,7 @@ export function useWallet() {
     connect,
     connectAnother,
     switchWallet,
+    setWalletNickname,
     disconnect: disconnectWallet,
     disconnectAll: disconnectAllWallets,
     sign,

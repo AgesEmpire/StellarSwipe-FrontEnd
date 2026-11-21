@@ -4,17 +4,32 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 // Ref-based in-flight flag ensures only one confirm request is sent per user
 // action — covers both the button click and the Enter-key shortcut paths.
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Info, AlertCircle, ArrowLeft, CheckCircle } from "lucide-react";
+import {
+  X,
+  Info,
+  AlertCircle,
+  ArrowLeft,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { isTopOverlay } from "@/hooks/overlayManager";
 import { useDemoModeStore } from "@/store/useDemoModeStore";
 import { usePositionLimitStore } from "@/store/usePositionLimitStore";
+import { useTradePresetsStore } from "@/store/useTradePresetsStore";
+import { TradePresetEditor } from "@/components/TradePresetEditor";
+import { useWalletStore } from "@/store/useWalletStore";
 import { FeeDisclosurePanel } from "@/components/FeeDisclosurePanel";
 import { SlippageWarning } from "@/components/SlippageWarning";
 import { usePriceFormat } from "@/hooks/usePriceFormat";
 import { validateTradeField } from "@/lib/tradeSchemas";
 import { useNetworkMismatch } from "@/components/NetworkMismatchBanner";
+import { NetworkSwitchDialog } from "@/components/NetworkSwitchDialog";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
+
+function truncateKey(key: string) {
+  return `${key.slice(0, 6)}...${key.slice(-4)}`;
+}
 
 type ModalStep = "input" | "review" | "optimistic";
 
@@ -26,6 +41,12 @@ export interface PositionDetails {
   orderType: OrderType;
 }
 
+/** Market price snapshot. `expiresAt` is epoch ms; omit when validity is unknown. */
+export interface TradeQuote {
+  price: number;
+  expiresAt?: number;
+}
+
 interface TradeModalProps {
   open: boolean;
   onClose: () => void;
@@ -33,6 +54,10 @@ interface TradeModalProps {
   walletBalance?: number;
   marketPrice?: number;
   portfolioBalance?: number;
+  /** Current quote; its price overrides `marketPrice` and its expiry gates confirmation. */
+  quote?: TradeQuote;
+  /** Fetches a fresh quote. On rejection the draft is kept and the error is shown. */
+  onRefreshQuote?: () => Promise<TradeQuote>;
 }
 
 const mockBuildTx = (_order: object) =>
@@ -42,13 +67,93 @@ const mockBuildTx = (_order: object) =>
     }, 800)
   );
 
+// The order form only trades XLM today; it is part of the draft context so a
+// draft can never be restored into a different asset.
+const ASSET_CODE = "XLM";
+const TRADE_DRAFT_PREFIX = "trade-draft:";
+
+interface TradeDraftFields {
+  type: OrderType;
+  limitPrice: string;
+  amount: string;
+  stopLoss: number;
+  positionLimit: boolean;
+}
+
+interface TradeDraft extends TradeDraftFields {
+  /** Asset, network and wallet the draft was entered under. */
+  context: string;
+}
+
+const DEFAULT_DRAFT: TradeDraftFields = {
+  type: "LIMIT",
+  limitPrice: "",
+  amount: "",
+  stopLoss: 10,
+  positionLimit: false,
+};
+
+function isDefaultDraft(fields: TradeDraftFields): boolean {
+  return (Object.keys(DEFAULT_DRAFT) as (keyof TradeDraftFields)[]).every(
+    (key) => fields[key] === DEFAULT_DRAFT[key]
+  );
+}
+
+function readTradeDraft(
+  key: string,
+  context: string
+): TradeDraftFields | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as TradeDraft;
+    if (!draft || draft.context !== context) return null;
+    return {
+      type: draft.type === "MARKET" ? "MARKET" : "LIMIT",
+      limitPrice: typeof draft.limitPrice === "string" ? draft.limitPrice : "",
+      amount: typeof draft.amount === "string" ? draft.amount : "",
+      stopLoss: typeof draft.stopLoss === "number" ? draft.stopLoss : 10,
+      positionLimit: draft.positionLimit === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTradeDraft(
+  key: string,
+  context: string,
+  fields: TradeDraftFields
+) {
+  try {
+    if (isDefaultDraft(fields)) {
+      localStorage.removeItem(key);
+      return;
+    }
+    const draft: TradeDraft = { context, ...fields };
+    localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // Storage unavailable — the draft is simply not kept.
+  }
+}
+
+function clearTradeDraft(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Storage unavailable — nothing to clear.
+  }
+}
+
 export function TradeModal({
   open,
   onClose,
   onConfirm,
   walletBalance = 250,
-  marketPrice = 0.4821,
+  marketPrice: marketPriceProp = 0.4821,
   portfolioBalance = 0,
+  quote,
+  onRefreshQuote,
 }: TradeModalProps) {
   const [step, setStep] = useState<ModalStep>("input");
   const [type, setType] = useState<OrderType>("LIMIT");
@@ -62,14 +167,39 @@ export function TradeModal({
   const [slippageAcknowledged, setSlippageAcknowledged] = useState(false);
   // Stores the failure message when on-chain confirmation fails after optimistic success
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [editingPresets, setEditingPresets] = useState(false);
+  const { presets: sizePresets } = useTradePresetsStore();
+  // Quote fetched via onRefreshQuote; takes precedence over the `quote` prop
+  const [refreshedQuote, setRefreshedQuote] = useState<TradeQuote | null>(null);
+  const [quoteRefreshing, setQuoteRefreshing] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  // Clock for the quote countdown; only ticks while a quote with expiry is shown
+  const [now, setNow] = useState(() => Date.now());
+  // Prerequisite actions (#1075): connect a wallet / switch network without
+  // losing the order the user is reviewing.
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const { isDemoMode } = useDemoModeStore();
+  const walletPublicKey = useWalletStore((s) => s.publicKey);
+  const walletNetworkDraft = useWalletStore((s) => s.network);
+  const draftContext = `${ASSET_CODE}:${walletNetworkDraft}:${walletPublicKey ?? ""}`;
+  const draftKey = `${TRADE_DRAFT_PREFIX}${draftContext}`;
   const { enabled: positionLimitEnabled, percentage: positionLimitPercentage } =
     usePositionLimitStore();
   const {
     isMismatch: networkMismatch,
     walletNetwork,
     appNetwork,
+    state: networkState,
   } = useNetworkMismatch();
+  const walletKey = useWalletStore((s) => s.publicKey);
+  const walletConnected = useWalletStore((s) => s.isConnected);
+  const walletReady = walletConnected && !!walletKey;
+  const networkLabel = networkMismatch
+    ? walletNetwork
+    : networkState.status === "match"
+    ? appNetwork
+    : "Unverified";
   const fmt = usePriceFormat();
 
   // Live-region ref for announcing order-type changes to screen readers
@@ -103,6 +233,15 @@ export function TradeModal({
     initialFocus: 'button[data-order-type="LIMIT"]',
   });
 
+  const activeQuote = refreshedQuote ?? quote;
+  const marketPrice = activeQuote?.price ?? marketPriceProp;
+  const quoteExpiresAt = activeQuote?.expiresAt;
+  const quoteSecondsLeft =
+    quoteExpiresAt !== undefined
+      ? Math.max(0, Math.ceil((quoteExpiresAt - now) / 1000))
+      : null;
+  const quoteExpired = quoteSecondsLeft === 0;
+
   const price = type === "MARKET" ? marketPrice : parseFloat(limitPrice) || 0;
   const total = price * (parseFloat(amount) || 0);
   const insufficient = total > walletBalance;
@@ -132,7 +271,14 @@ export function TradeModal({
     submitting ||
     hasErrors ||
     showSlippageWarning ||
-    networkMismatch;
+    networkMismatch ||
+    !walletReady;
+
+  // Prerequisites that must be met before the order can be reviewed (#1075).
+  // The review step is only reachable once both are satisfied, so the user is
+  // never asked to confirm an order they cannot sign.
+  const prerequisitesMet = walletReady && !networkMismatch;
+  const reviewDisabled = disabled || !prerequisitesMet;
 
   // Reset form state when modal opens
   useEffect(() => {
@@ -141,8 +287,82 @@ export function TradeModal({
       setTouched({ limitPrice: false, amount: false });
       setSlippageAcknowledged(false);
       setConfirmError(null);
+      setRefreshedQuote(null);
+      setQuoteError(null);
     }
   }, [open]);
+
+  // Restore the unfinished draft for this asset/network/wallet. A draft from
+  // another context is never applied, so the fields fall back to defaults.
+  // Skip the next save so the restored values aren't written back mid-load.
+  const skipDraftSaveRef = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    const draft = readTradeDraft(draftKey, draftContext) ?? DEFAULT_DRAFT;
+    skipDraftSaveRef.current = true;
+    setType(draft.type);
+    setLimitPrice(draft.limitPrice);
+    setAmount(draft.amount);
+    setStopLoss(draft.stopLoss);
+    setPositionLimit(draft.positionLimit);
+  }, [open, draftKey, draftContext]);
+
+  // Persist entry fields so leaving the trade flow doesn't lose them.
+  useEffect(() => {
+    if (!open) return;
+    if (skipDraftSaveRef.current) {
+      skipDraftSaveRef.current = false;
+      return;
+    }
+    writeTradeDraft(draftKey, draftContext, {
+      type,
+      limitPrice,
+      amount,
+      stopLoss,
+      positionLimit,
+    });
+  }, [
+    open,
+    draftKey,
+    draftContext,
+    type,
+    limitPrice,
+    amount,
+    stopLoss,
+    positionLimit,
+  ]);
+
+  // Tick the quote countdown once a second while an expiring quote is shown
+  useEffect(() => {
+    if (!open || quoteExpiresAt === undefined) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [open, quoteExpiresAt]);
+
+  // Switching or disconnecting the wallet invalidates the review: the order was
+  // reviewed against the previous account, so send the user back to the input step.
+  // Skipped while submitting so an in-flight confirm is not interrupted.
+  // The entered order is kept, so returning after connecting/switching lands
+  // back on the same order (#1075).
+  const walletKeyRef = useRef(walletKey);
+  useEffect(() => {
+    if (walletKeyRef.current === walletKey) return;
+    walletKeyRef.current = walletKey;
+    setStep((s) => (s === "review" ? "input" : s));
+    setSlippageAcknowledged(false);
+    setConfirmError(null);
+  }, [walletKey]);
+
+  // A network switch also invalidates the review (the order was priced on the
+  // previous network); keep the entered order and return to the input step.
+  const networkRef = useRef(walletNetwork);
+  useEffect(() => {
+    if (networkRef.current === walletNetwork) return;
+    networkRef.current = walletNetwork;
+    setStep((s) => (s === "review" ? "input" : s));
+    setConfirmError(null);
+  }, [walletNetwork]);
 
   // Keyboard shortcuts: Escape → close, Enter (outside interactive elements) → confirm
   useEffect(() => {
@@ -164,7 +384,13 @@ export function TradeModal({
       // intentionally does NOT trigger from the input step so users must
       // explicitly reach the review step before confirming.
       // Also guarded by `disabled` and `submitting` to prevent double-fire.
-      if (e.key === "Enter" && step === "review" && !disabled && !submitting) {
+      if (
+        e.key === "Enter" &&
+        step === "review" &&
+        !disabled &&
+        !submitting &&
+        !quoteExpired
+      ) {
         const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
         const role = (e.target as HTMLElement)?.getAttribute("role");
         const isInteractive =
@@ -185,7 +411,7 @@ export function TradeModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, step, disabled, submitting, onClose]);
+  }, [open, step, disabled, submitting, quoteExpired, onClose]);
 
   // Preset buttons: set amount to N% of wallet balance divided by current price
   const applyPreset = useCallback(
@@ -198,8 +424,25 @@ export function TradeModal({
     [price, walletBalance]
   );
 
+  // Refresh the quote; on failure the draft (inputs and step) is left untouched
+  const handleRefreshQuote = useCallback(async () => {
+    if (!onRefreshQuote || quoteRefreshing || submitting) return;
+    setQuoteRefreshing(true);
+    setQuoteError(null);
+    try {
+      setRefreshedQuote(await onRefreshQuote());
+    } catch (err) {
+      setQuoteError(
+        (err as Error).message ||
+          "Could not refresh the quote. Your order details are unchanged."
+      );
+    } finally {
+      setQuoteRefreshing(false);
+    }
+  }, [onRefreshQuote, quoteRefreshing, submitting]);
+
   const handleConfirm = useCallback(async () => {
-    if (disabled) return;
+    if (disabled || quoteExpired) return;
     // Guard: ignore if a confirmation is already in-flight
     if (confirmInFlightRef.current) return;
     confirmInFlightRef.current = true;
@@ -208,12 +451,28 @@ export function TradeModal({
     setStep("optimistic");
     setSubmitting(true);
     try {
+      // Server revalidates balance, network, amount and slippage before submission
+      const res = await fetch("/api/trades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: walletPublicKey,
+          network: walletNetwork,
+          orderType: type,
+          amount,
+          price,
+          slippagePercent: estimatedSlippage,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message ?? "Trade was rejected by the server.");
+      }
       await mockBuildTx({ type, price, amount, stopLoss, positionLimit });
-      setSubmitting(false);
-      confirmInFlightRef.current = false;
-      onConfirm ? onConfirm({ amount, price, orderType: type }) : onClose();
     } catch (err) {
-      // Rollback: revert to review step and surface a distinct failure message
+      // Rollback: revert to review step and surface a distinct failure message.
+      // Only submission errors land here; once the order is placed, a failure
+      // in the caller's onConfirm must not send the user back to resubmit it.
       setSubmitting(false);
       confirmInFlightRef.current = false;
       setStep("review");
@@ -221,7 +480,12 @@ export function TradeModal({
         (err as Error).message ||
           "Transaction confirmation failed. Your order was not placed."
       );
+      return;
     }
+    setSubmitting(false);
+    confirmInFlightRef.current = false;
+    clearTradeDraft(draftKey);
+    onConfirm ? onConfirm({ amount, price, orderType: type }) : onClose();
   }, [
     type,
     price,
@@ -231,7 +495,30 @@ export function TradeModal({
     onClose,
     onConfirm,
     disabled,
+    draftKey,
+    quoteExpired,
+    walletPublicKey,
+    walletNetwork,
+    estimatedSlippage,
   ]);
+
+  const discardDraft = useCallback(() => {
+    clearTradeDraft(draftKey);
+    setType(DEFAULT_DRAFT.type);
+    setLimitPrice(DEFAULT_DRAFT.limitPrice);
+    setAmount(DEFAULT_DRAFT.amount);
+    setStopLoss(DEFAULT_DRAFT.stopLoss);
+    setPositionLimit(DEFAULT_DRAFT.positionLimit);
+    setTouched({ limitPrice: false, amount: false });
+  }, [draftKey]);
+
+  const hasDraftFields = !isDefaultDraft({
+    type,
+    limitPrice,
+    amount,
+    stopLoss,
+    positionLimit,
+  });
 
   // Announce order-type changes to screen readers via live region
   const handleOrderTypeChange = (newType: OrderType) => {
@@ -251,6 +538,10 @@ export function TradeModal({
   const parsedNetworkFeeXLM = parseFloat(networkFee.split(" ")[0]) || 0;
   const networkFeeUSDC = parsedNetworkFeeXLM * (marketPrice || price || 0);
   const netAmount = Math.max(0, total - tradeFee - networkFeeUSDC);
+  // Estimates need a quote and an amount; without them show "—", not "$0.0000"
+  const feeEstimateAvailable = total > 0;
+  const formatEstimate = (value: number) =>
+    feeEstimateAvailable ? `$${value.toFixed(4)}` : "—";
 
   return (
     <AnimatePresence>
@@ -350,18 +641,22 @@ export function TradeModal({
             </div>
 
             {step === "optimistic" ? (
-              <div className="flex flex-col items-center gap-4 py-6 text-center">
-                <CheckCircle
+              <div
+                className="flex flex-col items-center gap-4 py-6 text-center"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2
                   size={48}
-                  className="text-accent-market"
+                  className="animate-spin text-foreground-muted"
                   aria-hidden="true"
                 />
                 <div>
                   <p className="text-base font-semibold text-foreground">
-                    Order submitted!
+                    Submitting order…
                   </p>
                   <p className="mt-1 text-sm text-foreground-muted">
-                    Waiting for on-chain confirmation…
+                    Not placed until the network confirms it.
                   </p>
                 </div>
                 {submitting && (
@@ -477,7 +772,7 @@ export function TradeModal({
                       role="group"
                       aria-label="Quick size presets"
                     >
-                      {([25, 50, 75, 100] as const).map((pct) => (
+                      {sizePresets.map((pct) => (
                         <button
                           key={pct}
                           type="button"
@@ -498,6 +793,17 @@ export function TradeModal({
                         </button>
                       ))}
                     </div>
+                    {editingPresets ? (
+                      <TradePresetEditor onDone={() => setEditingPresets(false)} />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingPresets(true)}
+                        className="mt-1 text-xs text-foreground-muted hover:text-foreground underline-offset-2 hover:underline"
+                      >
+                        Edit presets
+                      </button>
+                    )}
                   </div>
 
                   {/* Total (read-only) */}
@@ -522,6 +828,34 @@ export function TradeModal({
                           Insufficient balance
                         </span>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Estimated fees and net amount, recalculated as amount or quote changes */}
+                  <div className="rounded-lg border border-border bg-input px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-foreground-subtle">
+                        Est. trade fee ({(tradeFeePercent * 100).toFixed(2)}%)
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(tradeFee)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-foreground-subtle">
+                        Est. network fee
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(networkFeeUSDC)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 border-t border-border pt-1">
+                      <span className="text-foreground-subtle">
+                        Est. net amount
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatEstimate(netAmount)}
+                      </span>
                     </div>
                   </div>
 
@@ -678,6 +1012,18 @@ export function TradeModal({
                   Review Order
                 </button>
 
+                {/* Explicit discard — clears the saved draft for this context */}
+                {hasDraftFields && (
+                  <button
+                    type="button"
+                    onClick={discardDraft}
+                    className="mt-2 w-full rounded-md py-1 text-xs text-foreground-muted hover:text-foreground transition-colors
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  >
+                    Discard draft
+                  </button>
+                )}
+
                 {/* Keyboard shortcut hint */}
                 <p
                   className="mt-2 text-center text-xs text-foreground-subtle"
@@ -718,6 +1064,99 @@ export function TradeModal({
                   <p className="text-xs text-foreground-muted mb-3">
                     Review your order before confirming. Use Back to edit.
                   </p>
+
+                  {/* Quote validity — shown only when the quote carries an expiry */}
+                  {quoteSecondsLeft !== null && (
+                    <div
+                      role={quoteExpired ? "alert" : undefined}
+                      className={`rounded-lg border px-3 py-2 text-sm ${
+                        quoteExpired
+                          ? "border-accent-danger/40 bg-accent-danger/10"
+                          : "border-border bg-input"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground-muted">Quote</span>
+                        <span
+                          className={`font-mono font-medium ${
+                            quoteExpired
+                              ? "text-accent-danger"
+                              : "text-foreground"
+                          }`}
+                        >
+                          {quoteExpired
+                            ? "Expired"
+                            : `Expires in ${quoteSecondsLeft}s`}
+                        </span>
+                      </div>
+                      {quoteExpired && (
+                        <p className="mt-1 text-xs text-foreground-muted">
+                          This quote has expired. Refresh it to confirm your
+                          order.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {onRefreshQuote && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={handleRefreshQuote}
+                        disabled={quoteRefreshing || submitting}
+                        aria-busy={quoteRefreshing}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                      >
+                        <RefreshCw
+                          size={14}
+                          aria-hidden="true"
+                          className={quoteRefreshing ? "animate-spin" : ""}
+                        />
+                        {quoteRefreshing ? "Refreshing quote…" : "Refresh quote"}
+                      </button>
+                      {quoteError && (
+                        <p role="alert" className="text-xs text-accent-danger">
+                          {quoteError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Signing wallet and network — the order is submitted from this account */}
+                  <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-foreground-muted">Wallet</span>
+                      <span className="font-mono font-medium text-foreground">
+                        {walletReady && walletKey
+                          ? truncateKey(walletKey)
+                          : "Not connected"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-foreground-muted">Network</span>
+                      <span
+                        className={`font-mono font-medium ${
+                          networkMismatch
+                            ? "text-accent-danger"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {networkLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!walletReady && (
+                    <p role="alert" className="text-xs text-accent-danger">
+                      Connect a wallet to place this order.
+                    </p>
+                  )}
+                  {networkMismatch && (
+                    <p role="alert" className="text-xs text-accent-danger">
+                      Switch your wallet to {appNetwork} to place this order.
+                    </p>
+                  )}
 
                   {/* Summary rows */}
                   <div className="rounded-lg border border-border bg-input divide-y divide-border text-sm">
@@ -764,7 +1203,7 @@ export function TradeModal({
                         Trade fee ({(tradeFeePercent * 100).toFixed(2)}%)
                       </span>
                       <span className="font-mono font-medium">
-                        ${tradeFee.toFixed(4)}
+                        {formatEstimate(tradeFee)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-2">
@@ -772,13 +1211,15 @@ export function TradeModal({
                         Network fee
                       </span>
                       <span className="font-mono font-medium">
-                        {networkFee} (~${networkFeeUSDC.toFixed(6)})
+                        {feeEstimateAvailable
+                          ? `${networkFee} (~$${networkFeeUSDC.toFixed(6)})`
+                          : networkFee}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-2 border-t pt-2">
                       <span className="text-foreground-subtle">Net amount</span>
                       <span className="font-mono font-medium">
-                        ${netAmount.toFixed(4)}
+                        {formatEstimate(netAmount)}
                       </span>
                     </div>
                   </div>
@@ -798,14 +1239,14 @@ export function TradeModal({
 
                   <button
                     onClick={handleConfirm}
-                    disabled={submitting}
-                    aria-disabled={submitting}
+                    disabled={submitting || quoteExpired || disabled}
+                    aria-disabled={submitting || quoteExpired || disabled}
                     aria-busy={submitting}
                     aria-describedby="confirm-button-help"
                     className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-all
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface
                       ${
-                        submitting
+                        disabled || submitting || quoteExpired
                           ? "bg-foreground/10 text-foreground-subtle cursor-not-allowed"
                           : type === "MARKET"
                           ? "bg-accent-market hover:opacity-90 text-foreground"

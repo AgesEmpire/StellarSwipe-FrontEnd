@@ -18,13 +18,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SignalCard } from "@/components/SignalCard";
-import {
-  useBookmarkStore,
-  useBookmarkHydrated,
-  type BookmarkFolder,
-} from "@/store/useBookmarkStore";
-import { useBookmarkActions } from "@/hooks/useBookmarkActions";
-import { BulkTagBar } from "@/components/bookmarks/BulkTagBar";
+import { useBookmarkStore } from "@/store/useBookmarkStore";
+import { useWatchlistStore } from "@/store/useWatchlistStore";
+import { useWatchlistActions } from "@/hooks/useWatchlistActions";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/signals";
@@ -84,16 +80,14 @@ function BookmarksEmptyState() {
       action={
         <Button asChild size="sm" className="gap-2">
           <Link href="/app">
-            <ArrowLeft className="h-3.5 w-3.5 rtl-flip" aria-hidden="true" />
-            Browse feed
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Browse feed
           </Link>
         </Button>
       }
       secondaryAction={
         <Button asChild size="sm" variant="outline" className="gap-2">
           <Link href="/providers">
-            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            Explore providers
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Explore providers
           </Link>
         </Button>
       }
@@ -434,8 +428,8 @@ function FilterSortBar({
 
 export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
   const bookmarks = useBookmarkStore((state) => state.bookmarks);
-  const folders = useBookmarkStore((state) => state.folders);
-  const isHydrated = useBookmarkHydrated();
+  const { watchlist, setWatchlist } = useWatchlistStore();
+  const watchlistActions = useWatchlistActions();
   const { assets } = usePortfolio();
   const {
     createFolder,
@@ -561,21 +555,8 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
 
   const portfolioBalance = assets.reduce((sum, asset) => sum + asset.value, 0);
 
-  const handleCreateFolder = (name: string) => {
-    createFolder(name);
-  };
-
-  const handleRenameFolder = (folderId: string, name: string) => {
-    renameFolder(folderId, name);
-  };
-
-  const handleDeleteFolder = (folderId: string) => {
-    const folder = folders.find((f) => f.id === folderId);
-    deleteFolder(folderId, folder?.name ?? "Unknown");
-    if (selectedFolderId === folderId) {
-      setSelectedFolder(null);
-    }
-  };
+  // Available assets for watchlist
+  const availableAssets = ["XLM", "USDC", "AQUA", "yXLM"];
 
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 sm:py-8 lg:px-8">
@@ -600,8 +581,7 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
             </div>
             <Button asChild variant="outline" size="sm" className="gap-2">
               <Link href="/app">
-                <ArrowLeft className="h-3.5 w-3.5 rtl-flip" aria-hidden="true" />
-                Back to feed
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Back to feed
               </Link>
             </Button>
           </div>
@@ -618,148 +598,28 @@ export function BookmarksPage({ initialSignals }: BookmarksPageProps) {
                 onDeleteFolder={handleDeleteFolder}
                 onCreateFolder={handleCreateFolder}
               />
-            </div>
-          </aside>
-
-          <div className="min-w-0 flex-1">
-            {isHydrated && bookmarks.length > 0 && (
-              <FilterSortBar
-                actionFilter={actionFilter}
-                onActionFilterChange={handleActionFilterChange}
-                sortOrder={sortOrder}
-                onSortOrderChange={handleSortOrderChange}
-                resultCount={bookmarkedSignals.length}
-              />
-            )}
-            {isHydrated && bookmarkedSignals.length > 0 && (
-              <>
-                <label className="mb-2 inline-flex items-center gap-2 text-sm text-foreground-muted">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={() => setSelectedIds(allSelected ? [] : visibleIds)}
-                    className="h-4 w-4 accent-sky-400"
-                  />
-                  Select all ({bookmarkedSignals.length})
-                </label>
-                <BulkTagBar
-                  selectedIds={visibleSelectedIds}
-                  getLabel={getSignalLabel}
-                  onSelectionChange={setSelectedIds}
-                />
-              </>
-            )}
-            {!isHydrated ? (
-              <BookmarksSkeleton />
-            ) : bookmarkedSignals.length === 0 ? (
-              <BookmarksEmptyState />
-            ) : (
-              <div className="space-y-4">
-                {bookmarkedSignals.map((signal) => {
-                  const signalFolders = folders.filter((f) =>
-                    f.signalIds.includes(signal.id)
-                  );
-
-                  const signalTags = tags[signal.id] ?? [];
-
-                  return (
-                    <div key={signal.id}>
-                      <label className="mb-1 inline-flex items-center gap-2 px-1 text-xs text-foreground-muted">
-                        <input
-                          type="checkbox"
-                          checked={visibleSelectedIds.includes(signal.id)}
-                          onChange={() => toggleSelected(signal.id)}
-                          className="h-4 w-4 accent-sky-400"
-                          aria-label={`Select ${getSignalLabel(signal.id)}`}
-                        />
-                        Select
-                      </label>
-                      <SignalCard
-                        signalId={signal.id}
-                        pair={`${signal.ticker}/USDC`}
-                        action={signal.action}
-                        confidence={signal.confidence}
-                        analysis={signal.details}
-                        providerName={signal.provider}
-                        timestamp={new Date(signal.timestamp)}
-                        showPassAction={false}
-                        portfolioBalance={portfolioBalance}
-                      />
-                      {signalTags.length > 0 && (
-                        <ul
-                          className="mt-1 flex flex-wrap gap-1.5 px-1"
-                          aria-label={`Tags for ${getSignalLabel(signal.id)}`}
-                        >
-                          {signalTags.map((t) => (
-                            <li
-                              key={t}
-                              className="rounded-full bg-violet-400/10 px-2.5 py-0.5 text-xs text-violet-300"
-                            >
-                              #{t}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {folders.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1.5 px-1">
-                          {signalFolders.map((f) => (
-                            <button
-                              key={f.id}
-                              onClick={() =>
-                                removeSignalFromFolder(signal.id, f.id, f.name)
-                              }
-                              className="inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2.5 py-0.5 text-xs text-sky-400 hover:bg-sky-400/20"
-                              aria-label={`Remove from ${f.name}`}
-                            >
-                              <FolderIcon className="h-3 w-3" />
-                              {f.name}
-                              <X className="h-3 w-3" />
-                            </button>
-                          ))}
-                          {signalFolders.length < folders.length && (
-                            <div className="relative inline-flex">
-                              <select
-                                onChange={(e) => {
-                                  const folderId = e.target.value;
-                                  if (folderId) {
-                                    const folder = folders.find(
-                                      (f) => f.id === folderId
-                                    );
-                                    if (folder) {
-                                      assignSignalToFolder(
-                                        signal.id,
-                                        folderId,
-                                        folder.name
-                                      );
-                                    }
-                                  }
-                                  e.target.value = "";
-                                }}
-                                value=""
-                                className="appearance-none rounded-full bg-white/5 px-2.5 py-0.5 pr-6 text-xs text-foreground-muted hover:bg-white/10 focus:outline-none"
-                                aria-label="Assign to folder"
-                              >
-                                <option value="">+ Folder</option>
-                                {folders
-                                  .filter(
-                                    (f) => !f.signalIds.includes(signal.id)
-                                  )
-                                  .map((f) => (
-                                    <option key={f.id} value={f.id}>
-                                      {f.name}
-                                    </option>
-                                  ))}
-                              </select>
-                              <Plus className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-foreground-muted" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+            ))}
+            <div className="mt-6 p-4 bg-card rounded-lg border border-white/10">
+              <h3 className="text-sm font-medium text-foreground mb-3">Watchlist</h3>
+              <p className="text-xs text-foreground-muted mb-2">
+                Assets you're tracking without a specific signal
+              </p>
+              <div className="space-y-2 max-w-md">
+                {availableAssets.map((symbol) => (
+                  <div key={symbol} className="flex items-center justify-between px-3 py-2 bg-white/5 rounded">
+                    <span className="font-medium text-sm">{symbol}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => watchlistActions.toggleWatchlist(symbol, symbol)}
+                      className="text-xs"
+                    >
+                      {watchlistActions.hasWatchlist(symbol) ? "Watched" : "Add"}
+                    </Button>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

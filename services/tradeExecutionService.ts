@@ -4,10 +4,16 @@
  * - Caching for exchange rates and balances
  * - Network call batching
  * - Execution time measurement
+ * - Audit trail entries for executed trades (#949)
  */
+import { useWalletStore } from '@/store/useWalletStore';
+import { AUDIT_ACTIONS, recordAuditEntry, type AuditEntry } from '@/services/auditTrail';
 
 export interface TradeRequest {
+  /** Caller-supplied unique identifier; reuse it on retries to dedupe */
   id: string;
+  /** Authenticated user that owns this trade intent */
+  userId: string;
   signalId: string;
   asset: string;
   direction: "BUY" | "SELL";
@@ -22,12 +28,29 @@ export interface TradeResult {
   executionTimeMs: number;
   slippage?: number;
   error?: string;
+  /** Audit entry recorded for this (attempted) execution. */
+  auditEntry?: AuditEntry;
 }
 
 export interface ExecutionEstimate {
   estimatedTimeMs: number;
   currentSlippage: number;
   queueDepth: number;
+}
+
+/** Thrown when an existing intent id is reused with different trade parameters */
+export class TradeIntentConflictError extends Error {
+  constructor(public readonly intentId: string) {
+    super(`Trade intent "${intentId}" was already submitted with different parameters`);
+    this.name = "TradeIntentConflictError";
+  }
+}
+
+interface TradeIntent {
+  /** Canonical trade parameters, used to detect conflicting retries */
+  fingerprint: string;
+  /** Shared by every submission of this intent, so retries never re-queue */
+  result: Promise<TradeResult>;
 }
 
 // Simple TTL cache
@@ -60,6 +83,8 @@ class TradeExecutionService {
     reject: (e: Error) => void;
   }> = [];
   private processing = false;
+  // Keyed by `${userId}:${id}` so intents are scoped to their owner
+  private intents = new Map<string, TradeIntent>();
   private cache = new TTLCache<unknown>();
   private readonly RATE_CACHE_TTL = 10_000; // 10s
   private readonly BALANCE_CACHE_TTL = 5_000; // 5s
@@ -88,12 +113,36 @@ class TradeExecutionService {
     return balance;
   }
 
-  /** Enqueue a trade request */
+  /**
+   * Enqueue a trade request as an idempotent intent.
+   * A repeat of the same user + id returns the original intent's result
+   * (including while it is still in flight); reusing the id with different
+   * parameters is rejected with {@link TradeIntentConflictError}.
+   */
   enqueue(request: TradeRequest): Promise<TradeResult> {
-    return new Promise((resolve, reject) => {
+    const key = `${request.userId}:${request.id}`;
+    const fingerprint = JSON.stringify([
+      request.signalId,
+      request.asset,
+      request.direction,
+      request.amount,
+      request.slippageTolerance,
+    ]);
+
+    const existing = this.intents.get(key);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) {
+        return Promise.reject(new TradeIntentConflictError(request.id));
+      }
+      return existing.result;
+    }
+
+    const result = new Promise<TradeResult>((resolve, reject) => {
       this.queue.push({ request, resolve, reject });
       if (!this.processing) this.processQueue();
     });
+    this.intents.set(key, { fingerprint, result });
+    return result;
   }
 
   /** Current queue depth and estimated execution time */
@@ -127,12 +176,43 @@ class TradeExecutionService {
       const item = this.queue.shift()!;
       try {
         const result = await this.executeWithTimeout(item.request);
-        item.resolve(result);
+        const auditEntry = this.auditTrade(item.request, result);
+        item.resolve({ ...result, auditEntry });
       } catch (err) {
+        // Failed attempts are security-sensitive too — record them.
+        this.auditTrade(item.request, {
+          success: false,
+          error: (err as Error).message,
+        });
         item.reject(err as Error);
       }
     }
     this.processing = false;
+  }
+
+  /**
+   * Append an audit entry for an attempted trade. Only the non-sensitive
+   * outcome is captured — no secrets or signatures.
+   */
+  private auditTrade(
+    request: TradeRequest,
+    result: { success: boolean; txHash?: string; error?: string }
+  ): AuditEntry {
+    return recordAuditEntry({
+      actor:
+        request.userId || useWalletStore.getState().publicKey || 'anonymous',
+      action: AUDIT_ACTIONS.TRADE_EXECUTED,
+      target: request.id,
+      metadata: {
+        signalId: request.signalId,
+        asset: request.asset,
+        direction: request.direction,
+        amount: request.amount,
+        success: result.success,
+        txHash: result.txHash,
+        error: result.error,
+      },
+    });
   }
 
   private async executeWithTimeout(

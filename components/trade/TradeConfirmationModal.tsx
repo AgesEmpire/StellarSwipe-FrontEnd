@@ -5,6 +5,14 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { AssetIssuerDetails } from "@/components/trade/AssetIssuerDetails";
+import {
+  StellarOperationList,
+  type SdkOperation,
+} from "@/components/trade/StellarOperationList";
+import { useWalletStore } from "@/store/useWalletStore";
+import { useRegisterActiveFlow } from "@/hooks/useActiveFlow";
+import type { TradeAssetInfo } from "@/lib/assetIssuer";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +32,24 @@ export interface TradeConfirmationDetails {
   platformFee?: string;
   /** Limit only: expiry label e.g. "24h", "7 days" */
   expiry?: string;
+  /** Issuer metadata for the asset being sold. Omit for native XLM or when unknown. */
+  fromAsset?: Omit<TradeAssetInfo, "code">;
+  /** Issuer metadata for the asset being bought. Omit for native XLM or when unknown. */
+  toAsset?: Omit<TradeAssetInfo, "code">;
+  /** Network the order will be submitted to. Defaults to the wallet store's network. */
+  network?: string;
+  /**
+   * Raw SDK operation objects from the pending transaction (#1104).
+   * When provided, they are shown before the wallet signing prompt so users
+   * can review each operation's purpose, asset, and amount.
+   * Pass `undefined` to omit the section (e.g. for single-operation trades
+   * where the trade summary already shows the full picture).
+   */
+  operations?: SdkOperation[] | null;
+  /** True while operations are still being decoded from XDR. */
+  operationsLoading?: boolean;
+  /** Set when operations could not be decoded. */
+  operationsError?: string | null;
   /** Used to simulate a deliberate visual regression for testing */
   _visualRegressionTest?: boolean;
 }
@@ -57,8 +83,26 @@ export function TradeConfirmationModal({
     networkFee = "~0.00001 XLM",
     platformFee = "0.1%",
     expiry,
+    fromAsset,
+    toAsset,
+    network,
+    operations,
+    operationsLoading = false,
+    operationsError = null,
     _visualRegressionTest = false,
   } = details;
+  const walletNetwork = useWalletStore((s) => s.network);
+
+  // An open review is bound to the current network; let a network switch
+  // identify it and close it first (#800). Once submitting, it can't be
+  // safely abandoned from here, so it's listed without a cancel action.
+  useRegisterActiveFlow(open, {
+    kind: isSubmitting ? "signing" : "trade",
+    label: `${fromSymbol} → ${toSymbol} ${orderType} order${
+      isSubmitting ? " (submitting)" : ""
+    }`,
+    cancel: isSubmitting ? undefined : () => onOpenChange(false),
+  });
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -70,9 +114,15 @@ export function TradeConfirmationModal({
             "fixed bottom-0 left-0 right-0 z-50",
             "flex max-h-[90dvh] flex-col",
             "rounded-t-2xl bg-background shadow-2xl outline-none",
+            // Short landscape viewports (phones rotated): keep the sheet
+            // inside the viewport so the footer action never overlaps the
+            // fee/risk rows, which stay reachable via the scrollable body.
+            "max-[900px]:landscape:max-h-[100dvh]",
+            "max-[900px]:landscape:rounded-none",
             "sm:bottom-auto sm:left-1/2 sm:top-1/2",
             "sm:-translate-x-1/2 sm:-translate-y-1/2",
-            "sm:w-full sm:max-w-md sm:max-h-[85vh] sm:rounded-2xl"
+            "sm:w-full sm:max-w-md sm:max-h-[85vh] sm:rounded-2xl",
+            "sm:landscape:max-h-[calc(100dvh-1rem)]"
           )}
         >
           <p id="trade-confirm-desc" className="sr-only">
@@ -80,15 +130,12 @@ export function TradeConfirmationModal({
           </p>
 
           {/* Mobile drag handle */}
-          <div
-            className="flex justify-center pt-3 pb-1 sm:hidden"
-            aria-hidden="true"
-          >
+          <div className="flex justify-center pt-3 pb-1 sm:hidden max-[900px]:landscape:hidden" aria-hidden="true">
             <div className="h-1 w-10 rounded-full bg-border" />
           </div>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 max-[900px]:landscape:py-2">
             <Dialog.Title className="text-lg font-semibold">
               Confirm {orderType === "limit" ? "Limit" : "Market"} Order
             </Dialog.Title>
@@ -105,7 +152,7 @@ export function TradeConfirmationModal({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-2 sm:px-6 space-y-4">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-2 sm:px-6 space-y-4 max-[900px]:landscape:space-y-3 max-[900px]:landscape:pb-3">
             {/* Trade summary */}
             <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -123,6 +170,26 @@ export function TradeConfirmationModal({
                 </span>
               </div>
             </div>
+
+            {/* Asset identity — code, issuer and network for both sides (#806) */}
+            <AssetIssuerDetails
+              network={network ?? walletNetwork}
+              sides={[
+                { label: "You pay", asset: { ...fromAsset, code: fromSymbol } },
+                { label: "You receive", asset: { ...toAsset, code: toSymbol } },
+              ]}
+            />
+
+            {/* Transaction operations — shown when present so users can review
+                each operation before the wallet signs (#1104). The section is
+                omitted entirely when no data is provided (backward-compatible). */}
+            {(operations !== undefined || operationsLoading || operationsError) && (
+              <StellarOperationList
+                operations={operations}
+                loading={operationsLoading}
+                error={operationsError}
+              />
+            )}
 
             {/* Order details */}
             <section aria-labelledby="order-details-heading">
@@ -189,15 +256,15 @@ export function TradeConfirmationModal({
               </p>
             </div>
 
-            <div className="h-4" aria-hidden="true" />
+            <div className="h-4 max-[900px]:landscape:hidden" aria-hidden="true" />
           </div>
 
           {/* Footer */}
-          <div className="border-t bg-background px-4 pb-6 pt-3 sm:px-6 sm:pb-4">
+          <div className="border-t bg-background px-4 pb-6 pt-3 sm:px-6 sm:pb-4 max-[900px]:landscape:pb-3 max-[900px]:landscape:pt-2">
             <Button
               onClick={onConfirm}
               disabled={isSubmitting}
-              className="h-12 w-full text-base font-semibold sm:h-11"
+              className="h-12 w-full text-base font-semibold sm:h-11 max-[900px]:landscape:h-10"
             >
               {isSubmitting
                 ? "Submitting…"

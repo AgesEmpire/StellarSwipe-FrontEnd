@@ -8,6 +8,17 @@ export type SignalAction = "BUY" | "SELL" | "HOLD";
 
 export type SignalStatus = "Active" | "Waiting" | "Closed";
 
+export type QuoteFreshness = "fresh" | "stale" | "unavailable";
+
+/** Price quote metadata. Missing values are null, never zero. */
+export interface Quote {
+  price: number | null;
+  /** ISO 8601 date-time — when the price was observed */
+  observedAt: string | null;
+  source: string | null;
+  freshness: QuoteFreshness;
+}
+
 export interface Signal {
   id: string;
   ticker: string;
@@ -21,6 +32,7 @@ export interface Signal {
   expiresAt?: string;
   provider?: string;
   status?: SignalStatus;
+  quote?: Quote;
 }
 
 export interface SignalFeedPage {
@@ -29,6 +41,16 @@ export interface SignalFeedPage {
   pageSize: number;
   total: number;
   nextPage: number | null;
+  hasMore: boolean;
+}
+
+export interface SignalCursorPage {
+  items: Signal[];
+  pageSize: number;
+  /** Number of signals matching the filters, across all pages. */
+  total: number;
+  /** Pass as `cursor` to fetch the next page; null on the last page. */
+  nextCursor: string | null;
   hasMore: boolean;
 }
 
@@ -56,6 +78,11 @@ export interface ErrorResponse {
 export interface GetSignalsParams {
   page?: number;
   pageSize?: number;
+  cursor?: string;
+  action?: SignalAction;
+  status?: SignalStatus;
+  ticker?: string;
+  provider?: string;
 }
 
 /** Query parameters accepted by GET /api/subscriptions */

@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Signal } from "@/lib/signals";
+import { signalMatchesQuery } from "@/lib/signalSearch";
 import {
   useSignalFilterStore,
   useSignalFilterHydrated,
 } from "@/store/useSignalFilterStore";
 import { useBookmarkStore } from "@/store/useBookmarkStore";
+import { useFollowedProvidersStore } from "@/store/useFollowedProvidersStore";
 import { useSnoozeStore, selectVisibleSignals } from "@/store/useSnoozeStore";
 
 /** Default debounce delay in ms — short enough to feel instant, long enough to skip mid-keystroke renders */
@@ -34,6 +36,8 @@ export interface UseSearchFilterResult {
   hasActiveFilters: boolean;
   /** The fully-filtered, sorted signal list */
   filteredSignals: Signal[];
+  /** Stable signature of every active filter — changes whenever the query changes */
+  querySignature: string;
 }
 
 /**
@@ -55,11 +59,19 @@ export function useSearchFilter({
   debounceMs = DEBOUNCE_MS,
   snoozeTick = 0,
 }: UseSearchFilterOptions): UseSearchFilterResult {
-  const { direction, asset, provider, sortOrder, bookmarkedOnly, setProvider } =
-    useSignalFilterStore();
+  const {
+    direction,
+    asset,
+    provider,
+    sortOrder,
+    bookmarkedOnly,
+    followedOnly,
+    setProvider,
+  } = useSignalFilterStore();
   const isHydrated = useSignalFilterHydrated();
 
   const bookmarkedIds = useBookmarkStore((s) => s.bookmarks);
+  const followedProviders = useFollowedProvidersStore((s) => s.followedProviders);
   const snoozedMap = useSnoozeStore((s) => s.snoozed);
 
   // searchValue is the immediate, unthrottled input state
@@ -118,20 +130,30 @@ export function useSearchFilter({
 
     if (provider.trim()) {
       const q = provider.trim().toLowerCase();
-      filtered = filtered.filter((s) => s.ticker.toLowerCase().includes(q));
+      filtered = filtered.filter(
+        (s) =>
+          s.ticker.toLowerCase().includes(q) ||
+          (s.provider ?? "").toLowerCase().includes(q)
+      );
     }
 
     if (searchTerm) {
+      // #156: search covers pairs, providers, strategy tags and descriptions.
       filtered = filtered.filter(
         (s) =>
-          s.ticker.toLowerCase().includes(searchTerm) ||
-          s.details.toLowerCase().includes(searchTerm) ||
+          signalMatchesQuery(s, searchTerm) ||
           s.action.toLowerCase().includes(searchTerm)
       );
     }
 
     if (bookmarkedOnly) {
       filtered = filtered.filter((s) => bookmarkedIds.includes(s.id));
+    }
+
+    if (followedOnly) {
+      filtered = filtered.filter(
+        (s) => s.provider !== undefined && followedProviders.includes(s.provider)
+      );
     }
 
     // Hide snoozed signals; snoozeTick causes this to re-run once snoozes expire
@@ -171,6 +193,8 @@ export function useSearchFilter({
     debouncedSearch,
     bookmarkedOnly,
     bookmarkedIds,
+    followedOnly,
+    followedProviders,
     snoozedMap,
     snoozeTick,
     sortOrder,
@@ -181,7 +205,20 @@ export function useSearchFilter({
     asset !== "" ||
     provider !== "" ||
     bookmarkedOnly ||
+    followedOnly ||
     searchValue.trim() !== "";
+
+  // #1034: a single string that changes whenever the effective query changes,
+  // so consumers can reset saved feed state without deep-comparing filters.
+  const querySignature = [
+    direction,
+    asset,
+    provider,
+    debouncedSearch,
+    bookmarkedOnly ? "1" : "0",
+    followedOnly ? "1" : "0",
+    sortOrder,
+  ].join("|");
 
   return {
     searchValue,
@@ -190,5 +227,6 @@ export function useSearchFilter({
     filteredCount: filteredSignals.length,
     hasActiveFilters,
     filteredSignals,
+    querySignature,
   };
 }

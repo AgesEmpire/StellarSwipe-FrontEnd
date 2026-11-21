@@ -14,8 +14,45 @@ jobs:
     name: Type-check, Lint & Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Disposable, CI-only database. Never point this at production.
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      NODE_ENV: test
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Guard against production database settings
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL must be set for integration tests" >&2
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            *prod*|*production*)
+              echo "Refusing to run CI against a production database URL" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$NODE_ENV" = "production" ]; then
+            echo "Refusing to run CI with NODE_ENV=production" >&2
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -25,6 +62,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run migrations
+        run: npm run migrate
 
       - name: Type-check
         run: npx tsc --noEmit

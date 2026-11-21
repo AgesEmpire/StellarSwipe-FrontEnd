@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { PageTransitionPlaceholder } from "@/components/PageTransitionPlaceholder";
 import { RouteAnnouncer } from "@/components/RouteAnnouncer";
 import { TradeStatusBanner } from "@/components/TradeStatusBanner";
+import { TransactionFailure } from "@/components/TransactionFailure";
 import { ScrollRestoration } from "@/components/ScrollRestoration";
 import { WebVitalsReporting } from "@/components/WebVitalsReporting";
 import { ComparisonTray } from "@/components/ComparisonTray";
@@ -16,6 +17,8 @@ import { GuidedTourSpotlight } from "@/components/GuidedTourSpotlight";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { MobileNav } from "@/components/MobileNav";
 import { ToastViewport } from "@/components/ToastViewport";
+import { DesktopNavRail } from "@/components/DesktopNavRail";
+import { DemoModeIndicator } from "@/components/DemoModeIndicator";
 
 // Dev-only overlays (~950 lines combined) render null in production but were
 // previously statically imported into every page's root layout bundle. They
@@ -109,6 +112,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           <NetworkStatusIndicator />
+          <DemoModeIndicator />
           <RouteAnnouncer />
           <ScrollRestoration />
           <WebVitalsReporting />
@@ -116,10 +120,13 @@ export default function RootLayout({
           <MobileNav />
           <PageTransitionPlaceholder />
           {/* id="main-content" is the skip-link target; pages provide the <main> landmark */}
-          <div id="main-content" tabIndex={-1} className="outline-none">
-            <div className="pb-20 md:pb-0">{children}</div>
+          {/* #757 — Collapsible desktop navigation rail sits alongside page content */}
+          <div id="main-content" tabIndex={-1} className="outline-none flex">
+            <DesktopNavRail />
+            <div className="min-w-0 flex-1 pb-20 md:pb-0">{children}</div>
           </div>
           <TradeStatusBanner />
+          <TransactionFailure />
           <DevPerfOverlay />
           <AnalyticsDebugConsole />
           <ComparisonTray />

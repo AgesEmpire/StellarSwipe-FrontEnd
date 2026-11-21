@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { Button } from "@/components/ui/button";
@@ -9,13 +10,17 @@ import {
   Check,
   ChevronDown,
   Copy,
+  Loader2,
   LogOut,
+  Pencil,
   PlusCircle,
   RefreshCw,
+  UserCircle2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClipboard } from "@/hooks/useClipboard";
+import { NICKNAME_MAX_LENGTH, normalizeNickname } from "@/store/useWalletStore";
 
 function truncate(key: string) {
   return `${key.slice(0, 6)}...${key.slice(-4)}`;
@@ -27,22 +32,61 @@ export function WalletDropdown() {
     wallets,
     activePublicKey,
     switchWallet,
+    setWalletNickname,
     connectAnother,
     disconnect,
     disconnectAll,
     isConnecting,
   } = useWallet();
+  const router = useRouter();
   const { refetch } = usePortfolio();
   const [open, setOpen] = useState(false);
   const { copied, status: copyStatus, errorMessage: copyError, copy, reset: resetCopy } = useClipboard({ resetDelay: 2000 });
   const isCopyError = copyStatus === "error";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshed, setRefreshed] = useState(false);
+  // Account switcher state
+  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  // Nickname editor state — one wallet at a time.
+  const [editingNicknameFor, setEditingNicknameFor] = useState<string | null>(null);
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+  const nicknameInputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const truncated = publicKey ? truncate(publicKey) : "";
+  const activeNickname =
+    wallets.find((w) => w.publicKey === activePublicKey)?.nickname ?? null;
+
+  function startEditingNickname(key: string, current?: string) {
+    setEditingNicknameFor(key);
+    setNicknameDraft(current ?? "");
+    setNicknameError(null);
+    requestAnimationFrame(() => nicknameInputRef.current?.focus());
+  }
+
+  function cancelEditingNickname() {
+    setEditingNicknameFor(null);
+    setNicknameDraft("");
+    setNicknameError(null);
+  }
+
+  function saveNickname(key: string) {
+    const normalized = normalizeNickname(nicknameDraft);
+    if (nicknameDraft.trim().length > 0 && !normalized) {
+      setNicknameError("Enter a nickname or clear the field to remove it.");
+      return;
+    }
+    try {
+      setWalletNickname(key, nicknameDraft);
+      cancelEditingNickname();
+    } catch {
+      setNicknameError("Could not save nickname. Please try again.");
+    }
+  }
 
   const handleCopy = useCallback(async () => {
     if (!publicKey) return;
@@ -66,6 +110,32 @@ export function WalletDropdown() {
       setIsRefreshing(false);
     }
   }, [isRefreshing, refetch]);
+
+  /**
+   * Switch to a different wallet account.
+   * Shows a loading state while switching and rolls back (preserving current
+   * context) on failure, so a failed switch never leaves the user stranded.
+   */
+  const handleSwitchWallet = useCallback(
+    async (key: string) => {
+      if (switchingTo) return;
+      setSwitchingTo(key);
+      setSwitchError(null);
+      try {
+        switchWallet(key);
+        // Refresh route data after switch so navigation context is consistent.
+        router.refresh();
+        await refetch();
+      } catch {
+        // Keep current wallet active — preserve context until switch succeeds.
+        setSwitchError("Failed to switch account. Your current account is still active.");
+        setTimeout(() => setSwitchError(null), 4000);
+      } finally {
+        setSwitchingTo(null);
+      }
+    },
+    [switchingTo, switchWallet, router, refetch]
+  );
 
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
@@ -121,14 +191,40 @@ export function WalletDropdown() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={publicKey ? `Wallet menu for ${truncated}` : "Wallet menu"}
+        aria-label={
+          switchingTo
+            ? "Switching wallet account…"
+            : publicKey
+            ? `Wallet menu for ${activeNickname ? `${activeNickname}, ` : ""}${truncated}`
+            : "Wallet menu"
+        }
         className="font-mono gap-2"
       >
         <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+          <span
+            className={cn(
+              "absolute inline-flex h-full w-full animate-ping rounded-full opacity-60",
+              switchingTo ? "bg-yellow-400" : "bg-green-400"
+            )}
+          />
+          <span
+            className={cn(
+              "relative inline-flex h-2 w-2 rounded-full",
+              switchingTo ? "bg-yellow-500" : "bg-green-500"
+            )}
+          />
         </span>
-        <span className="hidden xs:inline">{truncated}</span>
+        <span className="max-w-[9rem] truncate sm:max-w-none">{truncated}</span>
+        {activeNickname && (
+          <span className="max-w-[7rem] truncate font-sans text-xs text-muted-foreground">
+            {activeNickname}
+          </span>
+        )}
+        {switchingTo && (
+          <span className="hidden text-[10px] font-sans text-yellow-600 dark:text-yellow-300 sm:inline">
+            Switching…
+          </span>
+        )}
         {wallets.length > 1 && (
           <span className="rounded-full bg-blue-500/20 px-1.5 text-[10px] text-blue-400 font-semibold">
             {wallets.length}
@@ -151,38 +247,76 @@ export function WalletDropdown() {
           {wallets.length > 0 && (
             <div className="px-3 py-2">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Connected wallets
+                {wallets.length > 1 ? "Switch account" : "Current account"}
               </p>
-              <ul className="flex flex-col gap-1" role="list">
+              {/* Switch error — preserves context while showing feedback */}
+              {switchError && (
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="mb-2 flex items-start gap-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-[11px] text-yellow-700 dark:text-yellow-300"
+                >
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{switchError}</span>
+                </div>
+              )}
+              <ul className="flex flex-col gap-1" role="list" aria-label="Wallet accounts">
                 {wallets.map((w) => {
                   const isActive = w.publicKey === activePublicKey;
+                  const isSwitchingToThis = switchingTo === w.publicKey;
                   return (
                     <li key={w.publicKey}>
                       <button
                         role="menuitem"
                         tabIndex={0}
                         onClick={() => {
-                          if (!isActive) switchWallet(w.publicKey);
+                          if (!isActive && !switchingTo) handleSwitchWallet(w.publicKey);
                         }}
                         aria-label={
                           isActive
-                            ? `Active wallet: ${truncate(w.publicKey)}`
-                            : `Switch to wallet: ${truncate(w.publicKey)}`
+                            ? `Current account: ${truncate(w.publicKey)}`
+                            : isSwitchingToThis
+                            ? `Switching to ${truncate(w.publicKey)}…`
+                            : `Switch to account: ${truncate(w.publicKey)}`
                         }
+                        aria-pressed={isActive}
+                        aria-busy={isSwitchingToThis}
+                        disabled={!!switchingTo && !isSwitchingToThis}
                         className={cn(
                           "w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-mono transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           isActive
                             ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
-                            : "hover:bg-accent text-muted-foreground"
+                            : isSwitchingToThis
+                            ? "bg-accent text-foreground cursor-wait"
+                            : "hover:bg-accent text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                         )}
                       >
-                        <span>{truncate(w.publicKey)}</span>
-                        {isActive && (
+                        <span className="flex items-center gap-2">
+                          <UserCircle2
+                            className={cn(
+                              "h-3.5 w-3.5 shrink-0",
+                              isActive ? "text-blue-400" : "text-muted-foreground"
+                            )}
+                            aria-hidden="true"
+                          />
+                          {truncate(w.publicKey)}
+                          {isActive && (
+                            <span className="rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400 not-sr-only">
+                              active
+                            </span>
+                          )}
+                        </span>
+                        {isSwitchingToThis ? (
+                          <Loader2
+                            className="h-3 w-3 animate-spin text-blue-400"
+                            aria-hidden="true"
+                          />
+                        ) : isActive ? (
                           <Check
                             className="h-3 w-3 text-blue-400"
                             aria-label="Active"
                           />
-                        )}
+                        ) : null}
                       </button>
                     </li>
                   );
@@ -275,22 +409,39 @@ export function WalletDropdown() {
             {copied ? "Copied!" : isCopyError ? "Retry" : "Copy address"}
           </button>
 
+          {/* Accessible status announcement for screen readers */}
+          <span role="status" aria-live="polite" className="sr-only">
+            {copied ? "Wallet address copied to clipboard" : ""}
+          </span>
+
           {/* Manual-copy fallback — only shown when clipboard API fails */}
           {isCopyError && copyError && (
             <div
               role="alert"
-              className="mx-2 flex items-start gap-2 rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-[11px] leading-snug text-yellow-700 dark:text-yellow-300"
+              className="mx-2 flex flex-col gap-1.5 rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-[11px] leading-snug text-yellow-700 dark:text-yellow-300"
             >
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="flex-1">{copyError}</span>
-              <button
-                type="button"
-                aria-label="Dismiss copy error"
-                onClick={resetCopy}
-                className="shrink-0 rounded p-0.5 hover:bg-yellow-500/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="flex-1">{copyError}</span>
+                <button
+                  type="button"
+                  aria-label="Dismiss copy error"
+                  onClick={resetCopy}
+                  className="shrink-0 rounded p-0.5 hover:bg-yellow-500/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              {publicKey && (
+                <input
+                  type="text"
+                  readOnly
+                  value={publicKey}
+                  aria-label="Wallet address to copy manually"
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="w-full select-all rounded border border-yellow-500/30 bg-background px-1.5 py-1 font-mono text-[11px] text-foreground"
+                />
+              )}
             </div>
           )}
 

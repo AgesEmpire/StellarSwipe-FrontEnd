@@ -7,7 +7,7 @@
  * Rendered inside WalletSelectionModal when the user picks the QR option.
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw,
@@ -18,11 +18,18 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { useQRPairing } from "@/hooks/useQRPairing";
+import {
+  useQRPairing,
+  formatCountdown,
+  describeCountdown,
+} from "@/hooks/useQRPairing";
 import { renderQRCode } from "@/lib/qrcode";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
+
+/** Remaining-time thresholds (seconds) announced to screen readers. */
+const ANNOUNCE_AT = new Set([60, 30, 10]);
 
 interface QRPairingPanelProps {
   onSuccess: () => void;
@@ -42,6 +49,9 @@ export function QRPairingPanel({ onSuccess, onCancel }: QRPairingPanelProps) {
   } = useQRPairing();
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previousUriRef = useRef<string | null>(null);
+  // True once a renewed code has replaced an earlier one in this panel.
+  const [renewed, setRenewed] = useState(false);
 
   // Start session on mount
   useEffect(() => {
@@ -49,6 +59,14 @@ export function QRPairingPanel({ onSuccess, onCancel }: QRPairingPanelProps) {
     return () => cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Note when a new code replaces the previous one so users know to rescan.
+  useEffect(() => {
+    if (uri && previousUriRef.current && previousUriRef.current !== uri) {
+      setRenewed(true);
+    }
+    if (uri) previousUriRef.current = uri;
+  }, [uri]);
 
   // Render QR onto canvas whenever URI changes
   useEffect(() => {
@@ -81,6 +99,8 @@ export function QRPairingPanel({ onSuccess, onCancel }: QRPairingPanelProps) {
   const progressPercent = (secondsLeft / (ttlMs / 1000)) * 100;
   const isExpiredOrError =
     status === "expired" || status === "rejected" || status === "error";
+  const isActive = status === "pending" || status === "scanning";
+  const ttlMinutes = Math.round(ttlMs / 60_000);
 
   return (
     <div className="flex flex-col items-center gap-4 py-2">
@@ -124,7 +144,8 @@ export function QRPairingPanel({ onSuccess, onCancel }: QRPairingPanelProps) {
               "block rounded-lg transition-opacity",
               isExpiredOrError || status === "paired"
                 ? "opacity-30"
-                : "opacity-100"
+                : "opacity-100",
+              status === "expired" && "blur-[3px]"
             )}
           />
 
@@ -184,22 +205,27 @@ export function QRPairingPanel({ onSuccess, onCancel }: QRPairingPanelProps) {
       </div>
 
       {/* Expiry countdown — only show while code is active */}
-      {(status === "pending" || status === "scanning") && (
-        <div
-          className="w-full max-w-[220px] space-y-1"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <div className="flex items-center justify-between text-xs text-foreground-muted">
-            <span className="flex items-center gap-1">
+      {isActive && (
+        <div className="w-full max-w-[220px] space-y-1">
+          <div
+            role="timer"
+            aria-label={`Pairing code expires in ${describeCountdown(secondsLeft)}`}
+            className="flex items-center justify-between text-xs text-foreground-muted"
+          >
+            <span className="flex items-center gap-1" aria-hidden="true">
               <Clock size={11} aria-hidden="true" />
               Expires in
             </span>
-            <span className="tabular-nums font-medium">
-              {Math.floor(secondsLeft / 60)}:
-              {String(secondsLeft % 60).padStart(2, "0")}
+            <span className="tabular-nums font-medium" aria-hidden="true">
+              {formatCountdown(secondsLeft)}
             </span>
           </div>
+          {/* Announce only at a few thresholds rather than every second. */}
+          <p className="sr-only" aria-live="polite" aria-atomic="true">
+            {ANNOUNCE_AT.has(secondsLeft)
+              ? `${describeCountdown(secondsLeft)} left to scan the pairing code`
+              : ""}
+          </p>
           <div
             className="h-1 w-full overflow-hidden rounded-full bg-foreground/10"
             aria-hidden="true"
@@ -213,6 +239,34 @@ export function QRPairingPanel({ onSuccess, onCancel }: QRPairingPanelProps) {
               transition={{ duration: 0.9, ease: "linear" }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Renewed code notice */}
+      {isActive && renewed && (
+        <p
+          className="text-center text-xs text-foreground-muted"
+          role="status"
+          aria-live="polite"
+        >
+          New code ready — the previous code no longer works.
+        </p>
+      )}
+
+      {/* Explicit expired state */}
+      {status === "expired" && (
+        <div
+          className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-200"
+          data-testid="qr-expired-state"
+        >
+          <p className="font-semibold text-amber-300">
+            This pairing code has expired
+          </p>
+          <p className="mt-0.5">
+            Codes are valid for {ttlMinutes} minute{ttlMinutes === 1 ? "" : "s"}.
+            Request a new code to keep connecting — you won&apos;t need to start
+            over.
+          </p>
         </div>
       )}
 

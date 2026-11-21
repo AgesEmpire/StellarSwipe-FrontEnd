@@ -11,6 +11,7 @@ import { useCrossTabSync } from "@/hooks/useCrossTabSync";
 import { useServiceWorker } from "@/hooks/useServiceWorker";
 import { IdleSessionGuard } from "@/components/IdleSessionGuard";
 import { NetworkMismatchBanner } from "@/components/NetworkMismatchBanner";
+import { startSettingsHistoryTracking } from "@/lib/settingsRegistry";
 
 // React Query Devtools are only useful while developing locally. Gating the
 // dynamic import on NODE_ENV means the `development` branch is statically
@@ -30,6 +31,9 @@ const ReactQueryDevtools: React.ComponentType<{ initialIsOpen?: boolean }> =
 export function Providers({ children }: { children: React.ReactNode }) {
   useCrossTabSync();
   useServiceWorker();
+
+  // Record preference changes from any surface for the settings history (#900).
+  useEffect(() => startSettingsHistoryTracking(), []);
 
   useEffect(() => {
     initI18n().then(() => {
@@ -65,17 +69,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // predictably instead of overlapping. The region is anchored below the
         // fixed navigation and above primary form actions, and is scrollable
         // when the queue exceeds the visible area.
-        position="bottom-right"
-        maxVisible={3}
-        gap={8}
-        offset={{ top: 72, bottom: 96, right: 16 }}
-        // Coalesce duplicate/equivalent messages so repeated feedback does not
-        // flood the queue.
-        dedupe
-        // Allow keyboard users to dismiss individual toasts and reach actions.
-        dismissible
-        keyboardDismiss
-        aria-live="polite"
+        // NOTE: ToastProvider currently takes no props; these intent comments
+        // remain for the follow-up that wires the options through.
       />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

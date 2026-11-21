@@ -34,6 +34,9 @@ import {
   type CsvPreset,
   type MultiYearSummaryRow,
   TAX_RATES,
+  TAX_REPORTING_TIME_ZONE,
+  taxDateKey,
+  taxYearOf,
   CSV_PRESETS,
   computeTaxReport,
   computeMultiYearSummary,
@@ -43,6 +46,23 @@ import {
   formatForTaxAct,
   triggerDownload,
 } from "@/lib/taxUtils";
+import { TaxReviewQueue } from "@/components/TaxReviewQueue";
+import { TaxYearDataNotice } from "@/components/TaxYearDataNotice";
+import { TaxFormatPreview } from "@/components/TaxFormatPreview";
+import { TaxReconciliation } from "@/components/TaxReconciliation";
+import { TaxCategorySummary } from "@/components/TaxCategorySummary";
+import { summarizeYearData, yearOptionLabel } from "@/lib/taxYearData";
+import { DEFAULT_TAX_FORMAT, generateFormattedGenericCsv, type TaxFormatOptions } from "@/lib/taxFormatting";
+import { TaxConversionRateDetails } from "@/components/TaxConversionRateDetails";
+import { TaxLineItemSources } from "@/components/TaxLineItemSources";
+import { conversionSummaryText, summarizeConversions } from "@/lib/taxConversionDetails";
+import {
+  TAX_CATEGORY_LABELS,
+  assignCategory,
+  resolveCategory,
+  type CategoryAssignments,
+} from "@/lib/taxCategorization";
+import { validateTaxExport } from "@/lib/taxExportValidation";
 
 const JURISDICTIONS: TaxJurisdiction[] = ["US", "UK", "EU", "CA"];
 
@@ -77,6 +97,7 @@ function deriveTransactions(
         acquisitionDate: tx.timestamp - 90 * 24 * 60 * 60 * 1000,
         foreignCurrency: hasForeignCurrency ? "USDC" : undefined,
         conversionRate: hasForeignCurrency ? 1.0 : undefined,
+        source: { hash: tx.hash, type: tx.type },
       };
     });
 }
@@ -209,6 +230,16 @@ function MultiYearComparisonTable({
 type ExportKind = "csv" | "pdf" | "turbotax" | "taxact" | "multi-csv";
 type ExportState = "idle" | "generating" | "ready" | "failed";
 
+/** Options captured when the export review opens (#1056). */
+interface ReviewOptions {
+  kind: ExportKind;
+  jurisdiction: TaxJurisdiction;
+  selectedYear: number;
+  selectedYears: number[];
+  csvPreset: CsvPreset;
+  formatOptions: TaxFormatOptions;
+}
+
 export function TaxReportingTool() {
   const { history } = useTransactionStore();
   const [jurisdiction, setJurisdiction] = useState<TaxJurisdiction>("US");
@@ -221,13 +252,19 @@ export function TaxReportingTool() {
     CURRENT_YEAR - 2,
   ]);
   const [csvPreset, setCsvPreset] = useState<CsvPreset>("generic");
+  const [formatOptions, setFormatOptions] = useState<TaxFormatOptions>(DEFAULT_TAX_FORMAT);
   const [pendingExport, setPendingExport] = useState<ExportKind | null>(null);
+  // #1056 Options are snapshotted when the review opens so the summary always
+  // matches the file that gets generated, even if the form changes underneath.
+  const [reviewOptions, setReviewOptions] = useState<ReviewOptions | null>(null);
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [lastExport, setLastExport] = useState<ExportKind | null>(null);
   // PDF preview (#781): options are kept here so they survive closing the
   // dialog to edit filters.
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfOptions, setPdfOptions] = useState<PdfReportOptions>(DEFAULT_PDF_REPORT_OPTIONS);
+  // #894 Manual categories for records that couldn't be auto-categorized.
+  const [categoryAssignments, setCategoryAssignments] = useState<CategoryAssignments>({});
   // Synchronous guard so a double click can't start two generations
   const generatingRef = useRef(false);
   const isGenerating = exportState === "generating";
@@ -254,6 +291,85 @@ export function TaxReportingTool() {
       ),
     [transactions, selectedYears, jurisdiction]
   );
+
+  const transactionsById = useMemo(
+    () => new Map(transactions.map((tx) => [tx.id, tx])),
+    [transactions]
+  );
+
+  // Which tax years have any transaction data at all (#1134).
+  const yearSummaries = useMemo(() => summarizeYearData(transactions, AVAILABLE_YEARS), [transactions]);
+
+  const yearTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (tx) => taxYearOf(tx.timestamp) === selectedYear
+      ),
+    [transactions, selectedYear]
+  );
+
+  // #893 Validate the export the user is previewing.
+  const exportValidation = useMemo(
+    () =>
+      reviewOptions
+        ? validateTaxExport({
+            transactions,
+            years:
+              reviewOptions.kind === "multi-csv"
+                ? reviewOptions.selectedYears
+                : [reviewOptions.selectedYear],
+            jurisdiction: reviewOptions.jurisdiction,
+            format: reviewOptions.kind,
+            assignments: categoryAssignments,
+          })
+        : null,
+    [reviewOptions, transactions, categoryAssignments]
+  );
+
+  // #1056 Report computed from the reviewed options, so the summary and the
+  // generated file always agree.
+  const reviewReport = useMemo(
+    () =>
+      reviewOptions
+        ? computeTaxReport(
+            transactions,
+            reviewOptions.selectedYear,
+            reviewOptions.jurisdiction
+          )
+        : null,
+    [reviewOptions, transactions]
+  );
+
+  const reviewMultiYearRows = useMemo(
+    () =>
+      reviewOptions?.kind === "multi-csv"
+        ? computeMultiYearSummary(
+            transactions,
+            [...reviewOptions.selectedYears].sort((a, b) => b - a),
+            reviewOptions.jurisdiction
+          )
+        : [],
+    [reviewOptions, transactions]
+  );
+
+  /** Opens the review step with a snapshot of the current options. */
+  function openReview(kind: ExportKind) {
+    setReviewOptions({
+      kind,
+      jurisdiction,
+      selectedYear,
+      selectedYears: [...selectedYears],
+      csvPreset,
+      formatOptions: { ...formatOptions },
+    });
+    setPendingExport(kind);
+  }
+
+  /** Closes the review so the user can change options; selections are kept. */
+  function editOptions() {
+    setPendingExport(null);
+    setTimeout(() => document.getElementById("jurisdiction-select")?.focus(), 0);
+  }
 
   const rates = TAX_RATES[jurisdiction];
   const netGainLoss = currentReport.totalGainLoss;
@@ -308,6 +424,10 @@ export function TaxReportingTool() {
         {
           label: "Filename",
           value: `tax-report-${selectedYear}-${jurisdiction}-${csvPreset}.csv`,
+        },
+        {
+          label: "Conversion rates",
+          value: conversionSummaryText(summarizeConversions(currentReport.entries)),
         },
       ],
     },
@@ -371,6 +491,16 @@ export function TaxReportingTool() {
 
   async function startExport(kind: ExportKind) {
     if (generatingRef.current) return;
+    const validation = validateTaxExport({
+      transactions,
+      years: kind === "multi-csv" ? selectedYears : [selectedYear],
+      jurisdiction,
+      format: kind,
+      assignments: categoryAssignments,
+    });
+    if (!validation.canDownload) {
+      throw new Error("Resolve the blocking issues before downloading.");
+    }
     generatingRef.current = true;
     setLastExport(kind);
     setExportState("generating");
@@ -388,7 +518,10 @@ export function TaxReportingTool() {
 
   function runExport(kind: ExportKind) {
     if (kind === "csv") {
-      const csv = exportToCsvWithPreset(currentReport, csvPreset);
+      const csv =
+        csvPreset === "generic"
+          ? generateFormattedGenericCsv(currentReport, formatOptions)
+          : exportToCsvWithPreset(currentReport, csvPreset);
       triggerDownload(
         csv,
         `tax-report-${selectedYear}-${jurisdiction}-${csvPreset}.csv`,
@@ -551,14 +684,34 @@ export function TaxReportingTool() {
                 className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-label="Select tax year"
               >
-                {AVAILABLE_YEARS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
+                {yearSummaries.map((summary) => (
+                  <option key={summary.year} value={summary.year}>
+                    {yearOptionLabel(summary)}
                   </option>
                 ))}
               </select>
             </div>
           )}
+
+          {/* Reporting timezone (#1060) */}
+          <div className="flex flex-col gap-1.5 justify-end">
+            <span className="text-xs font-medium text-foreground-muted flex items-center gap-1">
+              <Globe size={11} aria-hidden="true" />
+              Reporting Timezone
+            </span>
+            <p
+              className="text-xs text-foreground-muted"
+              data-testid="tax-reporting-timezone"
+            >
+              <span className="font-semibold text-foreground">
+                {TAX_REPORTING_TIME_ZONE}
+              </span>{" "}
+              — {selectedYear} runs{" "}
+              {taxDateKey(Date.parse(`${selectedYear}-01-01T00:00:00Z`))} to{" "}
+              {taxDateKey(Date.parse(`${selectedYear}-12-31T00:00:00Z`))} in this
+              timezone, even if your local timezone differs.
+            </p>
+          </div>
 
           {/* Tax rate info */}
           <div className="flex flex-col gap-1.5 justify-end">
@@ -612,7 +765,8 @@ export function TaxReportingTool() {
             </h3>
             <p className="text-xs text-foreground-muted mt-0.5">
               Select the years you want to compare. All years use the{" "}
-              {TAX_RATES[jurisdiction].label} ({jurisdiction}) rates.
+              {TAX_RATES[jurisdiction].label} ({jurisdiction}) rates and are
+              interpreted in the {TAX_REPORTING_TIME_ZONE} reporting timezone.
             </p>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
@@ -678,6 +832,8 @@ export function TaxReportingTool() {
       {/* ── SINGLE-YEAR SUMMARY CARDS ──────────────────────────────────────── */}
       {!multiYearMode && (
         <>
+          <TaxYearDataNotice year={selectedYear} count={yearTransactions.length} />
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <SummaryCard
               label="Net Gain/Loss"
@@ -776,6 +932,22 @@ export function TaxReportingTool() {
             </Card>
           )}
 
+          <TaxCategorySummary
+            report={currentReport}
+            transactionsById={transactionsById}
+            assignments={categoryAssignments}
+          />
+
+          <TaxReviewQueue
+            transactions={yearTransactions}
+            assignments={categoryAssignments}
+            onAssign={(id, assignment) =>
+              setCategoryAssignments((prev) => assignCategory(prev, id, assignment))
+            }
+          />
+
+          <TaxReconciliation transactions={transactions} />
+
           {/* Trade-level breakdown */}
           <Card>
             <CardHeader>
@@ -817,7 +989,8 @@ export function TaxReportingTool() {
                         <th className="pb-2 text-left font-medium pr-4">
                           Term
                         </th>
-                        <th className="pb-2 text-left font-medium">FX</th>
+                        <th className="pb-2 text-left font-medium pr-4">FX</th>
+                        <th className="pb-2 text-left font-medium">Category</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -827,7 +1000,7 @@ export function TaxReportingTool() {
                           className="border-b border-border/50 last:border-0"
                         >
                           <td className="py-2 pr-4 text-foreground-muted">
-                            {entry.date.toISOString().split("T")[0]}
+                            {taxDateKey(entry.date.getTime())}
                           </td>
                           <td className="py-2 pr-4 font-mono font-medium text-foreground">
                             {entry.assetPair}
@@ -864,10 +1037,23 @@ export function TaxReportingTool() {
                               {entry.isLongTerm ? "Long" : "Short"}
                             </span>
                           </td>
-                          <td className="py-2 text-foreground-muted font-mono">
+                          <td className="py-2 pr-4 text-foreground-muted font-mono">
                             {entry.foreignCurrency
                               ? `${entry.foreignCurrency} @${entry.conversionRate?.toFixed(4)}`
                               : "—"}
+                          </td>
+                          <td className="py-2 text-foreground-muted">
+                            {(() => {
+                              const tx = transactionsById.get(entry.id);
+                              const category = tx
+                                ? resolveCategory(tx, categoryAssignments)
+                                : null;
+                              return category ? (
+                                TAX_CATEGORY_LABELS[category]
+                              ) : (
+                                <span className="text-amber-400">Uncategorized</span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}
@@ -877,6 +1063,9 @@ export function TaxReportingTool() {
               )}
             </CardContent>
           </Card>
+
+          <TaxConversionRateDetails entries={currentReport.entries} />
+          <TaxLineItemSources entries={currentReport.entries} transactionsById={transactionsById} />
 
           {/* Export section */}
           <Card>
@@ -912,6 +1101,12 @@ export function TaxReportingTool() {
                     ))}
                   </select>
                 </div>
+                <TaxFormatPreview
+                  report={currentReport}
+                  preset={csvPreset}
+                  options={formatOptions}
+                  onChange={setFormatOptions}
+                />
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -1009,7 +1204,9 @@ export function TaxReportingTool() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => void startExport(lastExport)}
+              onClick={() =>
+                startExport(lastExport).catch(() => setExportState("failed"))
+              }
             >
               Retry
             </Button>
@@ -1043,9 +1240,23 @@ export function TaxReportingTool() {
           }}
           title={exportPreviewConfig[pendingExport].title}
           description={exportPreviewConfig[pendingExport].description}
-          items={exportPreviewConfig[pendingExport].items}
+          items={
+            exportValidation
+              ? [
+                  { label: "Period", value: exportValidation.period.label },
+                  {
+                    label: "Transactions",
+                    value: String(exportValidation.transactionCount),
+                  },
+                  ...exportPreviewConfig[pendingExport].items,
+                ]
+              : exportPreviewConfig[pendingExport].items
+          }
+          warnings={exportValidation?.warnings}
+          blockingErrors={exportValidation?.errors}
+          cancelLabel="Back to review"
           confirmLabel={exportPreviewConfig[pendingExport].confirmLabel}
-          onConfirm={() => void startExport(pendingExport)}
+          onConfirm={() => startExport(pendingExport)}
         />
       )}
     </section>

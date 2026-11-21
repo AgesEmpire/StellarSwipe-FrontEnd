@@ -18,6 +18,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { isTopOverlay } from "@/hooks/overlayManager";
 import { WalletConnectErrorModal } from "@/components/WalletConnectErrorModal";
 import { QRPairingPanel } from "@/components/QRPairingPanel";
+import { WalletOriginConfirmation } from "@/components/WalletOriginConfirmation";
 
 interface WalletSelectionModalProps {
   open: boolean;
@@ -42,7 +43,7 @@ const WALLET_OPTIONS: WalletOption[] = [
 ];
 
 type DetectionState = "idle" | "detecting" | "detected" | "not-found";
-type ModalView = "select" | "qr";
+type ModalView = "select" | "qr" | "confirm";
 
 export function WalletSelectionModal({
   open,
@@ -55,6 +56,8 @@ export function WalletSelectionModal({
   const [detection, setDetection] = useState<Record<string, DetectionState>>({
     freighter: "idle",
   });
+  // The wallet option queued for the origin-confirmation step before connect().
+  const [pendingWallet, setPendingWallet] = useState<WalletOption | null>(null);
 
   const focusTrapRef = useFocusTrap({
     isActive: open,
@@ -102,6 +105,7 @@ export function WalletSelectionModal({
     if (!open) {
       setSelectedWallet(null);
       setView("select");
+      setPendingWallet(null);
     }
   }, [open]);
 
@@ -114,12 +118,23 @@ export function WalletSelectionModal({
       return;
     }
 
-    setSelectedWallet(wallet.id);
+    // Show origin confirmation before connecting (#799).
+    setPendingWallet(wallet);
+    setView("confirm");
+  }
+
+  async function handleConfirmConnect() {
+    if (!pendingWallet || isConnecting) return;
+    setView("select");
+    setSelectedWallet(pendingWallet.id);
+    setPendingWallet(null);
     await connect();
-    // connect() sets connectError on failure; on success connectError stays null.
-    // The WalletConnectErrorModal below reacts to connectError automatically.
-    // We close the selection modal only when there is no error — checked via
-    // the store value after the async call settles.
+    // connect() sets connectError on failure; success is handled by the effect below.
+  }
+
+  function handleCancelConfirm() {
+    setPendingWallet(null);
+    setView("select");
   }
 
   function handleErrorModalClose() {
@@ -175,9 +190,12 @@ export function WalletSelectionModal({
               {/* Header */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  {view === "qr" && (
+                  {(view === "qr" || view === "confirm") && (
                     <button
-                      onClick={() => setView("select")}
+                      onClick={() => {
+                        if (view === "confirm") handleCancelConfirm();
+                        else setView("select");
+                      }}
                       aria-label="Back to wallet selection"
                       className="rounded-full p-1 text-foreground-muted hover:text-foreground hover:bg-surface-high/40 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
@@ -188,7 +206,11 @@ export function WalletSelectionModal({
                     id="wallet-modal-title"
                     className="text-lg font-semibold text-foreground"
                   >
-                    {view === "qr" ? "Scan to Connect" : "Connect Wallet"}
+                    {view === "qr"
+                      ? "Scan to Connect"
+                      : view === "confirm"
+                      ? "Confirm Connection"
+                      : "Connect Wallet"}
                   </h2>
                 </div>
                 <button
@@ -205,11 +227,24 @@ export function WalletSelectionModal({
               >
                 {view === "qr"
                   ? "Use a mobile wallet app to scan and connect"
+                  : view === "confirm"
+                  ? "Review the connection request before continuing"
                   : "Choose a wallet to connect to StellarSwipe"}
               </p>
 
-              {/* QR Pairing View */}
-              {view === "qr" ? (
+              {/* Confirmation View (#799) */}
+              {view === "confirm" && pendingWallet ? (
+                <WalletOriginConfirmation
+                  open={true}
+                  origin={
+                    typeof window !== "undefined" ? window.location.origin : null
+                  }
+                  walletName={pendingWallet.name}
+                  onConfirm={handleConfirmConnect}
+                  onCancel={handleCancelConfirm}
+                  className="border-0 p-0 shadow-none bg-transparent"
+                />
+              ) : view === "qr" ? (
                 <QRPairingPanel
                   onSuccess={onClose}
                   onCancel={() => setView("select")}
