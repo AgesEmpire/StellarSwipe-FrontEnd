@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SignalBadge } from "@/components/SignalBadge";
 import { SignalTimestamp } from "@/components/SignalTimestamp";
+import { SignalQuoteMeta } from "@/components/SignalQuoteMeta";
 import { TradeSkeleton } from "@/components/TradeSkeleton";
 import { TradeModal } from "@/components/TradeModal";
 import { SignalConflictNotice, type SignalConflictReason } from "@/components/SignalConflictNotice";
@@ -137,6 +138,7 @@ export function SignalCard({
     ? new Date(signalData.lastUpdated)
     : null;
   const hasSignalRevision = signalData?.hasRevision ?? false;
+  const signalQuote = signalData?.quote;
   const badgeSignal =
     signalAction === "BUY" ? "BUY" : signalAction === "SELL" ? "SELL" : "NEUTRAL";
 
@@ -521,6 +523,15 @@ export function SignalCard({
 
             {conflictReason && (
               <SignalConflictNotice reason={conflictReason} onRefresh={onPass} onChooseAnother={onPass} />
+            )}
+
+            {signalQuote && (
+              <SignalQuoteMeta
+                quote={signalQuote}
+                formattedPrice={
+                  signalQuote.price === null ? null : fmt(signalQuote.price)
+                }
+              />
             )}
 
             <div className="flex items-center justify-between text-xs text-muted-foreground">
