@@ -44,6 +44,9 @@ interface ExportPreviewDialogProps {
    */
   onAdjustSettings?: () => void;
   adjustSettingsLabel?: string;
+  /** Optional action that closes the dialog so the user can change options. */
+  editLabel?: string;
+  onEdit?: () => void;
   onConfirm: () => Promise<void> | void;
 }
 
@@ -114,6 +117,8 @@ export function ExportPreviewDialog({
   warnings = [],
   blockingErrors = [],
   cancelLabel = "Cancel",
+  editLabel,
+  onEdit,
   onAdjustSettings,
   adjustSettingsLabel = "Adjust settings",
   onConfirm,
@@ -211,16 +216,17 @@ export function ExportPreviewDialog({
         )}
 
         <DialogFooter>
-          {onAdjustSettings && (
+          {editLabel && onEdit && (
             <Button
               variant="ghost"
               onClick={() => {
+                if (state === "working") return;
+                onEdit();
                 handleOpenChange(false);
-                onAdjustSettings();
               }}
               disabled={state === "working"}
             >
-              {adjustSettingsLabel}
+              {editLabel}
             </Button>
           )}
           <Button
