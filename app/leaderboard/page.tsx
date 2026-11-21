@@ -491,6 +491,13 @@ function LeaderboardPageInner() {
       : address;
   };
 
+  // #1042: sort state announced to assistive tech via aria-sort on the
+  // corresponding column header.
+  const ariaSortFor = (field?: SortField): "ascending" | "descending" | "none" => {
+    if (!field || field !== sortField) return "none";
+    return sortDirection === "asc" ? "ascending" : "descending";
+  };
+
   const cellStyle = (key: ColumnKey): CSSProperties | undefined => {
     if (!pinned.includes(key)) return undefined;
     const isLastPinned = pinned[pinned.length - 1] === key;
@@ -666,13 +673,23 @@ function LeaderboardPageInner() {
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+          <table
+            className="w-full min-w-[640px] border-collapse text-left text-sm"
+            aria-label={`Provider leaderboard, ${TIME_RANGE_TABS.find((t) => t.value === timeRange)?.label ?? timeRange} rankings`}
+          >
+            <caption className="sr-only">
+              Provider rankings for the selected time range, sorted by{" "}
+              {COLUMNS.find((c) => c.sortField === sortField)?.label ?? sortField}{" "}
+              in {sortDirection === "asc" ? "ascending" : "descending"} order.
+              Page {currentPage} of {totalPages}.
+            </caption>
             <thead>
               <tr className="border-b border-white/10">
                 {COLUMNS.map((col) => (
                   <th
                     key={col.key}
                     scope="col"
+                    aria-sort={ariaSortFor(col.sortField)}
                     style={cellStyle(col.key)}
                     className={cn(
                       "px-4 py-3 font-medium text-white/60",
@@ -691,6 +708,7 @@ function LeaderboardPageInner() {
                           type="button"
                           onClick={() => handleSort(col.sortField as SortField)}
                           className="inline-flex items-center gap-1 transition hover:text-white"
+                          aria-label={`Sort by ${col.label}`}
                         >
                           {col.label}
                           {sortField === col.sortField &&
@@ -738,7 +756,8 @@ function LeaderboardPageInner() {
                     className="px-4 py-3 text-white"
                     style={cellStyle("provider")}
                   >
-                    {truncateAddress(provider.address)}
+                    <span aria-hidden="true">{truncateAddress(provider.address)}</span>
+                    <span className="sr-only">{provider.address}</span>
                   </td>
                   <td
                     className="px-4 py-3 text-right text-white/70"
@@ -752,6 +771,7 @@ function LeaderboardPageInner() {
                   >
                     {provider.winRate}%
                   </td>
+
                   <td
                     className="px-4 py-3 text-right text-white/70"
                     style={cellStyle("recentPerformance")}
