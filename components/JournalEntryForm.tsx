@@ -15,6 +15,7 @@ import { useKeyboardInset, useKeepFocusedFieldVisible } from "@/hooks/useKeyboar
 import { JournalTagPicker } from "@/components/JournalTagPicker";
 import { useJournalDraftStore } from "@/store/useJournalDraftStore";
 import { findJournalEntryByHash } from "@/lib/journalFromTransaction";
+import { JOURNAL_TEMPLATES, applyJournalTemplate } from "@/lib/journalTemplates";
 
 type AutosaveStatus = "idle" | "saving" | "saved" | "offline" | "failed";
 
@@ -102,6 +103,9 @@ export function JournalEntryForm({
     tags: editEntry?.tags ?? [],
   });
   const [tagInput, setTagInput] = useState("");
+  // Template the current draft was started from (#1061). Purely informational:
+  // applying a template only pre-fills fields, it never saves anything.
+  const [templateId, setTemplateId] = useState("");
 
   // Transaction this draft was started from (#1118). Kept in a ref for the
   // submit callbacks and mirrored in state for the banner.
@@ -249,6 +253,7 @@ export function JournalEntryForm({
   const resetForm = useCallback(() => {
     linkedRef.current = null;
     setLinkedInfo(null);
+    setTemplateId("");
     setFormData({
       date: new Date().toISOString().split("T")[0],
       type: "MANUAL",
@@ -266,6 +271,24 @@ export function JournalEntryForm({
     setRecoverableDraft(null);
     clearDraft(draftKey);
   }, [draftKey]);
+
+  /**
+   * Pre-fills the editor from a starter template (#1061). Only the fields the
+   * template defines are written; nothing is submitted and no existing entry
+   * is modified — the user still edits and saves the entry themselves.
+   */
+  const applyTemplate = useCallback(
+    (id: string) => {
+      const template = JOURNAL_TEMPLATES.find((t) => t.id === id);
+      if (!template) return;
+      setFormData((prev) => applyJournalTemplate(template, prev));
+      setTemplateId(template.id);
+      setErrors({});
+      setSubmitted(false);
+      setIsDirty(true);
+    },
+    []
+  );
 
   // ------------------------------------------------------------------
   // Core submission logic (extracted so retry does not reuse events)
@@ -686,6 +709,30 @@ export function JournalEntryForm({
         request is sent regardless of which path triggered submission.
       */}
       <form ref={formRef} id="journal-entry-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1 sm:col-span-2">
+          <label htmlFor="journal-entry-template" className="text-xs font-medium text-slate-400">
+            Start from a template
+          </label>
+          <select
+            id="journal-entry-template"
+            value={templateId}
+            onChange={(e) => applyTemplate(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            disabled={isSubmitting}
+            aria-describedby="journal-entry-template-hint"
+          >
+            <option value="">Blank entry</option>
+            {JOURNAL_TEMPLATES.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name} — {template.description}
+              </option>
+            ))}
+          </select>
+          <p id="journal-entry-template-hint" className="text-[10px] text-slate-500">
+            Applying a template only fills in the fields below. Nothing is saved
+            until you press Save.
+          </p>
+        </div>
         <div className="space-y-1">
           <label htmlFor="journal-entry-date" className="text-xs font-medium text-slate-400">Date</label>
           <input
