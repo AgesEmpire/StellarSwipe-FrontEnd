@@ -2,7 +2,15 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
-import { journalEntrySchema, normalizeJournalTags, type JournalEntry } from "@/lib/journalSchema";
+import {
+  journalEntrySchema,
+  normalizeJournalTags,
+  normalizeJournalLinks,
+  isSafeJournalLinkUrl,
+  MAX_JOURNAL_LINKS,
+  type JournalEntry,
+  type JournalReferenceLink,
+} from "@/lib/journalSchema";
 import {
   createJournalEntry,
   updateJournalEntry,
@@ -106,8 +114,12 @@ export function JournalEntryForm({
     outcome: (editEntry?.outcome as JournalEntry["outcome"]) || "PENDING",
     notes: editEntry?.notes ?? "",
     tags: editEntry?.tags ?? [],
+    links: editEntry?.links ?? [],
   });
   const [tagInput, setTagInput] = useState("");
+  // Reference links (#1064): the row being typed plus its inline errors.
+  const [linkDraft, setLinkDraft] = useState<JournalReferenceLink>({ label: "", url: "" });
+  const [linkErrors, setLinkErrors] = useState<{ label?: string; url?: string }>({});
   // Template the current draft was started from (#1061). Purely informational:
   // applying a template only pre-fills fields, it never saves anything.
   const [templateId, setTemplateId] = useState("");
@@ -268,8 +280,11 @@ export function JournalEntryForm({
       status: "SUCCEEDED",
       outcome: "PENDING",
       tags: [],
+      links: [],
     });
     setTagInput("");
+    setLinkDraft({ label: "", url: "" });
+    setLinkErrors({});
     setErrors({});
     setSubmitted(false);
     setSubmitError(null);
