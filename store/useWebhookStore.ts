@@ -1,14 +1,19 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { AUDIT_ACTIONS, recordAuditEntry } from "@/services/auditTrail";
 
-export type WebhookEventType = 'new_signal' | 'trade_execution' | 'portfolio_alert';
+export type WebhookEventType =
+  | "new_signal"
+  | "trade_execution"
+  | "portfolio_alert";
 
 export interface WebhookDelivery {
   id: string;
   timestamp: string;
-  status: 'success' | 'failed';
+  status: "success" | "failed";
   statusCode?: number;
   error?: string;
+  attemptNumber?: number;
 }
 
 export interface Webhook {
@@ -19,6 +24,8 @@ export interface Webhook {
   createdAt: string;
   deliveries: WebhookDelivery[];
   rateLimit: number; // remaining calls this minute
+  maxRetries: number;
+  backoffInterval: number; // base backoff in milliseconds
 }
 
 interface WebhookStore {
@@ -29,12 +36,19 @@ interface WebhookStore {
   recordDelivery: (webhookId: string, delivery: WebhookDelivery) => void;
   decrementRateLimit: (id: string) => void;
   resetRateLimits: () => void;
+  updateRetryConfig: (
+    id: string,
+    maxRetries: number,
+    backoffInterval: number
+  ) => void;
 }
 
 function generateSecret(): string {
   const arr = new Uint8Array(20);
-  if (typeof crypto !== 'undefined') crypto.getRandomValues(arr);
-  return Array.from(arr).map((b) => b.toString(16).padStart(2, '0')).join('');
+  if (typeof crypto !== "undefined") crypto.getRandomValues(arr);
+  return Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export const useWebhookStore = create<WebhookStore>()(
@@ -51,13 +65,30 @@ export const useWebhookStore = create<WebhookStore>()(
           createdAt: new Date().toISOString(),
           deliveries: [],
           rateLimit: 60,
+          maxRetries: 3,
+          backoffInterval: 1000,
         };
+        // Sensitive change — audit the registration. The generated secret is
+        // deliberately excluded.
+        recordAuditEntry({
+          actor: 'system',
+          action: AUDIT_ACTIONS.WEBHOOK_CREATED,
+          target: webhook.id,
+          metadata: { url, events },
+        });
         set((s) => ({ webhooks: [...s.webhooks, webhook] }));
         return webhook;
       },
 
-      removeWebhook: (id) =>
-        set((s) => ({ webhooks: s.webhooks.filter((w) => w.id !== id) })),
+      removeWebhook: (id) => {
+        // Sensitive change — audit the removal (webhook id, not the secret).
+        recordAuditEntry({
+          actor: 'system',
+          action: AUDIT_ACTIONS.WEBHOOK_DELETED,
+          target: id,
+        });
+        set((s) => ({ webhooks: s.webhooks.filter((w) => w.id !== id) }));
+      },
 
       updateEvents: (id, events) =>
         set((s) => ({
@@ -81,8 +112,17 @@ export const useWebhookStore = create<WebhookStore>()(
         })),
 
       resetRateLimits: () =>
-        set((s) => ({ webhooks: s.webhooks.map((w) => ({ ...w, rateLimit: 60 })) })),
+        set((s) => ({
+          webhooks: s.webhooks.map((w) => ({ ...w, rateLimit: 60 })),
+        })),
+
+      updateRetryConfig: (id, maxRetries, backoffInterval) =>
+        set((s) => ({
+          webhooks: s.webhooks.map((w) =>
+            w.id === id ? { ...w, maxRetries, backoffInterval } : w
+          ),
+        })),
     }),
-    { name: 'stellarswipe:webhooks' }
+    { name: "stellarswipe:webhooks" }
   )
 );

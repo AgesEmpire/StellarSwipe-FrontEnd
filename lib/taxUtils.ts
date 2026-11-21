@@ -8,12 +8,57 @@ export interface TaxRate {
 
 export const TAX_RATES: Record<TaxJurisdiction, TaxRate> = {
   US: { shortTerm: 0.22, longTerm: 0.15, label: "United States" },
-  UK: { shortTerm: 0.20, longTerm: 0.20, label: "United Kingdom" },
+  UK: { shortTerm: 0.2, longTerm: 0.2, label: "United Kingdom" },
   EU: { shortTerm: 0.25, longTerm: 0.25, label: "European Union" },
   CA: { shortTerm: 0.265, longTerm: 0.1325, label: "Canada" },
 };
 
 export const LONG_TERM_THRESHOLD_DAYS = 365;
+
+/**
+ * Timezone used to interpret tax-year boundaries (#1060). Tax years are
+ * calendar years in the reporting timezone, not in the user's local timezone,
+ * so review, report and exports all agree on which year a trade falls in.
+ */
+export const TAX_REPORTING_TIME_ZONE = "UTC";
+
+/** Calendar year of an instant in the reporting timezone. */
+export function taxYearOf(
+  timestamp: number,
+  timeZone: string = TAX_REPORTING_TIME_ZONE
+): number {
+  return Number(
+    new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric" }).format(
+      new Date(timestamp)
+    )
+  );
+}
+
+/** `YYYY-MM-DD` calendar date of an instant in the reporting timezone. */
+export function taxDateKey(
+  timestamp: number,
+  timeZone: string = TAX_REPORTING_TIME_ZONE
+): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** Inclusive start / exclusive end instants of a tax year in the reporting timezone. */
+export function taxYearBounds(
+  year: number,
+  timeZone: string = TAX_REPORTING_TIME_ZONE
+): { start: number; end: number } {
+  return {
+    start: Date.parse(`${year}-01-01T00:00:00Z`),
+    end: Date.parse(`${year + 1}-01-01T00:00:00Z`),
+  };
+}
 
 export interface TaxableTransaction {
   id: string;
@@ -26,6 +71,19 @@ export interface TaxableTransaction {
   acquisitionDate?: number;
   foreignCurrency?: string;
   conversionRate?: number;
+  /** Where the conversion rate came from (an exchange or oracle name), when known. */
+  conversionRateSource?: string;
+  /** When the rate was looked up (epoch ms), when known. Distinct from the transaction time. */
+  conversionRateLookupTimestamp?: number;
+  /** Origin details used to identify the record during review (#894). */
+  source?: TaxTransactionSource;
+}
+
+export interface TaxTransactionSource {
+  /** On-chain transaction hash, when known. */
+  hash?: string;
+  /** How the trade was placed, e.g. COPY_TRADE, SWAP, MANUAL. */
+  type?: string;
 }
 
 export interface TaxEntry {
@@ -40,6 +98,8 @@ export interface TaxEntry {
   date: Date;
   foreignCurrency?: string;
   conversionRate?: number;
+  conversionRateSource?: string;
+  conversionRateLookupTimestamp?: number;
 }
 
 export interface TaxReport {
@@ -81,15 +141,19 @@ export function computeTaxReport(
   jurisdiction: TaxJurisdiction
 ): TaxReport {
   const rates = TAX_RATES[jurisdiction];
-  const startOfYear = new Date(year, 0, 1).getTime();
-  const endOfYear = new Date(year + 1, 0, 1).getTime();
+  const { start: startOfYear, end: endOfYear } = taxYearBounds(year);
 
   const yearTransactions = transactions.filter(
     (tx) => tx.timestamp >= startOfYear && tx.timestamp < endOfYear
   );
 
   const entries: TaxEntry[] = yearTransactions.map((tx) => {
-    const gainLoss = computeGainLoss(tx.buyPrice, tx.sellPrice, tx.amount, tx.fee);
+    const gainLoss = computeGainLoss(
+      tx.buyPrice,
+      tx.sellPrice,
+      tx.amount,
+      tx.fee
+    );
     const longTerm = tx.acquisitionDate
       ? isLongTermHolding(tx.acquisitionDate, tx.timestamp)
       : false;
@@ -105,6 +169,8 @@ export function computeTaxReport(
       date: new Date(tx.timestamp),
       foreignCurrency: tx.foreignCurrency,
       conversionRate: tx.conversionRate,
+      conversionRateSource: tx.conversionRateSource,
+      conversionRateLookupTimestamp: tx.conversionRateLookupTimestamp,
     };
   });
 
@@ -147,32 +213,117 @@ export function computeTaxReport(
   };
 }
 
+export type CsvPreset = "generic" | "cointracker" | "koinly";
+
+export interface CsvPresetDefinition {
+  label: string;
+  headers: string[];
+  row: (e: TaxEntry) => string[];
+}
+
+export const CSV_PRESETS: Record<CsvPreset, CsvPresetDefinition> = {
+  generic: {
+    label: "Generic Spreadsheet",
+    headers: [
+      "Date",
+      "Asset Pair",
+      "Amount",
+      "Cost Basis (USD)",
+      "Proceeds (USD)",
+      "Gain/Loss (USD)",
+      "Fees (USD)",
+      "Term",
+      "Foreign Currency",
+      "Conversion Rate",
+    ],
+    row: (e) => [
+      taxDateKey(e.date.getTime()),
+      e.assetPair,
+      e.amount.toFixed(6),
+      e.costBasis.toFixed(2),
+      e.proceeds.toFixed(2),
+      e.gainLoss.toFixed(2),
+      e.fees.toFixed(4),
+      e.isLongTerm ? "Long-term" : "Short-term",
+      e.foreignCurrency ?? "",
+      e.conversionRate != null ? e.conversionRate.toFixed(6) : "",
+    ],
+  },
+  cointracker: {
+    label: "CoinTracker",
+    headers: [
+      "Date",
+      "Received Quantity",
+      "Received Currency",
+      "Sent Quantity",
+      "Sent Currency",
+      "Fee Amount",
+      "Fee Currency",
+      "Tag",
+    ],
+    row: (e) => {
+      const [base, quote] = e.assetPair.split("/");
+      return [
+        taxDateKey(e.date.getTime()),
+        e.proceeds.toFixed(2),
+        quote ?? "USD",
+        e.amount.toFixed(6),
+        base ?? e.assetPair,
+        e.fees.toFixed(4),
+        quote ?? "USD",
+        e.isLongTerm ? "long-term" : "short-term",
+      ];
+    },
+  },
+  koinly: {
+    label: "Koinly",
+    headers: [
+      "Date",
+      "Sent Amount",
+      "Sent Currency",
+      "Received Amount",
+      "Received Currency",
+      "Fee Amount",
+      "Fee Currency",
+      "Net Worth Amount",
+      "Net Worth Currency",
+      "Label",
+      "Description",
+      "TxHash",
+    ],
+    row: (e) => {
+      const [base, quote] = e.assetPair.split("/");
+      return [
+        e.date.toISOString(),
+        e.amount.toFixed(6),
+        base ?? e.assetPair,
+        e.proceeds.toFixed(2),
+        quote ?? "USD",
+        e.fees.toFixed(4),
+        quote ?? "USD",
+        e.proceeds.toFixed(2),
+        quote ?? "USD",
+        "",
+        e.assetPair,
+        e.id,
+      ];
+    },
+  },
+};
+
+export function exportToCsvWithPreset(
+  report: TaxReport,
+  preset: CsvPreset = "generic"
+): string {
+  const { headers, row } = CSV_PRESETS[preset];
+  const rows = report.entries.map(row);
+  return [headers, ...rows]
+    .map((r) => r.map((v) => `"${v}"`).join(","))
+    .join("\n");
+}
+
 export function exportToCsv(report: TaxReport): string {
-  const headers = [
-    "Date",
-    "Asset Pair",
-    "Amount",
-    "Cost Basis (USD)",
-    "Proceeds (USD)",
-    "Gain/Loss (USD)",
-    "Fees (USD)",
-    "Term",
-    "Foreign Currency",
-    "Conversion Rate",
-  ];
-  const rows = report.entries.map((e) => [
-    e.date.toISOString().split("T")[0],
-    e.assetPair,
-    e.amount.toFixed(6),
-    e.costBasis.toFixed(2),
-    e.proceeds.toFixed(2),
-    e.gainLoss.toFixed(2),
-    e.fees.toFixed(4),
-    e.isLongTerm ? "Long-term" : "Short-term",
-    e.foreignCurrency ?? "",
-    e.conversionRate != null ? e.conversionRate.toFixed(6) : "",
-  ]);
-  return [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+  return exportToCsvWithPreset(report, "generic");
 }
 
 export function formatForTurboTax(report: TaxReport): string {
@@ -186,7 +337,7 @@ export function formatForTurboTax(report: TaxReport): string {
     lines.push(
       "TD",
       `N${e.assetPair}`,
-      `D${e.date.toLocaleDateString("en-US")}`,
+      `D${taxDateKey(e.date.getTime())}`,
       `$${e.proceeds.toFixed(2)}`,
       `$${e.costBasis.toFixed(2)}`,
       "^"
@@ -207,15 +358,21 @@ export function formatForTaxAct(report: TaxReport): string {
   const rows = report.entries.map((e) => [
     e.assetPair,
     "Various",
-    e.date.toISOString().split("T")[0],
+    taxDateKey(e.date.getTime()),
     e.proceeds.toFixed(2),
     e.costBasis.toFixed(2),
     e.gainLoss.toFixed(2),
   ]);
-  return [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+  return [headers, ...rows]
+    .map((r) => r.map((v) => `"${v}"`).join(","))
+    .join("\n");
 }
 
-export function triggerDownload(content: string, filename: string, mimeType: string): void {
+export function triggerDownload(
+  content: string,
+  filename: string,
+  mimeType: string
+): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -223,4 +380,82 @@ export function triggerDownload(content: string, filename: string, mimeType: str
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// Multi-year comparison utilities (#351)
+// ---------------------------------------------------------------------------
+
+export interface MultiYearSummaryRow {
+  year: number;
+  totalGainLoss: number;
+  shortTermGains: number;
+  longTermGains: number;
+  shortTermLosses: number;
+  longTermLosses: number;
+  totalFees: number;
+  estimatedTaxLiability: number;
+  tradeCount: number;
+}
+
+/**
+ * Computes a summary row for each supplied year so callers can drive a
+ * multi-year comparison table or chart.
+ */
+export function computeMultiYearSummary(
+  transactions: TaxableTransaction[],
+  years: number[],
+  jurisdiction: TaxJurisdiction
+): MultiYearSummaryRow[] {
+  return years.map((year) => {
+    const report = computeTaxReport(transactions, year, jurisdiction);
+    return {
+      year,
+      totalGainLoss: report.totalGainLoss,
+      shortTermGains: report.shortTermGains,
+      longTermGains: report.longTermGains,
+      shortTermLosses: report.shortTermLosses,
+      longTermLosses: report.longTermLosses,
+      totalFees: report.totalFees,
+      estimatedTaxLiability: report.estimatedTaxLiability,
+      tradeCount: report.entries.length,
+    };
+  });
+}
+
+/**
+ * Exports a multi-year comparison summary as CSV.
+ * The resulting file clearly labels each row by year.
+ */
+export function exportMultiYearCsv(
+  rows: MultiYearSummaryRow[],
+  jurisdiction: TaxJurisdiction
+): string {
+  const headers = [
+    "Tax Year",
+    "Jurisdiction",
+    "Net Gain/Loss (USD)",
+    "Short-Term Gains (USD)",
+    "Long-Term Gains (USD)",
+    "Short-Term Losses (USD)",
+    "Long-Term Losses (USD)",
+    "Total Fees (USD)",
+    "Est. Tax Liability (USD)",
+    "Trade Count",
+  ];
+  const dataRows = rows.map((r) => [
+    String(r.year),
+    jurisdiction,
+    r.totalGainLoss.toFixed(2),
+    r.shortTermGains.toFixed(2),
+    r.longTermGains.toFixed(2),
+    r.shortTermLosses.toFixed(2),
+    r.longTermLosses.toFixed(2),
+    r.totalFees.toFixed(4),
+    r.estimatedTaxLiability.toFixed(2),
+    String(r.tradeCount),
+  ]);
+  return [headers, ...dataRows]
+    .map((row) => row.map((v) => `"${v}"`).join(","))
+    .join("\n");
 }

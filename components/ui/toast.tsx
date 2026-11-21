@@ -1,14 +1,16 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { useToastStore, type ToastMessage } from "@/store/useToastStore";
 import { cn } from "@/lib/utils";
 
 const toneStyles: Record<ToastMessage["tone"], string> = {
-  success: "border-accent-success/30 bg-accent-success/10 text-foreground shadow-sm",
-  error:   "border-accent-danger/30  bg-accent-danger/10  text-foreground shadow-sm",
-  info:    "border-accent-sky/30     bg-accent-sky/10     text-foreground shadow-sm",
+  success:
+    "border-accent-success/30 bg-accent-success/10 text-foreground shadow-sm",
+  error:
+    "border-accent-danger/30  bg-accent-danger/10  text-foreground shadow-sm",
+  info: "border-accent-sky/30     bg-accent-sky/10     text-foreground shadow-sm",
 };
 
 const toneIcons: Record<ToastMessage["tone"], typeof CheckCircle2> = {
@@ -54,13 +56,16 @@ const toneIcons: Record<ToastMessage["tone"], typeof CheckCircle2> = {
  * @see {@link https://storybook.stellarswipe.dev/?path=/docs/ui-toastprovider--docs Storybook — ToastProvider}
  */
 export function ToastProvider() {
+  const prefersReducedMotion = useReducedMotion();
   const toasts = useToastStore((state) => state.toasts);
   const dismiss = useToastStore((state) => state.dismiss);
+  const pause = useToastStore((state) => state.pause);
+  const resume = useToastStore((state) => state.resume);
 
   return (
     <div
       aria-live="polite"
-      className="fixed inset-x-0 bottom-4 z-toast mx-auto flex max-w-[min(92vw,420px)] flex-col items-center gap-3 px-4 sm:bottom-auto sm:top-4 sm:right-4 sm:left-auto sm:mx-0 sm:items-end"
+      className="pointer-events-none fixed inset-x-0 bottom-4 z-toast mx-auto flex max-w-[min(92vw,420px)] flex-col items-center gap-3 px-4 sm:bottom-auto sm:top-4 sm:right-4 sm:left-auto sm:mx-0 sm:items-end"
     >
       <AnimatePresence initial={false} mode="popLayout">
         {toasts.map((toast) => {
@@ -71,15 +76,23 @@ export function ToastProvider() {
             <motion.div
               key={toast.id}
               layout
-              initial={{ opacity: 0, y: 16, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.98 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              role="status"
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.98 }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+              exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 16, scale: 0.98 }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.25, ease: "easeOut" }}
+              role={toast.tone === "error" ? "alert" : "status"}
               aria-live={ariaLive}
+              onMouseEnter={() => pause(toast.id)}
+              onMouseLeave={() => resume(toast.id)}
+              onFocus={() => pause(toast.id)}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  resume(toast.id);
+                }
+              }}
               aria-atomic="true"
               className={cn(
-                "w-full overflow-hidden rounded-2xl border p-4 shadow-lg",
+                "pointer-events-auto w-full overflow-hidden break-words rounded-2xl border p-4 shadow-lg",
                 toneStyles[toast.tone]
               )}
             >
@@ -111,7 +124,7 @@ export function ToastProvider() {
                           toast.action?.onClick();
                           dismiss(toast.id);
                         }}
-                        className="rounded-full border border-current/20 px-2.5 py-1 text-current hover:bg-current/10 transition-colors"
+                        className="rounded-full border border-current/20 px-2.5 py-1 text-current hover:bg-current/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/50"
                       >
                         {toast.action.label}
                       </button>

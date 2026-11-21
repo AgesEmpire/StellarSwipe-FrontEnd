@@ -60,7 +60,9 @@ export function CopyField({
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       {label && (
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
       )}
       <div
         className={cn(
@@ -71,6 +73,15 @@ export function CopyField({
           className="flex-1 truncate font-mono text-sm text-foreground"
           title={value}
           aria-label={value}
+          tabIndex={0}
+          onFocus={(e) => {
+            const selection = window.getSelection();
+            if (!selection) return;
+            const range = document.createRange();
+            range.selectNodeContents(e.currentTarget);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }}
         >
           {display}
         </span>

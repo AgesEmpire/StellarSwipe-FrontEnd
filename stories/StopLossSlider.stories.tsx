@@ -23,15 +23,30 @@ export default meta;
 type Story = StoryObj<typeof StopLossSlider>;
 
 export const LowRisk: Story = {
-  args: { value: 5, onChange: () => {}, entryPrice: 0.1234, assetSymbol: "XLM" },
+  args: {
+    value: 5,
+    onChange: () => {},
+    entryPrice: 0.1234,
+    assetSymbol: "XLM",
+  },
 };
 
 export const ModerateRisk: Story = {
-  args: { value: 20, onChange: () => {}, entryPrice: 0.1234, assetSymbol: "XLM" },
+  args: {
+    value: 20,
+    onChange: () => {},
+    entryPrice: 0.1234,
+    assetSymbol: "XLM",
+  },
 };
 
 export const HighRisk: Story = {
-  args: { value: 60, onChange: () => {}, entryPrice: 0.1234, assetSymbol: "XLM" },
+  args: {
+    value: 60,
+    onChange: () => {},
+    entryPrice: 0.1234,
+    assetSymbol: "XLM",
+  },
 };
 
 export const NoStopLoss: Story = {

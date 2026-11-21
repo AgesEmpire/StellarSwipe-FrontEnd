@@ -2,7 +2,10 @@ import { SignalCardSkeleton } from "@/components/SignalCardSkeleton";
 
 export default function AppLoading() {
   return (
-    <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground">
+    <main
+      className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8 lg:px-8 text-foreground"
+      aria-hidden="true"
+    >
       <header className="mx-auto mb-6 flex w-full max-w-7xl items-center justify-between sm:mb-8">
         <div className="h-7 w-32 animate-pulse rounded-lg bg-surface-high" />
         <div className="h-9 w-24 animate-pulse rounded-lg bg-surface-high" />
@@ -17,6 +20,10 @@ export default function AppLoading() {
               ))}
             </div>
           </div>
+          <aside className="hidden flex-col gap-4 md:flex">
+            <div className="h-64 w-full animate-pulse rounded-3xl bg-surface-high" />
+            <div className="h-40 w-full animate-pulse rounded-3xl bg-surface-high" />
+          </aside>
         </div>
       </div>
     </main>

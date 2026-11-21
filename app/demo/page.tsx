@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { StopLossSlider } from "@/components/ui/stop-loss-slider";
 import { CopyField } from "@/components/ui/copy-field";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -17,22 +17,21 @@ export default function DemoPage() {
     useStopLoss({ initialValue: 5, entryPrice: ENTRY_PRICE });
 
   const [modalOpen, setModalOpen] = useState(false);
+  const prefersReduced = useReducedMotion();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4 sm:gap-10 sm:p-8">
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -20 }}
+        animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
+        transition={prefersReduced ? { duration: 0 } : { duration: 0.4 }}
         className="w-full max-w-md space-y-6 sm:space-y-10"
       >
         <h1 className="text-2xl font-bold tracking-tight">Component Demo</h1>
 
         {/* ── Issue #22: Stop-Loss Slider ─────────────────────────────── */}
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-4 sm:p-6">
-          <h2 className="text-base font-semibold">
-            #22 — Stop-Loss Slider
-          </h2>
+          <h2 className="text-base font-semibold">#22 — Stop-Loss Slider</h2>
 
           <StopLossSlider
             value={stopLossPercent}
@@ -66,8 +65,9 @@ export default function DemoPage() {
 
           {modalOpen && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={prefersReduced ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
+              animate={prefersReduced ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+              transition={prefersReduced ? { duration: 0 } : undefined}
               className="rounded-lg border border-border bg-muted/40 p-4 space-y-3"
             >
               <p className="text-xs text-muted-foreground">
@@ -85,9 +85,7 @@ export default function DemoPage() {
 
         {/* ── Issue #37: Copy-to-Clipboard ────────────────────────────── */}
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-4 sm:p-6">
-          <h2 className="text-base font-semibold">
-            #37 — Copy-to-Clipboard
-          </h2>
+          <h2 className="text-base font-semibold">#37 — Copy-to-Clipboard</h2>
 
           <CopyField
             label="Wallet Address"

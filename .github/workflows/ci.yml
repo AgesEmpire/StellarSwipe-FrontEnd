@@ -1,16 +1,58 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
   ci:
     name: Type-check, Lint & Test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Disposable, CI-only database. Never point this at production.
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      NODE_ENV: test
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Guard against production database settings
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL must be set for integration tests" >&2
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            *prod*|*production*)
+              echo "Refusing to run CI against a production database URL" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$NODE_ENV" = "production" ]; then
+            echo "Refusing to run CI with NODE_ENV=production" >&2
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -21,11 +63,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run migrations
+        run: npm run migrate
+
       - name: Type-check
         run: npx tsc --noEmit
 
       - name: Lint
         run: npm run lint
 
-      - name: Test
+      - name: Test (Jest)
         run: npm test
+
+      - name: Test (Vitest — comparison-tray suites)
+        run: npm run test:vitest
+
+      - name: Test with Coverage (Jest)
+        run: npm run test:coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+      - name: Run Knip (Dead Code Detection)
+        run: npm run knip
