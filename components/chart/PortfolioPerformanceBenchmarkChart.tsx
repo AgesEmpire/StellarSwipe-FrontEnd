@@ -46,6 +46,7 @@ import {
 } from "@/components/chart/ChartAnnotations";
 import { toDayKey, useChartAnnotations, type ChartAnnotation } from "@/hooks/useChartAnnotations";
 import { LargestDailyMovements } from "./LargestDailyMovements";
+import { PortfolioSnapshotDateBrowser } from "./PortfolioSnapshotDateBrowser";
 
 const CHART_ID = "portfolio-performance-benchmark";
 const PORTFOLIO_METRIC = "portfolio-value";
@@ -104,6 +105,7 @@ export function PortfolioPerformanceBenchmarkChart({
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
   const [selectedMovementDay, setSelectedMovementDay] = useState<number | null>(null);
+  const [selectedSnapshotDay, setSelectedSnapshotDay] = useState<number | null>(null);
   const [editor, setEditor] = useState<EditorState>(null);
   const { annotations, addAnnotation, updateAnnotation, removeAnnotation } =
     useChartAnnotations(CHART_ID);
@@ -231,14 +233,41 @@ export function PortfolioPerformanceBenchmarkChart({
     };
   }, [portfolioPoints, benchmarkPoints]);
 
+  // #1087: the summary values follow the date picked in the snapshot browser.
+  // When no date is picked (or the picked date is no longer available) the
+  // latest point is used, so the summary never shows a stale selection.
+  const selectedSnapshotIndex = useMemo(() => {
+    if (selectedSnapshotDay === null) return null;
+    const index = portfolioPoints.findIndex(
+      (point) => toDayKey(point.timestamp) === selectedSnapshotDay
+    );
+    return index === -1 ? null : index;
+  }, [portfolioPoints, selectedSnapshotDay]);
+
+  const summaryEndIndex =
+    selectedSnapshotIndex ?? portfolioPoints.length - 1;
+
+  // #1087: the browser only offers dates the chart can actually back up.
+  const availableSnapshotDays = useMemo(
+    () =>
+      Array.from(
+        new Set(portfolioPoints.map((point) => toDayKey(point.timestamp)))
+      ).sort((a, b) => b - a),
+    [portfolioPoints]
+  );
+
   const performanceDelta = useMemo(() => {
     if (portfolioPoints.length === 0 || benchmarkPoints.length === 0)
       return null;
 
     const startPortfolio = portfolioPoints[0].value;
-    const endPortfolio = portfolioPoints[portfolioPoints.length - 1].value;
+    const endPortfolio = portfolioPoints[summaryEndIndex].value;
     const startBenchmark = benchmarkPoints[0].value;
-    const endBenchmark = benchmarkPoints[benchmarkPoints.length - 1].value;
+    const endBenchmarkIndex = Math.min(
+      summaryEndIndex,
+      benchmarkPoints.length - 1
+    );
+    const endBenchmark = benchmarkPoints[endBenchmarkIndex].value;
 
     const portfolioReturn =
       ((endPortfolio - startPortfolio) / startPortfolio) * 100;
@@ -252,7 +281,7 @@ export function PortfolioPerformanceBenchmarkChart({
         (portfolioReturn - benchmarkReturn).toFixed(2)
       ),
     };
-  }, [portfolioPoints, benchmarkPoints]);
+  }, [portfolioPoints, benchmarkPoints, summaryEndIndex]);
 
   // Pairs each portfolio point with the benchmark point closest in time, so
   // the active point can be compared against the benchmark.
@@ -322,8 +351,23 @@ export function PortfolioPerformanceBenchmarkChart({
     setSelectedPointIndex(null);
   }, [rangePoints]);
 
+  // Drop a snapshot selection that no longer exists in the current range so
+  // the summary never reports a date the chart cannot back up.
+  useEffect(() => {
+    if (selectedSnapshotDay === null) return;
+    const stillAvailable = portfolioPoints.some(
+      (point) => toDayKey(point.timestamp) === selectedSnapshotDay
+    );
+    if (!stillAvailable) setSelectedSnapshotDay(null);
+  }, [portfolioPoints, selectedSnapshotDay]);
+
   const selectedPoint =
     selectedPointIndex !== null ? chartData.portfolioPts[selectedPointIndex] ?? null : null;
+
+  const selectedSnapshotPoint =
+    selectedSnapshotIndex !== null
+      ? portfolioPoints[selectedSnapshotIndex] ?? null
+      : null;
 
   // Handle selection from LargestDailyMovements component
   const handleSelectMovement = useCallback(
@@ -760,7 +804,11 @@ export function PortfolioPerformanceBenchmarkChart({
             </div>
             <div className="mt-3 grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-foreground-muted">Portfolio return</span>
+                <span className="text-foreground-muted">
+                  {selectedSnapshotIndex !== null
+                    ? "Portfolio return to selected date"
+                    : "Portfolio return"}
+                </span>
                 <p
                   className={cn(
                     "font-mono",
@@ -775,7 +823,11 @@ export function PortfolioPerformanceBenchmarkChart({
               </div>
               {showBenchmark ? (
                 <div>
-                  <span className="text-foreground-muted">XLM return</span>
+                  <span className="text-foreground-muted">
+                    {selectedSnapshotIndex !== null
+                      ? "XLM return to selected date"
+                      : "XLM return"}
+                  </span>
                   <p className="font-mono text-blue-400">
                     {performanceDelta.benchmarkReturn >= 0 ? "+" : ""}
                     {performanceDelta.benchmarkReturn}%
@@ -784,7 +836,11 @@ export function PortfolioPerformanceBenchmarkChart({
               ) : (
                 <div aria-hidden="true" className="opacity-0 select-none">
                   {/* Placeholder to preserve grid layout when benchmark is hidden */}
-                  <span className="text-foreground-muted">XLM return</span>
+                  <span className="text-foreground-muted">
+                    {selectedSnapshotIndex !== null
+                      ? "XLM return to selected date"
+                      : "XLM return"}
+                  </span>
                   <p className="font-mono">—</p>
                 </div>
               )}
@@ -794,9 +850,13 @@ export function PortfolioPerformanceBenchmarkChart({
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-foreground-muted">
           <span aria-live="polite">
-            {selectedPoint
-              ? `Selected: ${formatAnnotationDate(toDayKey(selectedPoint.timestamp))}`
-              : "Select a point to add a note."}
+            {selectedSnapshotPoint
+              ? `Snapshot date: ${formatAnnotationDate(
+                  toDayKey(selectedSnapshotPoint.timestamp)
+                )} · $${selectedSnapshotPoint.value.toFixed(2)}`
+              : selectedPoint
+                ? `Selected: ${formatAnnotationDate(toDayKey(selectedPoint.timestamp))}`
+                : "Select a point to add a note."}
           </span>
           <AddAnnotationButton
             disabled={!selectedPoint || editor !== null}
@@ -830,6 +890,13 @@ export function PortfolioPerformanceBenchmarkChart({
         )}
 
         {/* Largest Daily Movements */}
+        <PortfolioSnapshotDateBrowser
+          availableDays={availableSnapshotDays}
+          selectedDay={selectedSnapshotDay}
+          onSelectDay={setSelectedSnapshotDay}
+          className="mt-3"
+        />
+
         <LargestDailyMovements
           portfolioHistory={portfolioPoints}
           chartPortfolioPts={chartData.portfolioPts}
