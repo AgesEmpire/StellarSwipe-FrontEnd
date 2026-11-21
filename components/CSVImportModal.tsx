@@ -15,7 +15,13 @@ import {
   loadCSVImportDraft,
   clearCSVImportDraft,
   fileMatchesDraft,
+  loadSavedMappings,
+  saveMapping,
+  updateSavedMapping,
+  deleteSavedMapping,
+  findMissingColumns,
   type CSVImportDraft,
+  type SavedCSVColumnMapping,
 } from "@/lib/csvImportDraft";
 import { DuplicateResolutionStep, type DuplicateGroup, type DuplicateResolution } from "@/components/DuplicateResolutionStep";
 import {
@@ -70,6 +76,15 @@ export function CSVImportModal() {
   const [duplicateResolutions, setDuplicateResolutions] = useState<
     Record<string, DuplicateResolution>
   >({});
+  // #1065 — saved named column mappings
+  const [savedMappings, setSavedMappings] = useState<SavedCSVColumnMapping[]>(
+    []
+  );
+  const [mappingName, setMappingName] = useState("");
+  const [activeMappingId, setActiveMappingId] = useState<string | null>(null);
+  const [missingColumns, setMissingColumns] = useState<CSVColumn[]>([]);
+  const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   const bulkAddTransactions = useTransactionStore(
     (state) => state.bulkAddTransactions
@@ -87,7 +102,73 @@ export function CSVImportModal() {
     setSummary({ imported: 0, skipped: 0 });
     setDuplicateGroups([]);
     setDuplicateResolutions({});
+    setMappingName("");
+    setActiveMappingId(null);
+    setMissingColumns([]);
+    setEditingMappingId(null);
+    setEditingName("");
   }, []);
+
+  // Load saved mappings each time the modal opens.
+  useEffect(() => {
+    if (open) {
+      setSavedMappings(loadSavedMappings());
+    }
+  }, [open]);
+
+  const applySavedMapping = useCallback(
+    (saved: SavedCSVColumnMapping) => {
+      setMapping({ ...saved.mapping } as Record<CSVColumn, string>);
+      setActiveMappingId(saved.id);
+      setMappingName(saved.name);
+      setMissingColumns(findMissingColumns(saved, headers));
+    },
+    [headers]
+  );
+
+  const handleSaveMapping = useCallback(() => {
+    const name = mappingName.trim();
+    if (!name) {
+      toast.error("Give the mapping a name first");
+      return;
+    }
+    const saved = activeMappingId
+      ? updateSavedMapping(activeMappingId, { name, mapping })
+      : saveMapping(name, mapping);
+    if (!saved) {
+      toast.error("Could not save mapping");
+      return;
+    }
+    setSavedMappings(loadSavedMappings());
+    setActiveMappingId(saved.id);
+    setMappingName(saved.name);
+    toast.success(`Saved mapping "${saved.name}"`);
+  }, [activeMappingId, mapping, mappingName]);
+
+  const handleRenameMapping = useCallback(
+    (id: string) => {
+      const name = editingName.trim();
+      if (!name) return;
+      updateSavedMapping(id, { name });
+      setSavedMappings(loadSavedMappings());
+      setEditingMappingId(null);
+      setEditingName("");
+    },
+    [editingName]
+  );
+
+  const handleDeleteMapping = useCallback(
+    (id: string) => {
+      deleteSavedMapping(id);
+      setSavedMappings(loadSavedMappings());
+      if (activeMappingId === id) {
+        setActiveMappingId(null);
+        setMappingName("");
+        setMissingColumns([]);
+      }
+    },
+    [activeMappingId]
+  );
 
   // Look for a resumable draft each time the modal opens.
   useEffect(() => {
@@ -157,6 +238,20 @@ export function CSVImportModal() {
           });
           setMapping(newMapping);
           setStep("mapping");
+
+          // #1065 — check the new file against the active saved mapping.
+          const active = savedMappings.find((m) => m.id === activeMappingId);
+          if (active) {
+            const missing = findMissingColumns(active, results.meta.fields ?? []);
+            setMissingColumns(missing);
+            if (missing.length) {
+              toast.warning(
+                `Saved mapping "${active.name}" is missing columns: ${missing.join(", ")}`
+              );
+            }
+          } else {
+            setMissingColumns([]);
+          }
 
           if (isSameFileAsDraft) {
             toast.success("Restored your previous import progress");
@@ -298,8 +393,9 @@ export function CSVImportModal() {
     if (duplicates.length) issues.push(`Duplicate source columns: ${duplicates.join(", ")}. Choose each source only once.`);
     const unsupported = Object.values(mapping).filter((source) => source && !headers.includes(source));
     if (unsupported.length) issues.push(`Unsupported source columns: ${unsupported.join(", ")}.`);
+    if (missingColumns.length) issues.push(`Saved mapping is missing columns in this file: ${missingColumns.join(", ")}.`);
     return issues;
-  }, [headers, mapping]);
+  }, [headers, mapping, missingColumns]);
 
   return (
     <Dialog
@@ -397,6 +493,104 @@ export function CSVImportModal() {
 
           {step === "mapping" && (
             <div className="space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+                <p className="text-sm font-medium text-slate-200">
+                  Saved mappings
+                </p>
+                {savedMappings.length === 0 ? (
+                  <p className="text-xs text-slate-400">
+                    No saved mappings yet. Map the columns below and save them
+                    by name to reuse on later imports.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {savedMappings.map((saved) => (
+                      <li
+                        key={saved.id}
+                        className="flex flex-wrap items-center gap-2 text-sm"
+                      >
+                        {editingMappingId === saved.id ? (
+                          <>
+                            <input
+                              aria-label={`Rename mapping ${saved.name}`}
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRenameMapping(saved.id)}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingMappingId(null);
+                                setEditingName("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-slate-200">{saved.name}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => applySavedMapping(saved)}
+                            >
+                              Apply
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingMappingId(saved.id);
+                                setEditingName(saved.name);
+                              }}
+                            >
+                              Rename
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-300 hover:text-red-200"
+                              onClick={() => handleDeleteMapping(saved.id)}
+                            >
+                              Remove
+                            </Button>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    aria-label="Mapping name"
+                    placeholder="Mapping name"
+                    value={mappingName}
+                    onChange={(e) => setMappingName(e.target.value)}
+                    className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Button size="sm" onClick={handleSaveMapping}>
+                    {activeMappingId ? "Update mapping" : "Save mapping"}
+                  </Button>
+                </div>
+                {missingColumns.length > 0 && (
+                  <p
+                    role="alert"
+                    className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-2 text-xs text-amber-200"
+                  >
+                    Missing columns in this file: {missingColumns.join(", ")}.
+                    Re-map them below.
+                  </p>
+                )}
+              </div>
               <p className="text-sm text-slate-400">
                 Match your CSV headers to the corresponding journal fields.
               </p>
@@ -423,9 +617,12 @@ export function CSVImportModal() {
                     <select
                       id={`csv-column-map-${col}`}
                       value={mapping[col] || ""}
-                      onChange={(e) =>
-                        setMapping({ ...mapping, [col]: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setMapping({ ...mapping, [col]: e.target.value });
+                        setMissingColumns((prev) =>
+                          prev.filter((c) => c !== col)
+                        );
+                      }}
                       className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select column...</option>
