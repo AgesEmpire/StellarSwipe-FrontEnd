@@ -287,6 +287,7 @@ function LeaderboardPageInner() {
   const {
     data: providers,
     isLoading,
+    isFetching,
     error,
     timeRange,
     setTimeRange,
@@ -390,11 +391,14 @@ function LeaderboardPageInner() {
         ? "stale"
         : "fresh";
 
+  // #1043: retry keeps the active query (time range, sort, page) intact and
+  // reports both the in-flight and failed outcomes to the user.
   const handleRefresh = async () => {
     if (refreshStatus === "pending") return;
     setRefreshStatus("pending");
     try {
-      await refetch();
+      const result = await refetch();
+      if (result.error) throw result.error;
       setLastUpdated(Date.now());
       setIsStale(false);
       setRefreshStatus("success");
@@ -407,6 +411,8 @@ function LeaderboardPageInner() {
       window.setTimeout(() => setRefreshStatus("idle"), 2000);
     }
   };
+
+  const isRetrying = refreshStatus === "pending" || isFetching;
 
   const sortedProviders = useMemo(() => {
     if (!providers) return [];
@@ -545,9 +551,15 @@ function LeaderboardPageInner() {
           </div>
           <ErrorState
             title="Failed to load leaderboard"
-            description={error.message}
-            onRetry={refetch}
+            description={`${error.message} Your ${TIME_RANGE_TABS.find((t) => t.value === timeRange)?.label ?? timeRange} ranking is still selected — retrying will reload it.`}
+            onRetry={handleRefresh}
+            retryLabel={isRetrying ? "Retrying…" : "Try again"}
           />
+          {refreshStatus === "error" && (
+            <p role="alert" className="mt-4 text-center text-sm text-destructive">
+              Retry failed. Check your connection and try again.
+            </p>
+          )}
         </div>
       </PageTransition>
     );
@@ -558,9 +570,38 @@ function LeaderboardPageInner() {
       <PageTransition>
         <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <EmptyState
-            title="No providers yet"
-            description="Provider rankings will appear here once signals are recorded."
+            title="No providers match this ranking"
+            description={`No signal providers have recorded results for the ${TIME_RANGE_TABS.find((t) => t.value === timeRange)?.label ?? timeRange} range. Try a wider time range or refresh to check for new data.`}
+            action={
+              <button
+                type="button"
+                onClick={() => setTimeRange("all-time")}
+                disabled={timeRange === "all-time"}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Show all-time rankings
+              </button>
+            }
+            secondaryAction={
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={isRetrying}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={cn("h-4 w-4", isRetrying && "animate-spin")}
+                  aria-hidden="true"
+                />
+                {isRetrying ? "Refreshing…" : "Refresh"}
+              </button>
+            }
           />
+          {refreshStatus === "error" && (
+            <p role="alert" className="mt-4 text-center text-sm text-destructive">
+              Refresh failed. The leaderboard may be temporarily unavailable.
+            </p>
+          )}
         </div>
       </PageTransition>
     );
@@ -578,17 +619,17 @@ function LeaderboardPageInner() {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={refreshStatus === "pending"}
+              disabled={isRetrying}
               className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
             >
               <RefreshCw
                 className={cn(
                   "h-4 w-4",
-                  refreshStatus === "pending" && "animate-spin"
+                  isRetrying && "animate-spin"
                 )}
                 aria-hidden="true"
               />
-              Refresh
+              {isRetrying ? "Refreshing…" : "Refresh"}
             </button>
             <button
               type="button"
@@ -600,6 +641,23 @@ function LeaderboardPageInner() {
             </button>
           </div>
         </div>
+
+        {refreshStatus === "error" && (
+          <div
+            role="alert"
+            className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+          >
+            <span>Could not refresh the leaderboard. Showing the last loaded rankings.</span>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRetrying}
+              className="underline underline-offset-2 disabled:opacity-50"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {isStale && (
           <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
