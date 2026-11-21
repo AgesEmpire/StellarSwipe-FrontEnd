@@ -3,10 +3,11 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTransactionStore, type TransactionHistoryItem } from "@/store/useTransactionStore";
 import { journalEntrySchema, normalizeJournalTags, type JournalEntry } from "@/lib/journalSchema";
+import { improveJournalMessages } from "@/lib/journalValidation";
 import { createJournalEntry, updateJournalEntry, JournalApiError } from "@/lib/journalApi";
 import { Button } from "@/components/ui/button";
 import { ValidationSummary } from "@/components/forms/ValidationSummary";
-import { Plus, AlertCircle, Loader2, X } from "lucide-react";
+import { Plus, AlertCircle, Loader2, X, Check } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useSubmitGuard } from "@/hooks/useSubmitGuard";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
@@ -85,6 +86,9 @@ export function JournalEntryForm({
 
   const [isOpen, setIsOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Persistent (non-toast) success banner so the user gets clear, durable
+  // feedback that a save landed — shown after a successful edit submit.
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const [formData, setFormData] = useState<Partial<JournalEntry>>({
     date: editEntry
@@ -260,6 +264,7 @@ export function JournalEntryForm({
     setErrors({});
     setSubmitted(false);
     setSubmitError(null);
+    setSaveSuccess(false);
     setHasConflict(false);
     setIsDirty(false);
     setAutosaveStatus("idle");
@@ -279,13 +284,7 @@ export function JournalEntryForm({
     });
 
     if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      result.error.issues.forEach((issue) => {
-        if (issue.path[0]) {
-          fieldErrors[issue.path[0].toString()] = issue.message;
-        }
-      });
-      setErrors(fieldErrors);
+      setErrors(improveJournalMessages(result.error.issues, current));
       return null;
     }
 
@@ -353,7 +352,8 @@ export function JournalEntryForm({
         ? undefined
         : result.error.issues.find((i) => i.path[0] === field);
       if (issue) {
-        next[field] = issue.message;
+        next[field] =
+          improveJournalMessages([issue], current)[field] ?? issue.message;
       } else {
         delete next[field];
       }
@@ -521,6 +521,7 @@ export function JournalEntryForm({
       e.preventDefault();
       setSubmitError(null);
       setHasConflict(false);
+      setSaveSuccess(false);
       if (autosaveStatus === "failed") setAutosaveStatus("saving");
       setSubmitted(true);
 
@@ -530,6 +531,7 @@ export function JournalEntryForm({
       await guard(async () => {
         if (isEditing && editEntry) {
           await submitEditEntry(data, editEntry);
+          setSaveSuccess(true);
         } else {
           await submitCreateEntry(data);
           setIsOpen(false);
@@ -661,6 +663,18 @@ export function JournalEntryForm({
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>{submitError}</span>
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div
+          className="mb-4 flex items-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-400"
+          role="status"
+          aria-live="polite"
+          data-testid="journal-save-success"
+        >
+          <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>Journal entry saved successfully.</span>
         </div>
       )}
 
